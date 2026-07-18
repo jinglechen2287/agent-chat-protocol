@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildStyleMap,
-  composeApplyMessage,
   initialControlValues,
   parseControlsBlock,
   validateControls,
@@ -11,7 +9,6 @@ import {
 
 const validSpec = (): Record<string, unknown> => ({
   title: "Card shadow",
-  scope: { type: "element" },
   controls: [
     {
       id: "y",
@@ -32,50 +29,28 @@ const validSpec = (): Record<string, unknown> => ({
       value: "600",
     },
   ],
-  styles: [
-    { property: "box-shadow", template: "0px {y} 12px 0px {shadowColor}" },
-    { property: "font-weight", template: "{weight}" },
-  ],
 });
 
 describe("validateControls", () => {
-  it("accepts a full spec with element scope", () => {
+  it("accepts a core spec with all three widget types", () => {
     const spec = validateControls(validSpec());
     expect(spec).not.toBeNull();
     expect(spec?.title).toBe("Card shadow");
-    expect(spec?.scope).toEqual({ type: "element" });
     expect(spec?.controls).toHaveLength(3);
   });
 
-  it("accepts a selector scope with an optional label", () => {
+  it("ignores unknown extension fields without rejecting or copying them", () => {
     const raw = validSpec();
-    raw.scope = { type: "selector", selector: "img.project-images", label: "All images" };
-    const spec = validateControls(raw);
-    expect(spec?.scope).toEqual({
-      type: "selector",
-      selector: "img.project-images",
-      label: "All images",
-    });
-  });
-
-  it("treats a missing scope as valid (legacy specs)", () => {
-    const raw = validSpec();
-    delete raw.scope;
+    raw.scope = { type: "element" };
+    raw.styles = [{ property: "box-shadow", template: "0px {y}" }];
     const spec = validateControls(raw);
     expect(spec).not.toBeNull();
-    expect(spec?.scope).toBeUndefined();
-  });
-
-  it.each([
-    ["tag only", "img"],
-    ["combinator", ".a > .b"],
-    ["selector list", ".a, .b"],
-    ["attribute", "a[href]"],
-    ["pseudo-class", ".a:hover"],
-  ])("rejects a %s scope selector", (_name, selector) => {
-    const raw = validSpec();
-    raw.scope = { type: "selector", selector };
-    expect(validateControls(raw)).toBeNull();
+    expect(spec).toEqual({
+      title: "Card shadow",
+      controls: validateControls(validSpec())!.controls,
+    });
+    expect("styles" in (spec as object)).toBe(false);
+    expect("scope" in (spec as object)).toBe(false);
   });
 
   it("clamps slider values into range", () => {
@@ -91,75 +66,21 @@ describe("validateControls", () => {
     expect(validateControls(raw)).toBeNull();
   });
 
-  it("rejects a control referenced by no style template", () => {
-    const raw = validSpec();
-    raw.styles = [{ property: "font-weight", template: "{weight}" }];
-    expect(validateControls(raw)).toBeNull();
-  });
-
-  it("rejects templates referencing unknown ids", () => {
-    const raw = validSpec();
-    raw.styles = [
-      { property: "box-shadow", template: "0px {y} 12px 0px {shadowColor}" },
-      { property: "font-weight", template: "{nope}" },
-    ];
-    expect(validateControls(raw)).toBeNull();
-  });
-
-  it("accepts CSS custom properties, bypassing the allowlist", () => {
-    const raw = validSpec();
-    raw.styles = [
-      { property: "--card-shadow", template: "0px {y} 12px 0px {shadowColor}" },
-      { property: "font-weight", template: "{weight}" },
-    ];
-    const spec = validateControls(raw);
-    expect(spec?.styles[0]?.property).toBe("--card-shadow");
-  });
-
-  it.each([
-    ["uppercase", "--Gutter"],
-    ["single dash", "-gutter-"],
-    ["bare dashes", "--"],
-  ])("rejects a malformed custom property: %s", (_name, property) => {
-    const raw = validSpec();
-    raw.styles = [
-      { property, template: "0px {y} 12px 0px {shadowColor}" },
-      { property: "font-weight", template: "{weight}" },
-    ];
-    expect(validateControls(raw)).toBeNull();
-  });
-
-  it("rejects disallowed CSS properties", () => {
-    const raw = validSpec();
-    raw.styles = [
-      { property: "box-shadow", template: "0px {y} 12px 0px {shadowColor}" },
-      { property: "font-weight", template: "{weight}" },
-      { property: "position", template: "{weight}" },
-    ];
-    expect(validateControls(raw)).toBeNull();
-  });
-
-  it.each([
-    ["url()", "url(http://x.test) {y}"],
-    ["expression()", "expression({y})"],
-    ["@import", "@import {y}"],
-    ["comment", "/* {y} */"],
-    ["backslash", "\\75rl {y}"],
-    ["semicolon", "{y}; position: fixed"],
-    ["newline", "{y}\nposition: fixed"],
-  ])("rejects unsafe template syntax: %s", (_name, template) => {
-    const raw = validSpec();
-    raw.styles = [
-      { property: "box-shadow", template },
-      { property: "font-weight", template: "{weight}" },
-      { property: "border-color", template: "{shadowColor}" },
-    ];
-    expect(validateControls(raw)).toBeNull();
-  });
-
   it("rejects a select whose value is not among its options", () => {
     const raw = validSpec();
     (raw.controls as Record<string, unknown>[])[2]!.value = "700";
+    expect(validateControls(raw)).toBeNull();
+  });
+
+  it("rejects a slider whose min is not below max", () => {
+    const raw = validSpec();
+    (raw.controls as Record<string, unknown>[])[0]!.min = 40;
+    expect(validateControls(raw)).toBeNull();
+  });
+
+  it("rejects an over-length title", () => {
+    const raw = validSpec();
+    raw.title = "T".repeat(61);
     expect(validateControls(raw)).toBeNull();
   });
 
@@ -177,17 +98,11 @@ describe("validateControls", () => {
       max: 1,
       value: 0,
     }));
-    big.styles = [
-      {
-        property: "opacity",
-        template: Array.from({ length: 13 }, (_, i) => `{c${i}}`).join(" "),
-      },
-    ];
     expect(validateControls(big)).toBeNull();
   });
 });
 
-describe("style substitution", () => {
+describe("values helpers", () => {
   it("seeds initial values from the spec", () => {
     const spec = validateControls(validSpec())!;
     expect(initialControlValues(spec)).toEqual({
@@ -197,83 +112,6 @@ describe("style substitution", () => {
     });
   });
 
-  it("substitutes placeholders and appends slider units", () => {
-    const spec = validateControls(validSpec())!;
-    const styles = buildStyleMap(spec, {
-      y: 8,
-      shadowColor: "#000000",
-      weight: "400",
-    });
-    expect(styles).toEqual({
-      "box-shadow": "0px 8px 12px 0px #000000",
-      "font-weight": "400",
-    });
-  });
-
-  it("coerces string slider values from range inputs", () => {
-    const spec = validateControls(validSpec())!;
-    const styles = buildStyleMap(spec, {
-      y: "10",
-      shadowColor: "#000000",
-      weight: "400",
-    });
-    expect(styles["box-shadow"]).toBe("0px 10px 12px 0px #000000");
-  });
-
-  it("drops a substituted value that becomes unsafe", () => {
-    const spec = validateControls(validSpec())!;
-    const styles = buildStyleMap(spec, {
-      y: 8,
-      shadowColor: "url(http://evil.test)",
-      weight: "400",
-    });
-    expect(styles["box-shadow"]).toBeUndefined();
-    expect(styles["font-weight"]).toBe("400");
-  });
-
-  it.each([
-    ["declaration smuggling", "red; position: fixed"],
-    ["newline smuggling", "red\nposition: fixed"],
-    ["rule-body escape", "red } * { color: red"],
-  ])("drops a substituted value carrying %s", (_name, injected) => {
-    const spec = validateControls(validSpec())!;
-    const styles = buildStyleMap(spec, {
-      y: 8,
-      shadowColor: injected,
-      weight: "400",
-    });
-    expect(styles["box-shadow"]).toBeUndefined();
-    expect(styles["font-weight"]).toBe("400");
-  });
-
-  it("clamps out-of-range runtime slider values into the spec's range", () => {
-    const spec = validateControls(validSpec())!;
-    const styles = buildStyleMap(spec, {
-      y: 9999,
-      shadowColor: "#000000",
-      weight: "400",
-    });
-    expect(styles["box-shadow"]).toBe("0px 40px 12px 0px #000000");
-  });
-});
-
-describe("composeApplyMessage", () => {
-  it("targets the picked element by default", () => {
-    const message = composeApplyMessage({ "border-radius": "8px" });
-    expect(message).toContain("the element the controls were created for");
-    expect(message).toContain("border-radius: 8px");
-  });
-
-  it("targets every match for a selector scope", () => {
-    const message = composeApplyMessage(
-      { "border-radius": "8px" },
-      { type: "selector", selector: "img.card" },
-    );
-    expect(message).toContain("every element matching the selector `img.card`");
-  });
-});
-
-describe("valuesEqual", () => {
   it("compares loosely across string/number", () => {
     expect(valuesEqual({ a: 4 }, { a: "4" })).toBe(true);
     expect(valuesEqual({ a: 4 }, { a: 5 })).toBe(false);
@@ -288,7 +126,6 @@ describe("parseControlsBlock", () => {
     controls: [
       { id: "r", type: "slider", label: "Radius", min: 0, max: 32, value: 8 },
     ],
-    styles: [{ property: "border-radius", template: "{r}" }],
   });
 
   it("lifts a valid agent-controls block and strips it", () => {
@@ -311,6 +148,37 @@ describe("parseControlsBlock", () => {
     expect(parsed.controls).toBeNull();
     expect(parsed.text).toBe(raw);
   });
+
+  it("leaves the block as plain text when a custom validator rejects it", () => {
+    const raw = "```agent-controls\n" + body + "\n```";
+    const parsed = parseControlsBlock(raw, () => null);
+    expect(parsed.controls).toBeNull();
+    expect(parsed.text).toBe(raw);
+  });
+
+  it("lets a custom validator lift an extended spec", () => {
+    interface ExtendedSpec extends ControlsSpec {
+      styles: unknown[];
+    }
+    const extendedBody = JSON.stringify({
+      controls: [
+        { id: "r", type: "slider", label: "Radius", min: 0, max: 32, value: 8 },
+      ],
+      styles: [{ property: "border-radius", template: "{r}" }],
+    });
+    const raw = "```agent-controls\n" + extendedBody + "\n```";
+    const parsed = parseControlsBlock<ExtendedSpec>(raw, (value) => {
+      const core = validateControls(value);
+      if (!core) return null;
+      const styles = (value as Record<string, unknown>).styles;
+      if (!Array.isArray(styles)) return null;
+      return { ...core, styles };
+    });
+    expect(parsed.controls?.styles).toEqual([
+      { property: "border-radius", template: "{r}" },
+    ]);
+    expect(parsed.text).toBe("");
+  });
 });
 
 describe("ControlsSpec type", () => {
@@ -319,7 +187,6 @@ describe("ControlsSpec type", () => {
       controls: [
         { id: "r", type: "slider", label: "Radius", min: 0, max: 32, value: 8 },
       ],
-      styles: [{ property: "border-radius", template: "{r}" }],
     };
     expect(validateControls(spec)).toEqual(spec);
   });

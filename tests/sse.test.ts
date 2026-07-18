@@ -5,6 +5,7 @@ import {
   type ChatStreamEvent,
 } from "../src/index";
 import {
+  consumeSseResponse,
   encodeChatEvent,
   formatSseEvent,
   mapSseToChatEvent,
@@ -138,7 +139,7 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "question", question: "Which?", options: ["A", "B"] });
   });
 
-  it("maps controls through the validator (spec is the data payload)", () => {
+  it("maps controls through the core validator, dropping extension fields", () => {
     const spec = {
       controls: [
         {
@@ -157,12 +158,13 @@ describe("mapSseToChatEvent", () => {
     expect(mapped?.type).toBe("controls");
     if (mapped?.type === "controls") {
       expect(mapped.spec.controls[0]?.id).toBe("radius");
+      expect("styles" in mapped.spec).toBe(false);
     }
   });
 
   it("rejects an invalid controls payload", () => {
     expect(
-      mapSseToChatEvent({ event: "controls", data: { controls: [], styles: [] } }),
+      mapSseToChatEvent({ event: "controls", data: { controls: [] } }),
     ).toBeNull();
   });
 
@@ -225,7 +227,6 @@ describe("encode/decode round trip", () => {
       type: "controls",
       spec: {
         title: "Corners",
-        scope: { type: "selector", selector: "img.card", label: "All cards" },
         controls: [
           {
             id: "radius",
@@ -238,7 +239,6 @@ describe("encode/decode round trip", () => {
             value: 8,
           },
         ],
-        styles: [{ property: "border-radius", template: "{radius}" }],
       },
     },
     { type: "tool_use", name: "Mystery", details: [] },
@@ -276,12 +276,33 @@ describe("encode/decode round trip", () => {
       controls: [
         { id: "r", type: "slider" as const, label: "R", min: 0, max: 1, value: 0 },
       ],
-      styles: [{ property: "opacity", template: "{r}" }],
     };
     expect(toSseEvent({ type: "controls", spec })).toEqual({
       event: "controls",
       data: spec,
     });
+  });
+});
+
+describe("consumeSseResponse", () => {
+  it("supports a custom mapEvent for app-extended validation", async () => {
+    const wire =
+      'event: assistant_text\ndata: {"text":"hi"}\n\n' +
+      'event: controls\ndata: {"controls":[{"id":"r","type":"slider","label":"R","min":0,"max":1,"value":0}],"styles":[]}\n\n';
+    const seen: string[] = [];
+    await consumeSseResponse(
+      new Response(wire, { status: 200 }),
+      (ev) => seen.push(ev.type),
+      {
+        // An app validator that requires a non-empty styles extension —
+        // the controls frame above fails it and is skipped.
+        mapEvent: (ev) => {
+          if (ev.event === "controls") return null;
+          return mapSseToChatEvent(ev);
+        },
+      },
+    );
+    expect(seen).toEqual(["assistant_text"]);
   });
 });
 

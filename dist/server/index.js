@@ -1,4 +1,4 @@
-import { a as parseControlsBlock, t as parseQuestionBlock } from "../question-COPKqYxO.js";
+import { i as validateControls, r as parseControlsBlock, t as parseQuestionBlock } from "../question-Da5kVhU_.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -124,9 +124,10 @@ function createChatEventBridge(emit, options = {}) {
 	const onSessionId = (id) => {
 		announceSession(id);
 	};
+	const controlsValidator = options.controlsValidator ?? validateControls;
 	const onAssistantText = (text) => {
 		const parsedQuestion = parseQuestionBlock(text);
-		const parsedControls = parseControlsBlock(parsedQuestion.text);
+		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
 		if (!parsedControls.controls && parsedControls.text) emit({
 			type: "assistant_text",
 			text: parsedControls.text

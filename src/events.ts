@@ -68,10 +68,12 @@ export type ChatStreamEvent =
   | { type: "question"; question: string; options: QuestionSpec["options"] }
   /**
    * A live parameter panel. Clients MUST render each control as an input
-   * seeded with its `value`, and on Apply send the message composed by
-   * `composeApplyMessage(buildStyleMap(spec, values), spec.scope)` as the next
-   * user turn. Non-DOM clients ignore `scope`/`styles` previews and keep the
-   * widgets + Apply round-trip. A panel is retired by the next user message.
+   * seeded with its `value`, and on Apply send an app-defined message
+   * composed from the final values as the next user turn. Apps may extend
+   * the spec with extra fields via their own validators (carve layers CSS
+   * style bindings this way); a client that doesn't understand an extension
+   * renders the widgets + Apply round-trip and ignores the rest. A panel is
+   * retired by the next user message.
    */
   | { type: "controls"; spec: ControlsSpec }
   /**

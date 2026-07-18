@@ -22,6 +22,7 @@ export {
   mapSseToChatEvent,
   parseSseBuffer,
   toSseEvent,
+  type ConsumeSseOptions,
   type SseEvent,
   type SseParseResult,
 } from "./sse";
@@ -33,8 +34,6 @@ export {
 } from "./question";
 
 export {
-  buildStyleMap,
-  composeApplyMessage,
   initialControlValues,
   parseControlsBlock,
   validateControls,
@@ -42,20 +41,14 @@ export {
   type ColorControl,
   type Control,
   type ControlValues,
-  type ControlsScope,
   type ControlsSpec,
-  type ElementControlsScope,
   type ParsedControlsText,
   type SelectControl,
-  type SelectorControlsScope,
   type SliderControl,
-  type StyleBinding,
 } from "./controls";
 
 export {
   CONTROLS_BLOCK_NAME,
-  CONTROLS_PROMPT,
-  GENERATIVE_UI_PROMPT,
   LEGACY_CONTROLS_BLOCK_NAME,
   LEGACY_QUESTION_BLOCK_NAME,
   QUESTION_BLOCK_NAME,

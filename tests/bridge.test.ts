@@ -82,13 +82,29 @@ describe("createChatEventBridge", () => {
       controls: [
         { id: "r", type: "slider", label: "Radius", min: 0, max: 32, value: 8 },
       ],
-      styles: [{ property: "border-radius", template: "{r}" }],
     });
     bridge.callbacks.onAssistantText?.(
       "Here is a panel.\n\n```agent-controls\n" + spec + "\n```",
     );
     expect(events).toHaveLength(1);
     expect(events[0]?.type).toBe("controls");
+  });
+
+  it("leaves a controls block in the prose when the app validator rejects it", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit, {
+      controlsValidator: () => null,
+    });
+    const raw =
+      "Here is a panel.\n\n```agent-controls\n" +
+      JSON.stringify({
+        controls: [
+          { id: "r", type: "slider", label: "Radius", min: 0, max: 32, value: 8 },
+        ],
+      }) +
+      "\n```";
+    bridge.callbacks.onAssistantText?.(raw);
+    expect(events).toEqual([{ type: "assistant_text", text: raw }]);
   });
 
   it("emits tool_use with projected details", () => {

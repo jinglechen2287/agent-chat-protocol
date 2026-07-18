@@ -1,4 +1,4 @@
-import { C as ParsedQuestionText, S as valuesEqual, T as parseQuestionBlock, _ as buildStyleMap, a as isTerminalEvent, b as parseControlsBlock, c as ControlValues, d as ElementControlsScope, f as ParsedControlsText, g as StyleBinding, h as SliderControl, i as ToolCallDetail, l as ControlsScope, m as SelectorControlsScope, n as ChatStreamEvent, o as ColorControl, p as SelectControl, r as PROTOCOL_VERSION, s as Control, t as AbortReason, u as ControlsSpec, v as composeApplyMessage, w as QuestionSpec, x as validateControls, y as initialControlValues } from "./events-DznAaxaP.js";
+import { _ as ParsedQuestionText, a as isTerminalEvent, c as ControlValues, d as SelectControl, f as SliderControl, g as valuesEqual, h as validateControls, i as ToolCallDetail, l as ControlsSpec, m as parseControlsBlock, n as ChatStreamEvent, o as ColorControl, p as initialControlValues, r as PROTOCOL_VERSION, s as Control, t as AbortReason, u as ParsedControlsText, v as QuestionSpec, y as parseQuestionBlock } from "./events-Bi1qdwYn.js";
 //#region src/sse.d.ts
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -29,26 +29,43 @@ declare function toSseEvent(ev: ChatStreamEvent): SseEvent;
 declare function formatSseEvent(ev: SseEvent): string;
 /** `formatSseEvent(toSseEvent(ev))` — one typed event to one wire chunk. */
 declare function encodeChatEvent(ev: ChatStreamEvent): string;
+interface ConsumeSseOptions<TEvent = ChatStreamEvent> {
+  /**
+   * Overrides the frame→event mapping (default {@link mapSseToChatEvent}).
+   * Apps that extend the controls spec supply a mapper that re-validates
+   * `controls` payloads with their own validator; the default mapper
+   * canonicalizes controls to the core widgets-only spec, dropping extension
+   * fields.
+   */
+  mapEvent?: (ev: SseEvent) => TEvent | null;
+}
 /**
  * Reads a fetch Response body as an SSE stream, mapping each frame into a
  * typed event. Resolves when the stream ends; rejects on a non-OK response.
  * Frames that don't map (unknown names, malformed payloads) are skipped.
+ * The overloads tie a narrowed event type to the presence of a custom
+ * `mapEvent` — without one, events are the default union.
  */
-declare function consumeSseResponse(res: Response, onEvent: (e: ChatStreamEvent) => void): Promise<void>;
+declare function consumeSseResponse(res: Response, onEvent: (e: ChatStreamEvent) => void, options?: ConsumeSseOptions<ChatStreamEvent>): Promise<void>;
+declare function consumeSseResponse<TEvent>(res: Response, onEvent: (e: TEvent) => void, options: ConsumeSseOptions<TEvent> & {
+  mapEvent: (ev: SseEvent) => TEvent | null;
+}): Promise<void>;
 //#endregion
 //#region src/prompt.d.ts
 /**
- * The emit side of the generative-UI grammar: prompt sections that teach an
- * agent when and how to end a message with an ```agent-question``` or
- * ```agent-controls``` block. Apps append these to their system prompt (Claude
- * `--append-system-prompt`, Codex `developerInstructions`) so the grammar
- * survives long conversations where early user messages get compacted away.
+ * The emit side of the generative-UI grammar: the prompt section that teaches
+ * an agent when and how to end a message with an ```agent-question``` block.
+ * Apps append it to their system prompt (Claude `--append-system-prompt`,
+ * Codex `developerInstructions`) so the grammar survives long conversations
+ * where early user messages get compacted away.
  *
- * Kept in this package alongside the parse-side (parseQuestionBlock /
- * parseControlsBlock) so the two can't drift.
+ * Kept in this package alongside the parse-side (parseQuestionBlock) so the
+ * two can't drift.
  *
- * Compose what fits the app: a non-DOM client (a phone app, a Telegram bot)
- * appends only QUESTION_PROMPT; a DOM client appends GENERATIVE_UI_PROMPT.
+ * Controls emission guidance is app-specific — what the controls tune (CSS in
+ * carve's case) is an app extension, so each app authors its own controls
+ * prompt section, using {@link CONTROLS_BLOCK_NAME} as the fence and keeping
+ * the core widget schema this package validates.
  */
 declare const QUESTION_BLOCK_NAME = "agent-question";
 declare const CONTROLS_BLOCK_NAME = "agent-controls";
@@ -58,14 +75,6 @@ declare const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
-/** Teaches the controls block, including the scope model. The scope guidance
- * assumes the conversation is about a page with selectable elements — apps
- * without that context should still include this section unchanged; the agent
- * simply won't have elements to scope to and the user won't be offered
- * element-picking flows. */
-declare const CONTROLS_PROMPT: string;
-/** Both grammar sections, ready to append to an app's system prompt. */
-declare const GENERATIVE_UI_PROMPT: string;
 //#endregion
-export { type AbortReason, CONTROLS_BLOCK_NAME, CONTROLS_PROMPT, type ChatStreamEvent, type ColorControl, type Control, type ControlValues, type ControlsScope, type ControlsSpec, type ElementControlsScope, GENERATIVE_UI_PROMPT, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, type ParsedControlsText, type ParsedQuestionText, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SelectorControlsScope, type SliderControl, type SseEvent, type SseParseResult, type StyleBinding, type ToolCallDetail, buildStyleMap, composeApplyMessage, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, toSseEvent, validateControls, valuesEqual };
+export { type AbortReason, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, type ParsedControlsText, type ParsedQuestionText, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, toSseEvent, validateControls, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

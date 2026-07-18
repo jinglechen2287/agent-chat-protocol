@@ -167,20 +167,48 @@ export function encodeChatEvent(ev: ChatStreamEvent): string {
   return formatSseEvent(toSseEvent(ev));
 }
 
+export interface ConsumeSseOptions<TEvent = ChatStreamEvent> {
+  /**
+   * Overrides the frame→event mapping (default {@link mapSseToChatEvent}).
+   * Apps that extend the controls spec supply a mapper that re-validates
+   * `controls` payloads with their own validator; the default mapper
+   * canonicalizes controls to the core widgets-only spec, dropping extension
+   * fields.
+   */
+  mapEvent?: (ev: SseEvent) => TEvent | null;
+}
+
 /**
  * Reads a fetch Response body as an SSE stream, mapping each frame into a
  * typed event. Resolves when the stream ends; rejects on a non-OK response.
  * Frames that don't map (unknown names, malformed payloads) are skipped.
+ * The overloads tie a narrowed event type to the presence of a custom
+ * `mapEvent` — without one, events are the default union.
  */
 export async function consumeSseResponse(
   res: Response,
   onEvent: (e: ChatStreamEvent) => void,
+  options?: ConsumeSseOptions<ChatStreamEvent>,
+): Promise<void>;
+export async function consumeSseResponse<TEvent>(
+  res: Response,
+  onEvent: (e: TEvent) => void,
+  options: ConsumeSseOptions<TEvent> & {
+    mapEvent: (ev: SseEvent) => TEvent | null;
+  },
+): Promise<void>;
+export async function consumeSseResponse<TEvent = ChatStreamEvent>(
+  res: Response,
+  onEvent: (e: TEvent) => void,
+  options: ConsumeSseOptions<TEvent> = {},
 ): Promise<void> {
   if (!res.ok || !res.body) {
     const text = await res.text().catch(() => "");
     throw new Error(`chat stream request failed (${res.status}): ${text}`);
   }
 
+  const mapEvent =
+    options.mapEvent ?? (mapSseToChatEvent as (ev: SseEvent) => TEvent | null);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -191,7 +219,7 @@ export async function consumeSseResponse(
     const result = parseSseBuffer(buffer);
     buffer = result.remainder;
     for (const ev of result.events) {
-      const mapped = mapSseToChatEvent(ev);
+      const mapped = mapEvent(ev);
       if (mapped) onEvent(mapped);
     }
   }

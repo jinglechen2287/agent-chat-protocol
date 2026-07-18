@@ -1,4 +1,4 @@
-import { i as ToolCallDetail, n as ChatStreamEvent } from "../events-DznAaxaP.js";
+import { i as ToolCallDetail, l as ControlsSpec, n as ChatStreamEvent } from "../events-Bi1qdwYn.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -16,6 +16,13 @@ interface ChatEventBridgeOptions {
    * (the client must learn a changed id or its next resume would fail).
    */
   knownSessionId?: string;
+  /**
+   * Overrides controls-block validation (default: the core widgets-only
+   * validator). Apps that extend the spec (e.g. carve's CSS style bindings)
+   * pass their validator; when it rejects a block, the block stays in the
+   * assistant text as prose, exactly like a malformed block.
+   */
+  controlsValidator?: (value: unknown) => ControlsSpec | null;
 }
 interface ChatEventBridge {
   /** Wire these into the runner's run options (all four callbacks). */

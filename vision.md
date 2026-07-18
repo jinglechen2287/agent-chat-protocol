@@ -114,13 +114,13 @@ This package is necessary but not sufficient. The user-visible payoff lands only
 - **Repo layout:** standalone repo is simplest and matches the sibling. If two git installs become annoying, an alternative is a small monorepo publishing `agent-cli-runner` + `agent-chat-protocol` as two entry points — independent versioning, one repo. Decide before first consumer wires it in.
 - **Rollout order (decided):** extract the package from carve's working code (events, transport codec, parsers, tool-details, bridge), conform carve to it as the first consumer — validating the contract against a proven implementation — then start agent-remote's adoption.
 
-## Open questions — resolution status (v0.1 implemented)
+## Open questions — resolution status
 
 Resolved and shipped in the package (see README + typed contract for the normative text):
 
 - **`ChatStreamEvent` shape** — nine variants; `tool_use` carries `{ name, summary?, details? }`; `aborted` carries a `user`/`timeout` reason; events arrive in stream order and exactly one terminal event ends a turn.
 - **Emit-side format** — fenced text blocks, renamed to `agent-question` / `agent-controls`; the shared parser accepts legacy `carve-*` during migration.
-- **Controls grammar** — all of carve's schema is core contract; `scope`/`styles` are optional and documented as ignorable by non-DOM clients.
+- **Controls grammar** — *revised in v0.2:* the core contract is the widgets only (`{ title?, controls }` — slider/color/select + Apply round-trip). The CSS machinery (style-binding templates, property allowlist, scopes, style substitution) is carve-internal, layered on via validator seams (`parseControlsBlock`'s validator param, the bridge's `controlsValidator`, `consumeSseResponse`'s `mapEvent`). CSS custom properties are not supported anywhere — an earlier carve addition, deliberately removed.
 - **Reconnect/replay** — carve's task-store generalized into `createTaskStore`; replay-then-subscribe is a documented contract and replayed events render identically to live ones.
 - **Protocol versioning** — `PROTOCOL_VERSION` is carried on `session_started`; clients tolerate its absence on legacy streams.
 

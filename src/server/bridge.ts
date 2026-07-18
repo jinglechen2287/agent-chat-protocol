@@ -19,7 +19,11 @@
 import type { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
 import { parseQuestionBlock } from "../question";
-import { parseControlsBlock } from "../controls";
+import {
+  parseControlsBlock,
+  validateControls,
+  type ControlsSpec,
+} from "../controls";
 import { toolCallDetails } from "./tool-details";
 
 export interface ChatEventBridgeOptions {
@@ -37,6 +41,13 @@ export interface ChatEventBridgeOptions {
    * (the client must learn a changed id or its next resume would fail).
    */
   knownSessionId?: string;
+  /**
+   * Overrides controls-block validation (default: the core widgets-only
+   * validator). Apps that extend the spec (e.g. carve's CSS style bindings)
+   * pass their validator; when it rejects a block, the block stays in the
+   * assistant text as prose, exactly like a malformed block.
+   */
+  controlsValidator?: (value: unknown) => ControlsSpec | null;
 }
 
 export interface ChatEventBridge {
@@ -80,12 +91,14 @@ export function createChatEventBridge(
     announceSession(id);
   };
 
+  const controlsValidator = options.controlsValidator ?? validateControls;
+
   const onAssistantText = (text: string): void => {
     // The agent may end a message with a structured question or controls
     // block. Controls are a complete UI response, so when one is valid
     // suppress all surrounding prose and emit only the panel.
     const parsedQuestion = parseQuestionBlock(text);
-    const parsedControls = parseControlsBlock(parsedQuestion.text);
+    const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
     if (!parsedControls.controls && parsedControls.text) {
       emit({ type: "assistant_text", text: parsedControls.text });
     }

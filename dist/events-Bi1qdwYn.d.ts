@@ -31,18 +31,17 @@ declare function parseQuestionBlock(raw: string): ParsedQuestionText;
 /**
  * Shared schema + helpers for the ```agent-controls``` block: the structured
  * parameter panel an agent can emit at the end of a message (mirroring
- * ```agent-question```). Server parsers, transports, and every frontend import
- * this module so there is exactly one validator and one template→style
- * substitution path.
+ * ```agent-question```).
  *
- * A spec is a set of typed controls plus style bindings. Every CSS property is
- * produced through a binding template with `{id}` placeholders — single
- * controls use `"{radius}"`, composites like box-shadow reference several
- * controls in one template.
- *
- * `scope` and the style bindings assume a host DOM to preview on. Non-DOM
- * clients ignore them and render just the input widgets and the Apply
- * round-trip (see the rendering contract in the README).
+ * The shared contract covers the *widgets*: typed controls (slider / color /
+ * select), their validation, and the current-values model. Anything beyond
+ * that — carve's CSS style bindings and scopes, for example — is an app
+ * extension: extra fields on the block that the core validator ignores, and
+ * that an app-supplied validator (the `validate` parameter of
+ * `parseControlsBlock`, the bridge's `controlsValidator` option, the
+ * `mapEvent` option of `consumeSseResponse`) lifts into a richer spec. A
+ * client that doesn't understand an extension renders the widgets and the
+ * Apply round-trip and ignores the rest.
  *
  * The legacy `carve-controls` fence is accepted during migration.
  */
@@ -53,7 +52,7 @@ interface SliderControl {
   min: number;
   max: number;
   step?: number;
-  /** Suffixed to the numeric value during substitution, e.g. "px". */
+  /** Display unit for the numeric value, e.g. "px". */
   unit?: string;
   value: number;
 }
@@ -71,60 +70,41 @@ interface SelectControl {
   value: string;
 }
 type Control = SliderControl | ColorControl | SelectControl;
-interface StyleBinding {
-  /** kebab-case CSS property (e.g. "box-shadow") or a CSS custom property
-   * (e.g. "--gutter"). Standard properties must be on the visual allowlist;
-   * custom properties bypass it but their values are screened identically. */
-  property: string;
-  /** Value template; `{id}` placeholders substituted with control values. */
-  template: string;
-}
-interface ElementControlsScope {
-  type: "element";
-}
-interface SelectorControlsScope {
-  type: "selector";
-  /** A deliberately narrow tag/class selector, e.g. `img.project-images`. */
-  selector: string;
-  /** Human-readable description shown in the controls card. */
-  label?: string;
-}
-type ControlsScope = ElementControlsScope | SelectorControlsScope;
 interface ControlsSpec {
   title?: string;
-  /** Chosen by the agent. Missing on legacy specs and treated as `element`.
-   * DOM-only concept — non-DOM clients ignore it. */
-  scope?: ControlsScope;
   controls: Control[];
-  styles: StyleBinding[];
 }
 /** Current values keyed by control id. Range/text inputs report strings, so
- * both are allowed; substitution and comparison coerce as needed. */
+ * both are allowed; comparison and app-side consumption coerce as needed. */
 type ControlValues = Record<string, string | number>;
-/** Validates an unknown JSON value into a ControlsSpec. Any violation returns
- * null — malformed blocks are left in the message as plain text. */
+/**
+ * Validates an unknown JSON value into the core ControlsSpec. Any violation
+ * returns null — malformed blocks are left in the message as plain text.
+ * Unknown fields (app extensions) are ignored, not rejected: extension
+ * validation belongs to the app validator layered on top.
+ */
 declare function validateControls(value: unknown): ControlsSpec | null;
-/** Initial values keyed by control id — the panel's starting state, seeded by
- * the agent from the element's computed styles. */
+/** Initial values keyed by control id — the panel's starting state. */
 declare function initialControlValues(spec: ControlsSpec): ControlValues;
-/** Substitutes `{id}` placeholders in every binding template, producing a
- * CSS property → value map ready for inline-style preview or Apply. */
-declare function buildStyleMap(spec: ControlsSpec, values: ControlValues): Record<string, string>;
-/** The visible user message the Apply button sends into the chat. This is the
- * controls round-trip: the client composes it from the final style map and the
- * spec's scope and sends it as the next user turn. */
-declare function composeApplyMessage(styles: Record<string, string>, scope?: ControlsScope): string;
 /** Loose equality over value maps: `4` and `"4"` compare equal because range
  * inputs report strings while specs carry numbers. */
 declare function valuesEqual(a: ControlValues | undefined, b: ControlValues | undefined): boolean;
-interface ParsedControlsText {
+interface ParsedControlsText<TSpec extends ControlsSpec = ControlsSpec> {
   /** The message text with a valid controls block removed and trimmed. Empty
    * string when the message was nothing but the block. */
   text: string;
   /** The parsed spec, or null when the message had no valid block. */
-  controls: ControlsSpec | null;
+  controls: TSpec | null;
 }
+/**
+ * Extracts the first controls block. `validate` defaults to the core
+ * validator; apps with extensions pass their own (e.g. carve's CSS-binding
+ * validator) — when it rejects, the block is left in the prose as plain text,
+ * exactly like a malformed block. The overloads keep the narrowed spec type
+ * tied to the presence of a custom validator.
+ */
 declare function parseControlsBlock(raw: string): ParsedControlsText;
+declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, validate: (value: unknown) => TSpec | null): ParsedControlsText<TSpec>;
 //#endregion
 //#region src/events.d.ts
 /**
@@ -189,10 +169,12 @@ type ChatStreamEvent =
 } |
 /**
  * A live parameter panel. Clients MUST render each control as an input
- * seeded with its `value`, and on Apply send the message composed by
- * `composeApplyMessage(buildStyleMap(spec, values), spec.scope)` as the next
- * user turn. Non-DOM clients ignore `scope`/`styles` previews and keep the
- * widgets + Apply round-trip. A panel is retired by the next user message.
+ * seeded with its `value`, and on Apply send an app-defined message
+ * composed from the final values as the next user turn. Apps may extend
+ * the spec with extra fields via their own validators (carve layers CSS
+ * style bindings this way); a client that doesn't understand an extension
+ * renders the widgets + Apply round-trip and ignores the rest. A panel is
+ * retired by the next user message.
  */
 {
   type: "controls";
@@ -226,5 +208,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { ParsedQuestionText as C, valuesEqual as S, parseQuestionBlock as T, buildStyleMap as _, isTerminalEvent as a, parseControlsBlock as b, ControlValues as c, ElementControlsScope as d, ParsedControlsText as f, StyleBinding as g, SliderControl as h, ToolCallDetail as i, ControlsScope as l, SelectorControlsScope as m, ChatStreamEvent as n, ColorControl as o, SelectControl as p, PROTOCOL_VERSION as r, Control as s, AbortReason as t, ControlsSpec as u, composeApplyMessage as v, QuestionSpec as w, validateControls as x, initialControlValues as y };
-//# sourceMappingURL=events-DznAaxaP.d.ts.map
+export { ParsedQuestionText as _, isTerminalEvent as a, ControlValues as c, SelectControl as d, SliderControl as f, valuesEqual as g, validateControls as h, ToolCallDetail as i, ControlsSpec as l, parseControlsBlock as m, ChatStreamEvent as n, ColorControl as o, initialControlValues as p, PROTOCOL_VERSION as r, Control as s, AbortReason as t, ParsedControlsText as u, QuestionSpec as v, parseQuestionBlock as y };
+//# sourceMappingURL=events-Bi1qdwYn.d.ts.map

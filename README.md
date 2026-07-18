@@ -50,7 +50,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`assistant_text`** — render as sanitized GitHub-flavored markdown. Multiple occurrences are separate messages in order, not fragments to concatenate.
 - **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is a one-line label; `details` are expandable label/value rows. No tool output is carried — this traces what ran, not results.
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
-- **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send `composeApplyMessage(buildStyleMap(spec, values), spec.scope)` as the next user turn. DOM clients may additionally live-preview `buildStyleMap` output on the scoped element(s); **non-DOM clients ignore `scope` and preview entirely** and keep the widgets + Apply round-trip. A panel is retired by the next user message, whatever it is.
+- **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
 - **`aborted`** — killed before completing. Render `user` (deliberate cancel) and `timeout` (wall-clock limit) differently; absent reason means treat as `user`.
@@ -85,13 +85,13 @@ Wire notes: the SSE `event:` name is the union's `type`; the `data:` payload is 
 
 The agent emits interactive widgets by ending a message with a fenced block. Both sides of that grammar live here so they can't drift:
 
-**Emit side** — append the prompt sections to your system prompt (Claude `appendSystemPrompt`, Codex `developerInstructions`):
+**Emit side** — append the question prompt section to your system prompt (Claude `appendSystemPrompt`, Codex `developerInstructions`):
 
 ```ts
-import { GENERATIVE_UI_PROMPT, QUESTION_PROMPT } from "agent-chat-protocol";
-// DOM app: GENERATIVE_UI_PROMPT (question + controls)
-// non-DOM app (bot, phone): QUESTION_PROMPT alone is a reasonable start
+import { QUESTION_PROMPT, CONTROLS_BLOCK_NAME } from "agent-chat-protocol";
 ```
+
+Controls emission guidance is **app-authored**: what the controls tune is an app concern (carve's is CSS), so each app writes its own controls prompt section, using `CONTROLS_BLOCK_NAME` as the fence and the core widget schema this package validates.
 
 **Parse side** — the bridge does this for you; standalone:
 
@@ -101,7 +101,13 @@ import { parseQuestionBlock, parseControlsBlock } from "agent-chat-protocol";
 
 Canonical fence names are `agent-question` / `agent-controls`; the legacy `carve-question` / `carve-controls` fences are accepted during migration but should not be taught to agents. Malformed blocks are left in the prose as plain text — a slightly raw message beats a dropped one. A valid controls block suppresses its surrounding prose entirely (the panel is the message).
 
-The controls schema (`ControlsSpec`) is validated defensively — bounded counts and lengths, an allowlist of visual CSS properties, URL-free template screening, every control referenced by at least one template, selector scopes restricted to an optional tag plus classes. `validateControls` returns the canonical spec or `null`; there are no partially-valid specs.
+The core controls schema (`ControlsSpec`) is `{ title?, controls }` — the widgets only — validated defensively (bounded counts and lengths, clamped slider values, duplicate-id rejection). `validateControls` returns the canonical core spec or `null`, ignoring unknown fields.
+
+**App extensions** — an app can carry extra fields on the block (carve layers CSS style bindings and scopes) through three seams, all defaulting to the core validator:
+
+- `parseControlsBlock(raw, validate)` — a custom validator lifts the extended spec; when it rejects, the block stays in the prose as plain text.
+- `createChatEventBridge(emit, { controlsValidator })` — same, server side.
+- `consumeSseResponse(res, onEvent, { mapEvent })` — client side; the default mapper canonicalizes controls to the core spec, dropping extension fields, which is exactly what a client that doesn't understand the extension should see.
 
 ## Server bridge
 
