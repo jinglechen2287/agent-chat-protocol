@@ -104,7 +104,7 @@ function toolCallDetails(info) {
 //#endregion
 //#region src/server/bridge.ts
 function createChatEventBridge(emit, options = {}) {
-	let announcedSessionId;
+	let announcedSessionId = options.knownSessionId;
 	let terminal = false;
 	const announceSession = (sessionId) => {
 		if (sessionId === announcedSessionId) return;

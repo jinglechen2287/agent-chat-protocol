@@ -30,6 +30,13 @@ export interface ChatEventBridgeOptions {
    * announced too and supersedes it.
    */
   presetSessionId?: string;
+  /**
+   * The session id of a resumed turn — the client already holds it, so the
+   * contract says `session_started` is not re-emitted. The bridge treats it
+   * as already announced; a *different* runner-reported id is still announced
+   * (the client must learn a changed id or its next resume would fail).
+   */
+  knownSessionId?: string;
 }
 
 export interface ChatEventBridge {
@@ -46,7 +53,7 @@ export function createChatEventBridge(
   emit: (ev: ChatStreamEvent) => void,
   options: ChatEventBridgeOptions = {},
 ): ChatEventBridge {
-  let announcedSessionId: string | undefined;
+  let announcedSessionId = options.knownSessionId;
   let terminal = false;
 
   const announceSession = (sessionId: string): void => {

@@ -42,6 +42,20 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([session("s1")]);
   });
 
+  it("does not re-announce a known session id on a resumed turn", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit, { knownSessionId: "s1" });
+    bridge.callbacks.onSessionId?.("s1");
+    expect(events).toEqual([]);
+  });
+
+  it("announces a changed session id even on a resumed turn", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit, { knownSessionId: "s1" });
+    bridge.callbacks.onSessionId?.("s2");
+    expect(events).toEqual([session("s2")]);
+  });
+
   it("emits plain assistant text as assistant_text", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);
