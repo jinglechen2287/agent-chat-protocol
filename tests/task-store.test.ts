@@ -75,7 +75,30 @@ describe("createTaskStore", () => {
     store.complete(task);
     store.delete("t1");
     expect(store.get("t1")).toBeUndefined();
+    // A recreated task under the same id must not be reaped by the old timer.
+    const replacement = store.create("t1");
     vi.advanceTimersByTime(2000);
-    expect(store.get("t1")).toBeUndefined();
+    expect(store.get("t1")).toBe(replacement);
+  });
+
+  it("ignores pushes after completion", () => {
+    const store = createTaskStore();
+    const task = store.create("t1");
+    store.push(task, textEvent("a"));
+    store.complete(task);
+    store.push(task, textEvent("late"));
+    expect(task.events).toEqual([textEvent("a")]);
+  });
+
+  it("ignores pushes through a stale handle after delete and recreate", () => {
+    const store = createTaskStore();
+    const stale = store.create("t1");
+    store.delete("t1");
+    const replacement = store.create("t1");
+    store.push(stale, textEvent("from old run"));
+    expect(stale.events).toEqual([]);
+    expect(replacement.events).toEqual([]);
+    store.push(replacement, textEvent("current"));
+    expect(replacement.events).toEqual([textEvent("current")]);
   });
 });

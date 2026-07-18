@@ -17,7 +17,7 @@
  */
 
 import type { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
-import type { ChatStreamEvent } from "../events";
+import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
 import { parseQuestionBlock } from "../question";
 import { parseControlsBlock } from "../controls";
 import { toolCallDetails } from "./tool-details";
@@ -47,11 +47,24 @@ export function createChatEventBridge(
   options: ChatEventBridgeOptions = {},
 ): ChatEventBridge {
   let announcedSessionId: string | undefined;
+  let terminal = false;
 
   const announceSession = (sessionId: string): void => {
     if (sessionId === announcedSessionId) return;
     announcedSessionId = sessionId;
-    emit({ type: "session_started", sessionId });
+    emit({
+      type: "session_started",
+      sessionId,
+      protocolVersion: PROTOCOL_VERSION,
+    });
+  };
+
+  // The contract promises exactly one terminal event per turn — enforce it
+  // here so a finish/fail race (or a double call) can't corrupt the stream.
+  const emitTerminal = (ev: ChatStreamEvent): void => {
+    if (terminal) return;
+    terminal = true;
+    emit(ev);
   };
 
   if (options.presetSessionId) announceSession(options.presetSessionId);
@@ -94,16 +107,16 @@ export function createChatEventBridge(
   return {
     callbacks: { onSessionId, onAssistantText, onToolUse, onStderr },
     finish(result: { exitCode: number }): void {
-      emit({ type: "done", exitCode: result.exitCode });
+      emitTerminal({ type: "done", exitCode: result.exitCode });
     },
     fail(err: unknown): void {
       const name = (err as { name?: string } | null)?.name;
       if (name === "AbortError") {
-        emit({ type: "aborted", reason: "user" });
+        emitTerminal({ type: "aborted", reason: "user" });
       } else if (name === "TimeoutError") {
-        emit({ type: "aborted", reason: "timeout" });
+        emitTerminal({ type: "aborted", reason: "timeout" });
       } else {
-        emit({
+        emitTerminal({
           type: "error",
           message: err instanceof Error ? err.message : String(err),
         });

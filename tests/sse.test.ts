@@ -50,6 +50,21 @@ describe("parseSseBuffer", () => {
     const result = parseSseBuffer("event: a\n\n");
     expect(result.events).toEqual([]);
   });
+
+  it("accepts CRLF framing and line endings", () => {
+    const result = parseSseBuffer(
+      'event: assistant_text\r\ndata: {"text":"hi"}\r\n\r\nevent: done\r\ndata: {',
+    );
+    expect(result.events).toEqual([
+      { event: "assistant_text", data: { text: "hi" } },
+    ]);
+    expect(result.remainder).toBe("event: done\r\ndata: {");
+  });
+
+  it("strips only the single optional space after the data colon", () => {
+    const result = parseSseBuffer("data:  padded \n\n");
+    expect(result.events).toEqual([{ event: "message", data: " padded " }]);
+  });
 });
 
 describe("mapSseToChatEvent", () => {
@@ -97,6 +112,12 @@ describe("mapSseToChatEvent", () => {
       summary: "bun test",
       details: [{ label: "Command", value: "bun test" }],
     });
+  });
+
+  it("preserves empty tool_use details arrays", () => {
+    expect(
+      mapSseToChatEvent({ event: "tool_use", data: { name: "Bash", details: [] } }),
+    ).toEqual({ type: "tool_use", name: "Bash", details: [] });
   });
 
   it("drops malformed tool_use details but keeps the event", () => {
@@ -220,7 +241,8 @@ describe("encode/decode round trip", () => {
         styles: [{ property: "border-radius", template: "{radius}" }],
       },
     },
-    { type: "stderr", chunk: "some diagnostics" },
+    { type: "tool_use", name: "Mystery", details: [] },
+    { type: "stderr", chunk: "some diagnostics\nwith newlines" },
     { type: "done", exitCode: 0 },
     { type: "aborted", reason: "timeout" },
     { type: "error", message: "boom" },

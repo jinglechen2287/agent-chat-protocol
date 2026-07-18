@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { ChatStreamEvent } from "../src/index";
+import { PROTOCOL_VERSION, type ChatStreamEvent } from "../src/index";
 import { createChatEventBridge } from "../src/server/index";
+
+const session = (sessionId: string): ChatStreamEvent => ({
+  type: "session_started",
+  sessionId,
+  protocolVersion: PROTOCOL_VERSION,
+});
 
 const collect = (): { events: ChatStreamEvent[]; emit: (ev: ChatStreamEvent) => void } => {
   const events: ChatStreamEvent[] = [];
@@ -8,10 +14,10 @@ const collect = (): { events: ChatStreamEvent[]; emit: (ev: ChatStreamEvent) => 
 };
 
 describe("createChatEventBridge", () => {
-  it("announces a preset session id immediately", () => {
+  it("announces a preset session id immediately, with the protocol version", () => {
     const { events, emit } = collect();
     createChatEventBridge(emit, { presetSessionId: "pre-1" });
-    expect(events).toEqual([{ type: "session_started", sessionId: "pre-1" }]);
+    expect(events).toEqual([session("pre-1")]);
   });
 
   it("suppresses the runner reporting the same session id", () => {
@@ -25,10 +31,7 @@ describe("createChatEventBridge", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit, { presetSessionId: "pre-1" });
     bridge.callbacks.onSessionId?.("actual-2");
-    expect(events).toEqual([
-      { type: "session_started", sessionId: "pre-1" },
-      { type: "session_started", sessionId: "actual-2" },
-    ]);
+    expect(events).toEqual([session("pre-1"), session("actual-2")]);
   });
 
   it("announces the runner-reported id when no preset exists, once", () => {
@@ -36,7 +39,7 @@ describe("createChatEventBridge", () => {
     const bridge = createChatEventBridge(emit);
     bridge.callbacks.onSessionId?.("s1");
     bridge.callbacks.onSessionId?.("s1");
-    expect(events).toEqual([{ type: "session_started", sessionId: "s1" }]);
+    expect(events).toEqual([session("s1")]);
   });
 
   it("emits plain assistant text as assistant_text", () => {
@@ -131,14 +134,22 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([{ type: "aborted", reason: "timeout" }]);
   });
 
-  it("fail maps anything else to an error event", () => {
+  it("emits exactly one terminal event even when finish and fail both fire", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);
-    bridge.fail(new Error("boom"));
-    bridge.fail("string failure");
-    expect(events).toEqual([
-      { type: "error", message: "boom" },
-      { type: "error", message: "string failure" },
-    ]);
+    bridge.finish({ exitCode: 0 });
+    bridge.fail(new Error("late failure"));
+    bridge.finish({ exitCode: 1 });
+    expect(events).toEqual([{ type: "done", exitCode: 0 }]);
+  });
+
+  it("fail maps anything else to an error event", () => {
+    const first = collect();
+    createChatEventBridge(first.emit).fail(new Error("boom"));
+    expect(first.events).toEqual([{ type: "error", message: "boom" }]);
+
+    const second = collect();
+    createChatEventBridge(second.emit).fail("string failure");
+    expect(second.events).toEqual([{ type: "error", message: "string failure" }]);
   });
 });

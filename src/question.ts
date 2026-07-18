@@ -30,6 +30,10 @@ export interface ParsedQuestionText {
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
  * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
+/** Defensive length ceilings, mirroring the controls schema's. Over-length
+ * questions invalidate the block; over-length options are skipped. */
+const MAX_QUESTION_LENGTH = 500;
+const MAX_OPTION_LENGTH = 100;
 
 /** Matches the first question fenced block. The info string must be exactly
  * the block name (optionally followed by trailing spaces) so plain ```json
@@ -65,14 +69,18 @@ function parseBlockBody(body: string): QuestionSpec | null {
   const obj = parsed as Record<string, unknown>;
   if (typeof obj.question !== "string") return null;
   const question = obj.question.trim();
-  if (!question) return null;
+  if (!question || question.length > MAX_QUESTION_LENGTH) return null;
 
   if (!Array.isArray(obj.options)) return null;
   const options: string[] = [];
+  const seen = new Set<string>();
   for (const opt of obj.options) {
     if (typeof opt !== "string") continue;
     const trimmed = opt.trim();
-    if (trimmed) options.push(trimmed);
+    if (trimmed && trimmed.length <= MAX_OPTION_LENGTH && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      options.push(trimmed);
+    }
     if (options.length >= MAX_OPTIONS) break;
   }
   // A question needs at least two distinct choices to be worth a card — with

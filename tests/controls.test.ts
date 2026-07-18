@@ -122,6 +122,8 @@ describe("validateControls", () => {
     ["@import", "@import {y}"],
     ["comment", "/* {y} */"],
     ["backslash", "\\75rl {y}"],
+    ["semicolon", "{y}; position: fixed"],
+    ["newline", "{y}\nposition: fixed"],
   ])("rejects unsafe template syntax: %s", (_name, template) => {
     const raw = validSpec();
     raw.styles = [
@@ -204,6 +206,31 @@ describe("style substitution", () => {
     });
     expect(styles["box-shadow"]).toBeUndefined();
     expect(styles["font-weight"]).toBe("400");
+  });
+
+  it.each([
+    ["declaration smuggling", "red; position: fixed"],
+    ["newline smuggling", "red\nposition: fixed"],
+    ["rule-body escape", "red } * { color: red"],
+  ])("drops a substituted value carrying %s", (_name, injected) => {
+    const spec = validateControls(validSpec())!;
+    const styles = buildStyleMap(spec, {
+      y: 8,
+      shadowColor: injected,
+      weight: "400",
+    });
+    expect(styles["box-shadow"]).toBeUndefined();
+    expect(styles["font-weight"]).toBe("400");
+  });
+
+  it("clamps out-of-range runtime slider values into the spec's range", () => {
+    const spec = validateControls(validSpec())!;
+    const styles = buildStyleMap(spec, {
+      y: 9999,
+      shadowColor: "#000000",
+      weight: "400",
+    });
+    expect(styles["box-shadow"]).toBe("0px 40px 12px 0px #000000");
   });
 });
 

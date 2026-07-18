@@ -1,3 +1,15 @@
+//#region src/events.ts
+/**
+* Version of this event contract. Servers include it on `session_started` so
+* clients replaying buffered events across a deploy can detect skew.
+*/
+const PROTOCOL_VERSION = 1;
+/** True for the three events that end a turn's stream: `done`, `aborted`,
+* `error`. After one of these, no further events arrive for the turn. */
+function isTerminalEvent(ev) {
+	return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
+}
+//#endregion
 //#region src/controls.ts
 /** Defensive ceilings — the agent is asked for less; a runaway block should
 * degrade to plain text rather than flood the client. */
@@ -16,7 +28,14 @@ const PROPERTY_RE = /^-?[a-z][a-z-]*$/;
 * and selector-list targeting while covering semantic and CSS-module classes. */
 const SCOPE_SELECTOR_RE = /^(?:[a-z][a-z0-9-]*)?(?:\.[A-Za-z_-][A-Za-z0-9_-]*)+$/;
 const PLACEHOLDER_RE = /\{([^{}]*)\}/g;
-const UNSAFE_CSS_VALUE_RE = /(?:url\s*\(|expression\s*\(|@import|\/\*|\\)/i;
+/** Screens templates and substituted values. Beyond URL-bearing syntax, a
+* value must stay a single CSS declaration: `;` and newlines would smuggle
+* extra declarations into cssText or the Apply message. (Braces can't be
+* screened here — templates legitimately contain `{id}` placeholders.) */
+const UNSAFE_CSS_VALUE_RE = /(?:url\s*\(|expression\s*\(|@import|\/\*|\\|;|[\r\n])/i;
+/** Extra screen for fully substituted values, where braces have no legitimate
+* use and would allow escaping a rule body in a stylesheet context. */
+const UNSAFE_SUBSTITUTED_VALUE_RE = /[{}]/;
 /** Properties intentionally supported by the inline preview. Keeping this
 * list visual and URL-free prevents an assistant-authored controls block from
 * turning the user's browser into a network-request primitive. `filter` and
@@ -261,14 +280,15 @@ function buildStyleMap(spec, values) {
 			if (!control) return whole;
 			return formatControlValue(control, Object.prototype.hasOwnProperty.call(values, id) ? values[id] : void 0);
 		});
-		if (!UNSAFE_CSS_VALUE_RE.test(value)) styleMap[binding.property] = value;
+		if (!UNSAFE_CSS_VALUE_RE.test(value) && !UNSAFE_SUBSTITUTED_VALUE_RE.test(value)) styleMap[binding.property] = value;
 	}
 	return styleMap;
 }
 function formatControlValue(control, raw) {
 	if (control.type === "slider") {
 		const num = typeof raw === "number" ? raw : Number(raw);
-		return `${Number.isFinite(num) ? num : control.value}${control.unit ?? ""}`;
+		const finite = Number.isFinite(num) ? num : control.value;
+		return `${Math.min(control.max, Math.max(control.min, finite))}${control.unit ?? ""}`;
 	}
 	const value = raw === void 0 ? control.value : String(raw);
 	return String(value);
@@ -333,6 +353,10 @@ function parseControlsBlock(raw) {
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
 * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
+/** Defensive length ceilings, mirroring the controls schema's. Over-length
+* questions invalidate the block; over-length options are skipped. */
+const MAX_QUESTION_LENGTH = 500;
+const MAX_OPTION_LENGTH = 100;
 /** Matches the first question fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
@@ -364,13 +388,17 @@ function parseBlockBody(body) {
 	const obj = parsed;
 	if (typeof obj.question !== "string") return null;
 	const question = obj.question.trim();
-	if (!question) return null;
+	if (!question || question.length > MAX_QUESTION_LENGTH) return null;
 	if (!Array.isArray(obj.options)) return null;
 	const options = [];
+	const seen = /* @__PURE__ */ new Set();
 	for (const opt of obj.options) {
 		if (typeof opt !== "string") continue;
 		const trimmed = opt.trim();
-		if (trimmed) options.push(trimmed);
+		if (trimmed && trimmed.length <= MAX_OPTION_LENGTH && !seen.has(trimmed)) {
+			seen.add(trimmed);
+			options.push(trimmed);
+		}
 		if (options.length >= MAX_OPTIONS) break;
 	}
 	if (options.length < 2) return null;
@@ -380,6 +408,6 @@ function parseBlockBody(body) {
 	};
 }
 //#endregion
-export { parseControlsBlock as a, initialControlValues as i, buildStyleMap as n, validateControls as o, composeApplyMessage as r, valuesEqual as s, parseQuestionBlock as t };
+export { parseControlsBlock as a, PROTOCOL_VERSION as c, initialControlValues as i, isTerminalEvent as l, buildStyleMap as n, validateControls as o, composeApplyMessage as r, valuesEqual as s, parseQuestionBlock as t };
 
-//# sourceMappingURL=question-B4Nrnylj.js.map
+//# sourceMappingURL=question-BPFDhLUt.js.map

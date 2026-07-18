@@ -1,16 +1,4 @@
-import { a as parseControlsBlock, i as initialControlValues, n as buildStyleMap, o as validateControls, r as composeApplyMessage, s as valuesEqual, t as parseQuestionBlock } from "./question-B4Nrnylj.js";
-//#region src/events.ts
-/**
-* Version of this event contract. Servers include it on `session_started` so
-* clients replaying buffered events across a deploy can detect skew.
-*/
-const PROTOCOL_VERSION = 1;
-/** True for the three events that end a turn's stream: `done`, `aborted`,
-* `error`. After one of these, no further events arrive for the turn. */
-function isTerminalEvent(ev) {
-	return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
-}
-//#endregion
+import { a as parseControlsBlock, c as PROTOCOL_VERSION, i as initialControlValues, l as isTerminalEvent, n as buildStyleMap, o as validateControls, r as composeApplyMessage, s as valuesEqual, t as parseQuestionBlock } from "./question-BPFDhLUt.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -19,13 +7,16 @@ function isTerminalEvent(ev) {
 */
 function parseSseBuffer(buffer) {
 	const events = [];
-	const parts = buffer.split("\n\n");
+	const parts = buffer.split(/\r\n\r\n|\n\n|\r\r/);
 	const remainder = parts.pop() ?? "";
 	for (const block of parts) {
 		let event = "message";
 		const dataLines = [];
-		for (const line of block.split("\n")) if (line.startsWith("event:")) event = line.slice(6).trim();
-		else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+		for (const line of block.split(/\r\n|\n|\r/)) if (line.startsWith("event:")) event = line.slice(6).trim();
+		else if (line.startsWith("data:")) {
+			const value = line.slice(5);
+			dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
+		}
 		if (dataLines.length === 0) continue;
 		let data = dataLines.join("\n");
 		try {
@@ -178,7 +169,7 @@ async function consumeSseResponse(res, onEvent) {
 	}
 }
 function isToolCallDetails(value) {
-	return Array.isArray(value) && value.length > 0 && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
+	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
 //#region src/prompt.ts

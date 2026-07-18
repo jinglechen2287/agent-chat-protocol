@@ -74,6 +74,10 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
     },
 
     push(task, ev) {
+      // Ignore stale handles (task deleted or replaced) and late callbacks
+      // arriving after completion — a terminal event must be the last thing
+      // in the buffer, and replaced ids must not receive the old run's events.
+      if (task.done || tasks.get(task.id) !== task) return;
       task.events.push(ev);
       // Snapshot so a subscriber unsubscribing during iteration doesn't skip
       // peers.

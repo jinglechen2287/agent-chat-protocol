@@ -33,16 +33,21 @@ export interface SseParseResult {
  */
 export function parseSseBuffer(buffer: string): SseParseResult {
   const events: SseEvent[] = [];
-  const parts = buffer.split("\n\n");
+  // SSE line endings may be LF, CRLF, or CR (per spec, and proxies rewrite
+  // them); accept all three for framing and within blocks.
+  const parts = buffer.split(/\r\n\r\n|\n\n|\r\r/);
   const remainder = parts.pop() ?? "";
   for (const block of parts) {
     let event = "message";
     const dataLines: string[] = [];
-    for (const line of block.split("\n")) {
+    for (const line of block.split(/\r\n|\n|\r/)) {
       if (line.startsWith("event:")) {
         event = line.slice("event:".length).trim();
       } else if (line.startsWith("data:")) {
-        dataLines.push(line.slice("data:".length).trim());
+        // Per spec only the single optional space after the colon is
+        // stripped; all other payload whitespace is meaningful.
+        const value = line.slice("data:".length);
+        dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
       }
     }
     if (dataLines.length === 0) continue;
@@ -195,7 +200,6 @@ export async function consumeSseResponse(
 function isToolCallDetails(value: unknown): value is ToolCallDetail[] {
   return (
     Array.isArray(value) &&
-    value.length > 0 &&
     value.every(
       (item) =>
         item !== null &&

@@ -98,7 +98,15 @@ const PROPERTY_RE = /^-?[a-z][a-z-]*$/;
  * and selector-list targeting while covering semantic and CSS-module classes. */
 const SCOPE_SELECTOR_RE = /^(?:[a-z][a-z0-9-]*)?(?:\.[A-Za-z_-][A-Za-z0-9_-]*)+$/;
 const PLACEHOLDER_RE = /\{([^{}]*)\}/g;
-const UNSAFE_CSS_VALUE_RE = /(?:url\s*\(|expression\s*\(|@import|\/\*|\\)/i;
+/** Screens templates and substituted values. Beyond URL-bearing syntax, a
+ * value must stay a single CSS declaration: `;` and newlines would smuggle
+ * extra declarations into cssText or the Apply message. (Braces can't be
+ * screened here — templates legitimately contain `{id}` placeholders.) */
+const UNSAFE_CSS_VALUE_RE =
+  /(?:url\s*\(|expression\s*\(|@import|\/\*|\\|;|[\r\n])/i;
+/** Extra screen for fully substituted values, where braces have no legitimate
+ * use and would allow escaping a rule body in a stylesheet context. */
+const UNSAFE_SUBSTITUTED_VALUE_RE = /[{}]/;
 
 /** Properties intentionally supported by the inline preview. Keeping this
  * list visual and URL-free prevents an assistant-authored controls block from
@@ -377,7 +385,12 @@ export function buildStyleMap(
         return formatControlValue(control, raw);
       },
     );
-    if (!UNSAFE_CSS_VALUE_RE.test(value)) styleMap[binding.property] = value;
+    if (
+      !UNSAFE_CSS_VALUE_RE.test(value) &&
+      !UNSAFE_SUBSTITUTED_VALUE_RE.test(value)
+    ) {
+      styleMap[binding.property] = value;
+    }
   }
   return styleMap;
 }
@@ -388,7 +401,10 @@ function formatControlValue(
 ): string {
   if (control.type === "slider") {
     const num = typeof raw === "number" ? raw : Number(raw);
-    const value = Number.isFinite(num) ? num : control.value;
+    const finite = Number.isFinite(num) ? num : control.value;
+    // Runtime values come from UI inputs (or persisted state) — clamp into
+    // the spec's range just like spec-time validation does.
+    const value = Math.min(control.max, Math.max(control.min, finite));
     return `${value}${control.unit ?? ""}`;
   }
   const value = raw === undefined ? control.value : String(raw);

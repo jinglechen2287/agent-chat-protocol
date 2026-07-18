@@ -80,6 +80,34 @@ describe("parseQuestionBlock", () => {
     ]);
   });
 
+  it("deduplicates options so repeats can't satisfy the two-choice minimum", () => {
+    const raw = block(
+      "agent-question",
+      '{"question": "Q?", "options": ["A", "A", " A "]}',
+    );
+    expect(parseQuestionBlock(raw).question).toBeNull();
+
+    const dedupe = block(
+      "agent-question",
+      '{"question": "Q?", "options": ["A", "A", "B"]}',
+    );
+    expect(parseQuestionBlock(dedupe).question?.options).toEqual(["A", "B"]);
+  });
+
+  it("rejects over-length questions and skips over-length options", () => {
+    const longQuestion = block(
+      "agent-question",
+      JSON.stringify({ question: "Q".repeat(501), options: ["A", "B"] }),
+    );
+    expect(parseQuestionBlock(longQuestion).question).toBeNull();
+
+    const longOption = block(
+      "agent-question",
+      JSON.stringify({ question: "Q?", options: ["A", "B", "C".repeat(101)] }),
+    );
+    expect(parseQuestionBlock(longOption).question?.options).toEqual(["A", "B"]);
+  });
+
   it("collapses the blank-line seam when the block sat mid-message", () => {
     const raw =
       "Before.\n\n" +

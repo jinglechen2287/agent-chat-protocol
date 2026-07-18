@@ -66,7 +66,7 @@ The package is plumbing — users never see it. They see what it unlocks, once a
 
 ### Explicitly out of scope
 
-- **Visual / brand design** — colors, spacing, animation, component libraries. The contract says *"a `question` MUST render its options as selectable choices and send the chosen id back as the next turn"*, never *"an 8px-gap pill row."* Any frontend — vanilla DOM or React — must be able to satisfy it.
+- **Visual / brand design** — colors, spacing, animation, component libraries. The contract says *"a `question` MUST render its options as selectable choices and send the chosen option's label back verbatim as the next user turn"*, never *"an 8px-gap pill row."* Any frontend — vanilla DOM or React — must be able to satisfy it.
 - **Rendering code / components** — no React components, no DOM widgets ship here. Those are Layer 3, per-app.
 - **The CLI subprocess runtime** — that's `agent-cli-runner`.
 - **Persistence** — how an app stores transcripts (agent-remote's SQLite, carve's localStorage) is the app's concern; this package defines the events, not the database.
@@ -114,14 +114,19 @@ This package is necessary but not sufficient. The user-visible payoff lands only
 - **Repo layout:** standalone repo is simplest and matches the sibling. If two git installs become annoying, an alternative is a small monorepo publishing `agent-cli-runner` + `agent-chat-protocol` as two entry points — independent versioning, one repo. Decide before first consumer wires it in.
 - **Rollout order (decided):** extract the package from carve's working code (events, transport codec, parsers, tool-details, bridge), conform carve to it as the first consumer — validating the contract against a proven implementation — then start agent-remote's adoption.
 
-## Open questions to resolve before implementation
+## Open questions — resolution status (v0.1 implemented)
 
-- **Final `ChatStreamEvent` shape** — exact variant set and payloads; how streamed `assistant_text` interleaves with `tool_use` and how ordering is guaranteed on the client.
-- **Session resume/continuation semantics** — continuity is already first-class in every consumer (the runner's `resumeSessionId` / `newSessionId`, agent-remote's per-thread `conversationId` + `continueConversation`, carve's client-minted session UUID), but `session_started` alone doesn't tell a client whether it's continuing an existing session or starting fresh. The contract needs to model this, not just "a session began."
-- **Emit-side format** — *decided:* keep fenced text blocks, renamed to `agent-question` / `agent-controls` with legacy `carve-*` accepted during migration. They're model-friendly, transport-agnostic, and already proven; the parser-fragility risk is addressed by shipping the parser + validator in this package rather than inventing a structured side channel.
-- **How much of the controls grammar generalizes** — *decided:* all of carve's `src/controls.ts` schema is core contract, with the DOM-assuming parts optional. The schema is richer than sliders/colors/selects/validation: it has an agent-selected `scope` model (element vs. a deliberately constrained class-selector grammar — optional tag + classes only, no combinators) and CSS style-binding templates with `{id}` placeholder substitution. `scope` and `styles` become optional fields; the rendering contract states that non-DOM clients (agent-remote) ignore them and render just the input widgets + Apply round-trip. One source of truth, no extension mechanism to design.
-- **Reconnect/replay** — the buffered-event model a client uses to rebuild an in-flight turn after refresh (carve's `task-store`, including its multi-client attach path), promoted to a documented contract.
-- **Protocol versioning** — replayed buffered events can cross a deploy boundary, and consumers pin different commits via `github:`. A version field in `session_started` is cheap now and painful to retrofit; decide the compat story before the first consumer ships.
+Resolved and shipped in the package (see README + typed contract for the normative text):
+
+- **`ChatStreamEvent` shape** — nine variants; `tool_use` carries `{ name, summary?, details? }`; `aborted` carries a `user`/`timeout` reason; events arrive in stream order and exactly one terminal event ends a turn.
+- **Emit-side format** — fenced text blocks, renamed to `agent-question` / `agent-controls`; the shared parser accepts legacy `carve-*` during migration.
+- **Controls grammar** — all of carve's schema is core contract; `scope`/`styles` are optional and documented as ignorable by non-DOM clients.
+- **Reconnect/replay** — carve's task-store generalized into `createTaskStore`; replay-then-subscribe is a documented contract and replayed events render identically to live ones.
+- **Protocol versioning** — `PROTOCOL_VERSION` is carried on `session_started`; clients tolerate its absence on legacy streams.
+
+Still open (app-level, to settle during adoption):
+
+- **Session resume/continuation semantics** — `session_started` is documented as first-turn-only (a resuming client already holds its id), but richer continuation modeling (agent-remote's per-thread `conversationId` + `continueConversation`) remains the app's concern for now.
 
 ## The bar for "done" on the vision
 

@@ -1,4 +1,4 @@
-import { a as parseControlsBlock, t as parseQuestionBlock } from "../question-B4Nrnylj.js";
+import { a as parseControlsBlock, t as parseQuestionBlock } from "../question-BPFDhLUt.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -105,13 +105,20 @@ function toolCallDetails(info) {
 //#region src/server/bridge.ts
 function createChatEventBridge(emit, options = {}) {
 	let announcedSessionId;
+	let terminal = false;
 	const announceSession = (sessionId) => {
 		if (sessionId === announcedSessionId) return;
 		announcedSessionId = sessionId;
 		emit({
 			type: "session_started",
-			sessionId
+			sessionId,
+			protocolVersion: 1
 		});
+	};
+	const emitTerminal = (ev) => {
+		if (terminal) return;
+		terminal = true;
+		emit(ev);
 	};
 	if (options.presetSessionId) announceSession(options.presetSessionId);
 	const onSessionId = (id) => {
@@ -156,22 +163,22 @@ function createChatEventBridge(emit, options = {}) {
 			onStderr
 		},
 		finish(result) {
-			emit({
+			emitTerminal({
 				type: "done",
 				exitCode: result.exitCode
 			});
 		},
 		fail(err) {
 			const name = err?.name;
-			if (name === "AbortError") emit({
+			if (name === "AbortError") emitTerminal({
 				type: "aborted",
 				reason: "user"
 			});
-			else if (name === "TimeoutError") emit({
+			else if (name === "TimeoutError") emitTerminal({
 				type: "aborted",
 				reason: "timeout"
 			});
-			else emit({
+			else emitTerminal({
 				type: "error",
 				message: err instanceof Error ? err.message : String(err)
 			});
@@ -202,6 +209,7 @@ function createTaskStore(options = {}) {
 			return task;
 		},
 		push(task, ev) {
+			if (task.done || tasks.get(task.id) !== task) return;
 			task.events.push(ev);
 			for (const sub of [...task.subscribers]) try {
 				sub(ev);
