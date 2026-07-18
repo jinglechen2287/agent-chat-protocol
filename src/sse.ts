@@ -1,0 +1,208 @@
+/**
+ * SSE codec for the chat event stream — both directions.
+ *
+ * Server side: `toSseEvent` / `formatSseEvent` / `encodeChatEvent` turn a
+ * typed {@link ChatStreamEvent} into a wire frame. Client side:
+ * `parseSseBuffer` splits a byte stream into frames and `mapSseToChatEvent`
+ * validates each frame back into the typed union (unknown or malformed frames
+ * map to null — clients skip them, keeping the stream forward-compatible).
+ *
+ * SSE is the first transport, not the only possible one — the typed union is
+ * the contract; this module is one encoding of it.
+ */
+
+import type { ChatStreamEvent, ToolCallDetail } from "./events";
+import { validateControls } from "./controls";
+
+/** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
+ * payload (left as a string when it isn't valid JSON). */
+export interface SseEvent {
+  event: string;
+  data: unknown;
+}
+
+export interface SseParseResult {
+  events: SseEvent[];
+  remainder: string;
+}
+
+/**
+ * Splits an accumulating SSE text buffer into complete frames. Feed it the
+ * concatenation of everything received so far that wasn't consumed; it returns
+ * the parsed frames and the trailing incomplete remainder to carry forward.
+ */
+export function parseSseBuffer(buffer: string): SseParseResult {
+  const events: SseEvent[] = [];
+  const parts = buffer.split("\n\n");
+  const remainder = parts.pop() ?? "";
+  for (const block of parts) {
+    let event = "message";
+    const dataLines: string[] = [];
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) {
+        event = line.slice("event:".length).trim();
+      } else if (line.startsWith("data:")) {
+        dataLines.push(line.slice("data:".length).trim());
+      }
+    }
+    if (dataLines.length === 0) continue;
+    let data: unknown = dataLines.join("\n");
+    try {
+      data = JSON.parse(dataLines.join("\n"));
+    } catch {
+      // leave as string
+    }
+    events.push({ event, data });
+  }
+  return { events, remainder };
+}
+
+/**
+ * Validates a decoded SSE frame into the typed event union. Returns null for
+ * unknown event names and malformed payloads — clients skip those frames.
+ */
+export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
+  const d = ev.data as Record<string, unknown> | string | undefined;
+  const get = (k: string): unknown =>
+    typeof d === "object" && d !== null ? d[k] : undefined;
+
+  switch (ev.event) {
+    case "session_started": {
+      const sessionId = get("sessionId");
+      if (typeof sessionId !== "string") return null;
+      const protocolVersion = get("protocolVersion");
+      return {
+        type: "session_started",
+        sessionId,
+        ...(typeof protocolVersion === "number" ? { protocolVersion } : {}),
+      };
+    }
+    case "assistant_text": {
+      const text = get("text");
+      if (typeof text === "string") return { type: "assistant_text", text };
+      return null;
+    }
+    case "tool_use": {
+      const name = get("name");
+      if (typeof name !== "string") return null;
+      const summary = get("summary");
+      const rawDetails = get("details");
+      const details = isToolCallDetails(rawDetails) ? rawDetails : undefined;
+      return {
+        type: "tool_use",
+        name,
+        ...(typeof summary === "string" ? { summary } : {}),
+        ...(details ? { details } : {}),
+      };
+    }
+    case "question": {
+      const question = get("question");
+      const options = get("options");
+      if (
+        typeof question === "string" &&
+        Array.isArray(options) &&
+        options.every((o) => typeof o === "string")
+      ) {
+        return { type: "question", question, options };
+      }
+      return null;
+    }
+    case "controls": {
+      const spec = validateControls(d);
+      if (spec) return { type: "controls", spec };
+      return null;
+    }
+    case "stderr": {
+      const chunk = get("chunk");
+      if (typeof chunk === "string") return { type: "stderr", chunk };
+      return null;
+    }
+    case "done": {
+      const exitCode = get("exitCode");
+      return {
+        type: "done",
+        exitCode: typeof exitCode === "number" ? exitCode : -1,
+      };
+    }
+    case "aborted": {
+      const reason = get("reason");
+      return {
+        type: "aborted",
+        ...(reason === "user" || reason === "timeout" ? { reason } : {}),
+      };
+    }
+    case "error": {
+      const message = get("message");
+      return {
+        type: "error",
+        message: typeof message === "string" ? message : "unknown error",
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Converts a typed event into its wire frame: the `type` discriminant becomes
+ * the SSE event name; the rest becomes the data payload. The `controls` spec
+ * is sent directly as the payload (not wrapped in `{spec}`). */
+export function toSseEvent(ev: ChatStreamEvent): SseEvent {
+  if (ev.type === "controls") return { event: "controls", data: ev.spec };
+  const { type, ...data } = ev;
+  return { event: type, data };
+}
+
+/** Formats one SSE frame as wire text: `event: <name>\ndata: <json>\n\n`. */
+export function formatSseEvent(ev: SseEvent): string {
+  return `event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`;
+}
+
+/** `formatSseEvent(toSseEvent(ev))` — one typed event to one wire chunk. */
+export function encodeChatEvent(ev: ChatStreamEvent): string {
+  return formatSseEvent(toSseEvent(ev));
+}
+
+/**
+ * Reads a fetch Response body as an SSE stream, mapping each frame into a
+ * typed event. Resolves when the stream ends; rejects on a non-OK response.
+ * Frames that don't map (unknown names, malformed payloads) are skipped.
+ */
+export async function consumeSseResponse(
+  res: Response,
+  onEvent: (e: ChatStreamEvent) => void,
+): Promise<void> {
+  if (!res.ok || !res.body) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`chat stream request failed (${res.status}): ${text}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const result = parseSseBuffer(buffer);
+    buffer = result.remainder;
+    for (const ev of result.events) {
+      const mapped = mapSseToChatEvent(ev);
+      if (mapped) onEvent(mapped);
+    }
+  }
+}
+
+function isToolCallDetails(value: unknown): value is ToolCallDetail[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (item) =>
+        item !== null &&
+        typeof item === "object" &&
+        !Array.isArray(item) &&
+        typeof (item as Record<string, unknown>).label === "string" &&
+        typeof (item as Record<string, unknown>).value === "string",
+    )
+  );
+}

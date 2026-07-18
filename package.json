@@ -1,0 +1,61 @@
+{
+  "name": "agent-chat-protocol",
+  "version": "0.1.0",
+  "description": "Framework-agnostic contract for rendering an agent turn as a live, interactive chat: the streaming event grammar, SSE codec, generative-UI vocabulary, and runner-to-events bridge.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinglechen2287/agent-chat-protocol.git"
+  },
+  "keywords": [
+    "agent",
+    "chat",
+    "protocol",
+    "sse",
+    "streaming",
+    "generative-ui",
+    "claude",
+    "codex"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "agent-cli-runner": "*"
+  },
+  "peerDependenciesMeta": {
+    "agent-cli-runner": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "agent-cli-runner": "github:jinglechen2287/agent-cli-runner",
+    "tsdown": "^0.22.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

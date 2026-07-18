@@ -1,0 +1,3 @@
+node_modules
+# dist/ is committed on purpose — consumers install via a github: spec and
+# need the build artifact in the repo (same model as agent-cli-runner).
