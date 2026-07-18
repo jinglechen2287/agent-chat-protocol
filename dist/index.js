@@ -1,4 +1,4 @@
-import { a as parseControlsBlock, c as PROTOCOL_VERSION, i as initialControlValues, l as isTerminalEvent, n as buildStyleMap, o as validateControls, r as composeApplyMessage, s as valuesEqual, t as parseQuestionBlock } from "./question-BPFDhLUt.js";
+import { a as parseControlsBlock, c as PROTOCOL_VERSION, i as initialControlValues, l as isTerminalEvent, n as buildStyleMap, o as validateControls, r as composeApplyMessage, s as valuesEqual, t as parseQuestionBlock } from "./question-COPKqYxO.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the

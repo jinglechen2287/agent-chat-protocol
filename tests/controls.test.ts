@@ -106,6 +106,29 @@ describe("validateControls", () => {
     expect(validateControls(raw)).toBeNull();
   });
 
+  it("accepts CSS custom properties, bypassing the allowlist", () => {
+    const raw = validSpec();
+    raw.styles = [
+      { property: "--card-shadow", template: "0px {y} 12px 0px {shadowColor}" },
+      { property: "font-weight", template: "{weight}" },
+    ];
+    const spec = validateControls(raw);
+    expect(spec?.styles[0]?.property).toBe("--card-shadow");
+  });
+
+  it.each([
+    ["uppercase", "--Gutter"],
+    ["single dash", "-gutter-"],
+    ["bare dashes", "--"],
+  ])("rejects a malformed custom property: %s", (_name, property) => {
+    const raw = validSpec();
+    raw.styles = [
+      { property, template: "0px {y} 12px 0px {shadowColor}" },
+      { property: "font-weight", template: "{weight}" },
+    ];
+    expect(validateControls(raw)).toBeNull();
+  });
+
   it("rejects disallowed CSS properties", () => {
     const raw = validSpec();
     raw.styles = [

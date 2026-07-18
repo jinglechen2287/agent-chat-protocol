@@ -23,6 +23,10 @@ const MAX_SCOPE_SELECTOR_LENGTH = 160;
 const MAX_SCOPE_LABEL_LENGTH = 60;
 const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 const PROPERTY_RE = /^-?[a-z][a-z-]*$/;
+/** CSS custom properties (`--gutter`) bypass the property allowlist — they
+* only take effect where the stylesheet already consumes them via var(), and
+* their values still pass the unsafe-syntax screens. */
+const CUSTOM_PROPERTY_RE = /^--[a-z][a-z0-9-]*$/;
 /** Stable shared scopes are intentionally limited to an optional tag plus
 * one or more classes. This excludes broad tag-only, positional, relational,
 * and selector-list targeting while covering semantic and CSS-module classes. */
@@ -246,8 +250,8 @@ function validateControl(value) {
 function validateBinding(value, ids, referenced) {
 	if (!value || typeof value !== "object") return null;
 	const obj = value;
-	if (typeof obj.property !== "string" || !PROPERTY_RE.test(obj.property)) return null;
-	if (!ALLOWED_STYLE_PROPERTIES.has(obj.property)) return null;
+	if (typeof obj.property !== "string" || !PROPERTY_RE.test(obj.property) && !CUSTOM_PROPERTY_RE.test(obj.property)) return null;
+	if (!CUSTOM_PROPERTY_RE.test(obj.property) && !ALLOWED_STYLE_PROPERTIES.has(obj.property)) return null;
 	if (typeof obj.template !== "string") return null;
 	const template = obj.template.trim();
 	if (!template || template.length > MAX_TEMPLATE_LENGTH) return null;
@@ -410,4 +414,4 @@ function parseBlockBody(body) {
 //#endregion
 export { parseControlsBlock as a, PROTOCOL_VERSION as c, initialControlValues as i, isTerminalEvent as l, buildStyleMap as n, validateControls as o, composeApplyMessage as r, valuesEqual as s, parseQuestionBlock as t };
 
-//# sourceMappingURL=question-BPFDhLUt.js.map
+//# sourceMappingURL=question-COPKqYxO.js.map

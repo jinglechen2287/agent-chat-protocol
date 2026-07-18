@@ -1,4 +1,4 @@
-import { a as parseControlsBlock, t as parseQuestionBlock } from "../question-BPFDhLUt.js";
+import { a as parseControlsBlock, t as parseQuestionBlock } from "../question-COPKqYxO.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;

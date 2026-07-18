@@ -72,7 +72,9 @@ interface SelectControl {
 }
 type Control = SliderControl | ColorControl | SelectControl;
 interface StyleBinding {
-  /** kebab-case CSS property, e.g. "box-shadow". */
+  /** kebab-case CSS property (e.g. "box-shadow") or a CSS custom property
+   * (e.g. "--gutter"). Standard properties must be on the visual allowlist;
+   * custom properties bypass it but their values are screened identically. */
   property: string;
   /** Value template; `{id}` placeholders substituted with control values. */
   template: string;
@@ -225,4 +227,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { ParsedQuestionText as C, valuesEqual as S, parseQuestionBlock as T, buildStyleMap as _, isTerminalEvent as a, parseControlsBlock as b, ControlValues as c, ElementControlsScope as d, ParsedControlsText as f, StyleBinding as g, SliderControl as h, ToolCallDetail as i, ControlsScope as l, SelectorControlsScope as m, ChatStreamEvent as n, ColorControl as o, SelectControl as p, PROTOCOL_VERSION as r, Control as s, AbortReason as t, ControlsSpec as u, composeApplyMessage as v, QuestionSpec as w, validateControls as x, initialControlValues as y };
-//# sourceMappingURL=events-DMGAPOa4.d.ts.map
+//# sourceMappingURL=events-DznAaxaP.d.ts.map
