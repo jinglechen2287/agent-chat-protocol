@@ -48,13 +48,24 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 
 - **`session_started`** — persist `sessionId` and send it with the next turn request to continue the conversation. A second occurrence with a different id supersedes the first. Not emitted on resumed turns (the client already holds the id it resumed with).
 - **`assistant_text`** — render as sanitized GitHub-flavored markdown. Multiple occurrences are separate messages in order, not fragments to concatenate.
-- **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is a one-line label; `details` are expandable label/value rows. No tool output is carried — this traces what ran, not results.
+- **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is an optional concise description and `details` are optional curated label/value metadata. A client MUST preserve every event and its stream order. No tool output is carried — this traces what ran, not results.
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
 - **`aborted`** — killed before completing. Render `user` (deliberate cancel) and `timeout` (wall-clock limit) differently; absent reason means treat as `user`.
 - **`error`** — the turn failed; `message` is human-readable and safe to show.
+
+### Recommended tool-call presentation (non-normative)
+
+The wire contract ends at the information carried by each `tool_use` event and its position in the stream. The following guidance helps clients present that information consistently without making a particular web, native, terminal, or bot layout part of the protocol:
+
+- Keep `name` visible in the compact transcript trace. A collapsed client may omit `summary`, then reveal the summary or `details` once when expanded. Avoid repeating the same information in both the compact trace and expanded content; on narrow screens, stacking each detail label above its value is usually easier to scan than a two-column layout.
+- A client MAY visually group consecutive `tool_use` events with the same `name` into a compact bundle such as `Read ×3`. The expansion should still expose every call's own summary or details. Grouping stops at any intervening event, including assistant text or a different tool call; clients should not reorder or merge non-consecutive events.
+- Visual grouping is only a presentation heuristic. It does not imply semantic batching or parallel execution, and the client MUST preserve every event and its stream order in its underlying transcript state.
+- Icon selection, colors, pill geometry, spacing, collapsed defaults, breakpoints, and animation remain Layer 3 application concerns.
+
+If consumers eventually need to distinguish an intentional batch or a set of parallel calls, add an optional group identifier through a versioned protocol change rather than inferring that meaning from adjacency or matching names.
 
 ### Reconnect / replay
 

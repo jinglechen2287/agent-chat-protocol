@@ -132,6 +132,34 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([{ type: "tool_use", name: "Mystery" }]);
   });
 
+  it("forwards a usage snapshot as context_usage, dropping absent fields", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onUsage?.({
+      contextTokens: 21591,
+      inputTokens: 2,
+      cachedInputTokens: 15099,
+      outputTokens: 6,
+      model: "claude-opus-4-8[1m]",
+      contextWindow: 1_000_000,
+    });
+    bridge.callbacks.onUsage?.({
+      contextTokens: 4004,
+      inputTokens: 4004,
+      cachedInputTokens: 0,
+      outputTokens: 10,
+    });
+    expect(events).toEqual([
+      {
+        type: "context_usage",
+        contextTokens: 21591,
+        contextWindow: 1_000_000,
+        model: "claude-opus-4-8[1m]",
+      },
+      { type: "context_usage", contextTokens: 4004 },
+    ]);
+  });
+
   it("forwards stderr chunks", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

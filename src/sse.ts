@@ -117,6 +117,22 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       if (spec) return { type: "controls", spec };
       return null;
     }
+    case "context_usage": {
+      const contextTokens = get("contextTokens");
+      if (!Number.isSafeInteger(contextTokens) || (contextTokens as number) < 0) {
+        return null;
+      }
+      const contextWindow = get("contextWindow");
+      const model = get("model");
+      return {
+        type: "context_usage",
+        contextTokens: contextTokens as number,
+        ...(Number.isSafeInteger(contextWindow) && (contextWindow as number) > 0
+          ? { contextWindow: contextWindow as number }
+          : {}),
+        ...(typeof model === "string" ? { model } : {}),
+      };
+    }
     case "stderr": {
       const chunk = get("chunk");
       if (typeof chunk === "string") return { type: "stderr", chunk };

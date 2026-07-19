@@ -156,12 +156,21 @@ function createChatEventBridge(emit, options = {}) {
 			chunk
 		});
 	};
+	const onUsage = (usage) => {
+		emit({
+			type: "context_usage",
+			contextTokens: usage.contextTokens,
+			...usage.contextWindow !== void 0 ? { contextWindow: usage.contextWindow } : {},
+			...usage.model !== void 0 ? { model: usage.model } : {}
+		});
+	};
 	return {
 		callbacks: {
 			onSessionId,
 			onAssistantText,
 			onToolUse,
-			onStderr
+			onStderr,
+			onUsage
 		},
 		finish(result) {
 			emitTerminal({

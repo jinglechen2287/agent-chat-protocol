@@ -16,7 +16,7 @@
  *   }
  */
 
-import type { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
+import type { AgentCallbacks, TokenUsage, ToolUseInfo } from "agent-cli-runner";
 import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
 import { parseQuestionBlock } from "../question";
 import {
@@ -124,8 +124,17 @@ export function createChatEventBridge(
     emit({ type: "stderr", chunk });
   };
 
+  const onUsage = (usage: TokenUsage): void => {
+    emit({
+      type: "context_usage",
+      contextTokens: usage.contextTokens,
+      ...(usage.contextWindow !== undefined ? { contextWindow: usage.contextWindow } : {}),
+      ...(usage.model !== undefined ? { model: usage.model } : {}),
+    });
+  };
+
   return {
-    callbacks: { onSessionId, onAssistantText, onToolUse, onStderr },
+    callbacks: { onSessionId, onAssistantText, onToolUse, onStderr, onUsage },
     finish(result: { exitCode: number }): void {
       emitTerminal({ type: "done", exitCode: result.exitCode });
     },

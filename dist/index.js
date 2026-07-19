@@ -89,6 +89,18 @@ function mapSseToChatEvent(ev) {
 			};
 			return null;
 		}
+		case "context_usage": {
+			const contextTokens = get("contextTokens");
+			if (!Number.isSafeInteger(contextTokens) || contextTokens < 0) return null;
+			const contextWindow = get("contextWindow");
+			const model = get("model");
+			return {
+				type: "context_usage",
+				contextTokens,
+				...Number.isSafeInteger(contextWindow) && contextWindow > 0 ? { contextWindow } : {},
+				...typeof model === "string" ? { model } : {}
+			};
+		}
 		case "stderr": {
 			const chunk = get("chunk");
 			if (typeof chunk === "string") return {

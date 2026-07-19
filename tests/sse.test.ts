@@ -174,6 +174,53 @@ describe("mapSseToChatEvent", () => {
     );
   });
 
+  it("maps context_usage with optional window and model", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 21591, contextWindow: 1_000_000, model: "claude-opus-4-8[1m]" },
+      }),
+    ).toEqual({
+      type: "context_usage",
+      contextTokens: 21591,
+      contextWindow: 1_000_000,
+      model: "claude-opus-4-8[1m]",
+    });
+    expect(
+      mapSseToChatEvent({ event: "context_usage", data: { contextTokens: 100 } }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+  });
+
+  it("rejects context_usage without a numeric contextTokens", () => {
+    expect(
+      mapSseToChatEvent({ event: "context_usage", data: { contextWindow: 200000 } }),
+    ).toBeNull();
+  });
+
+  it("rejects negative or fractional context token counts", () => {
+    expect(
+      mapSseToChatEvent({ event: "context_usage", data: { contextTokens: -1 } }),
+    ).toBeNull();
+    expect(
+      mapSseToChatEvent({ event: "context_usage", data: { contextTokens: 1.5 } }),
+    ).toBeNull();
+  });
+
+  it("drops a non-positive or fractional contextWindow but keeps the event", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 100, contextWindow: 0 },
+      }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 100, contextWindow: 200_000.5 },
+      }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+  });
+
   it("maps done with a fallback exit code", () => {
     expect(mapSseToChatEvent({ event: "done", data: { exitCode: 0 } })).toEqual({
       type: "done",
@@ -242,6 +289,13 @@ describe("encode/decode round trip", () => {
       },
     },
     { type: "tool_use", name: "Mystery", details: [] },
+    {
+      type: "context_usage",
+      contextTokens: 21591,
+      contextWindow: 1_000_000,
+      model: "claude-opus-4-8[1m]",
+    },
+    { type: "context_usage", contextTokens: 4004 },
     { type: "stderr", chunk: "some diagnostics\nwith newlines" },
     { type: "done", exitCode: 0 },
     { type: "aborted", reason: "timeout" },

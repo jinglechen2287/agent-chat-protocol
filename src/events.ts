@@ -49,9 +49,11 @@ export type ChatStreamEvent =
   | { type: "assistant_text"; text: string }
   /**
    * The agent invoked a tool. Clients MUST show at least `name` inline in the
-   * transcript, in stream order relative to assistant text. `summary` is a
-   * one-line label; `details` are expandable label/value rows. Neither carries
-   * tool output — this is a trace of what ran, not results.
+   * transcript and preserve every event in stream order relative to assistant
+   * text. `summary` is an optional concise description; `details` are optional
+   * curated label/value metadata. Neither carries tool output — this is a trace
+   * of what ran, not results. Grouping and expansion layout are non-normative
+   * client presentation choices; see the README guidance.
    */
   | {
       type: "tool_use";
@@ -76,6 +78,22 @@ export type ChatStreamEvent =
    * retired by the next user message.
    */
   | { type: "controls"; spec: ControlsSpec }
+  /**
+   * A context-window usage snapshot for the turn. Non-terminal and may arrive
+   * more than once (each supersedes the last); clients render the latest as a
+   * context meter. `contextWindow` is absent when the provider reported no
+   * window and none could be resolved — show `contextTokens` without a
+   * percentage in that case.
+   */
+  | {
+      type: "context_usage";
+      /** Tokens occupying the context window as of the latest request. */
+      contextTokens: number;
+      /** Total window size in tokens, when known. */
+      contextWindow?: number;
+      /** Model that produced the usage, when known. */
+      model?: string;
+    }
   /**
    * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
    * or surface it in a collapsed log. Never render it as assistant prose.
