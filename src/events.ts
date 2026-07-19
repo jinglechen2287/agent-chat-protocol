@@ -31,6 +31,12 @@ export interface ToolTaskMetadata {
   status?: string;
 }
 
+/** One provider-normalized step from a Codex plan/todo snapshot. */
+export interface ToolPlanItem {
+  text: string;
+  status: string;
+}
+
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 export type AbortReason = "user" | "timeout";
@@ -69,6 +75,7 @@ export type ChatStreamEvent =
       summary?: string;
       details?: ToolCallDetail[];
       task?: ToolTaskMetadata;
+      plan?: ToolPlanItem[];
     }
   /**
    * A structured clarifying question. Clients MUST render the options as

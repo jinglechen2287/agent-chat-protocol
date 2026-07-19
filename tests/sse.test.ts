@@ -131,6 +131,43 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
+  it("maps optional Codex plan items on tool_use", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "tool_use",
+        data: {
+          name: "TodoWrite",
+          plan: [
+            { text: "Inspect repository", status: "completed" },
+            { text: "Implement support", status: "in_progress" },
+          ],
+        },
+      }),
+    ).toEqual({
+      type: "tool_use",
+      name: "TodoWrite",
+      plan: [
+        { text: "Inspect repository", status: "completed" },
+        { text: "Implement support", status: "in_progress" },
+      ],
+    });
+  });
+
+  it("drops a malformed Codex plan snapshot without dropping the tool call", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "tool_use",
+        data: {
+          name: "TodoWrite",
+          plan: [
+            { text: "Valid step", status: "completed" },
+            { text: "Missing status" },
+          ],
+        },
+      }),
+    ).toEqual({ type: "tool_use", name: "TodoWrite" });
+  });
+
   it("preserves empty tool_use details arrays", () => {
     expect(
       mapSseToChatEvent({ event: "tool_use", data: { name: "Bash", details: [] } }),

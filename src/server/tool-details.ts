@@ -106,6 +106,12 @@ export function toolCallDetails(info: ToolUseInfo): ToolCallDetail[] {
   const input = info.input;
   const details: ToolCallDetail[] = [];
 
+  for (const planItem of info.planItems ?? []) {
+    const status = displayStatus(planItem.status);
+    const item = status ? detail(status, planItem.text) : undefined;
+    if (item) details.push(item);
+  }
+
   if (input) {
     if (info.name === "Edit") details.push(...codexFileChanges(input));
 

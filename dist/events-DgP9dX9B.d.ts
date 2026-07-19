@@ -125,6 +125,11 @@ interface ToolTaskMetadata {
   subject?: string;
   status?: string;
 }
+/** One provider-normalized step from a Codex plan/todo snapshot. */
+interface ToolPlanItem {
+  text: string;
+  status: string;
+}
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 type AbortReason = "user" | "timeout";
@@ -165,6 +170,7 @@ type ChatStreamEvent =
   summary?: string;
   details?: ToolCallDetail[];
   task?: ToolTaskMetadata;
+  plan?: ToolPlanItem[];
 } |
 /**
  * A structured clarifying question. Clients MUST render the options as
@@ -236,5 +242,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { valuesEqual as _, ToolTaskMetadata as a, parseQuestionBlock as b, Control as c, ParsedControlsText as d, SelectControl as f, validateControls as g, parseControlsBlock as h, ToolCallDetail as i, ControlValues as l, initialControlValues as m, ChatStreamEvent as n, isTerminalEvent as o, SliderControl as p, PROTOCOL_VERSION as r, ColorControl as s, AbortReason as t, ControlsSpec as u, ParsedQuestionText as v, QuestionSpec as y };
-//# sourceMappingURL=events-DkZq91gp.d.ts.map
+export { validateControls as _, ToolPlanItem as a, QuestionSpec as b, ColorControl as c, ControlsSpec as d, ParsedControlsText as f, parseControlsBlock as g, initialControlValues as h, ToolCallDetail as i, Control as l, SliderControl as m, ChatStreamEvent as n, ToolTaskMetadata as o, SelectControl as p, PROTOCOL_VERSION as r, isTerminalEvent as s, AbortReason as t, ControlValues as u, valuesEqual as v, parseQuestionBlock as x, ParsedQuestionText as y };
+//# sourceMappingURL=events-DgP9dX9B.d.ts.map

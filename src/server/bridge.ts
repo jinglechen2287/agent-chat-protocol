@@ -127,6 +127,7 @@ export function createChatEventBridge(
       ...(info.summary !== undefined ? { summary: info.summary } : {}),
       ...(details.length > 0 ? { details } : {}),
       ...(task ? { task } : {}),
+      ...(info.planItems && info.planItems.length > 0 ? { plan: info.planItems } : {}),
     });
   };
 

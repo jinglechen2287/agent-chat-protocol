@@ -80,6 +80,11 @@ function codexFileChanges(input) {
 function toolCallDetails(info) {
 	const input = info.input;
 	const details = [];
+	for (const planItem of info.planItems ?? []) {
+		const status = displayStatus(planItem.status);
+		const item = status ? detail(status, planItem.text) : void 0;
+		if (item) details.push(item);
+	}
 	if (input) {
 		if (info.name === "Edit") details.push(...codexFileChanges(input));
 		const add = (label, value) => {
@@ -184,7 +189,8 @@ function createChatEventBridge(emit, options = {}) {
 			name: info.name,
 			...info.summary !== void 0 ? { summary: info.summary } : {},
 			...details.length > 0 ? { details } : {},
-			...task ? { task } : {}
+			...task ? { task } : {},
+			...info.planItems && info.planItems.length > 0 ? { plan: info.planItems } : {}
 		});
 	};
 	const withKnownTaskSubject = (info) => {

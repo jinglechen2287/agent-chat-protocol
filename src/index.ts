@@ -13,6 +13,7 @@ export {
   type AbortReason,
   type ChatStreamEvent,
   type ToolCallDetail,
+  type ToolPlanItem,
   type ToolTaskMetadata,
 } from "./events";
 

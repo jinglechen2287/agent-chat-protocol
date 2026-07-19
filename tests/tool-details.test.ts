@@ -73,6 +73,24 @@ describe("toolCallDetails", () => {
     ]);
   });
 
+  it("projects every Codex plan item with a readable status", () => {
+    expect(
+      toolCallDetails({
+        name: "TodoWrite",
+        summary: "1/3 steps completed",
+        planItems: [
+          { text: "Inspect repository", status: "completed" },
+          { text: "Implement support", status: "in_progress" },
+          { text: "Verify tests", status: "pending" },
+        ],
+      }),
+    ).toEqual([
+      { label: "Completed", value: "Inspect repository" },
+      { label: "In progress", value: "Implement support" },
+      { label: "Pending", value: "Verify tests" },
+    ]);
+  });
+
   it("expands Codex file_change batches on Edit", () => {
     expect(
       toolCallDetails({

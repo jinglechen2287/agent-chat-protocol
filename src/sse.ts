@@ -11,7 +11,12 @@
  * the contract; this module is one encoding of it.
  */
 
-import type { ChatStreamEvent, ToolCallDetail, ToolTaskMetadata } from "./events";
+import type {
+  ChatStreamEvent,
+  ToolCallDetail,
+  ToolPlanItem,
+  ToolTaskMetadata,
+} from "./events";
 import { validateControls } from "./controls";
 
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
@@ -94,12 +99,14 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const rawDetails = get("details");
       const details = isToolCallDetails(rawDetails) ? rawDetails : undefined;
       const task = toolTaskMetadata(get("task"));
+      const plan = toolPlanItems(get("plan"));
       return {
         type: "tool_use",
         name,
         ...(typeof summary === "string" ? { summary } : {}),
         ...(details ? { details } : {}),
         ...(task ? { task } : {}),
+        ...(plan ? { plan } : {}),
       };
     }
     case "question": {
@@ -164,6 +171,23 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     default:
       return null;
   }
+}
+
+function toolPlanItems(value: unknown): ToolPlanItem[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const items: ToolPlanItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return undefined;
+    const record = item as Record<string, unknown>;
+    if (
+      typeof record.text !== "string" || record.text.trim() === ""
+      || typeof record.status !== "string" || record.status.trim() === ""
+    ) {
+      return undefined;
+    }
+    items.push({ text: record.text, status: record.status });
+  }
+  return items;
 }
 
 function toolTaskMetadata(value: unknown): ToolTaskMetadata | undefined {

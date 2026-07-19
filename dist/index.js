@@ -65,12 +65,14 @@ function mapSseToChatEvent(ev) {
 			const rawDetails = get("details");
 			const details = isToolCallDetails(rawDetails) ? rawDetails : void 0;
 			const task = toolTaskMetadata(get("task"));
+			const plan = toolPlanItems(get("plan"));
 			return {
 				type: "tool_use",
 				name,
 				...typeof summary === "string" ? { summary } : {},
 				...details ? { details } : {},
-				...task ? { task } : {}
+				...task ? { task } : {},
+				...plan ? { plan } : {}
 			};
 		}
 		case "question": {
@@ -134,6 +136,20 @@ function mapSseToChatEvent(ev) {
 		}
 		default: return null;
 	}
+}
+function toolPlanItems(value) {
+	if (!Array.isArray(value) || value.length === 0) return void 0;
+	const items = [];
+	for (const item of value) {
+		if (!item || typeof item !== "object" || Array.isArray(item)) return void 0;
+		const record = item;
+		if (typeof record.text !== "string" || record.text.trim() === "" || typeof record.status !== "string" || record.status.trim() === "") return;
+		items.push({
+			text: record.text,
+			status: record.status
+		});
+	}
+	return items;
 }
 function toolTaskMetadata(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
