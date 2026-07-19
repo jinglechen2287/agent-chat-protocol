@@ -12,3 +12,9 @@ describe("tool-call documentation", () => {
     expect(readme).toContain("remain Layer 3 application concerns");
   });
 });
+
+describe("event documentation", () => {
+  it("lists every stream event in the client contract, including context_usage", () => {
+    expect(readme).toContain("**`context_usage`**");
+  });
+});

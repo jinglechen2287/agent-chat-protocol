@@ -206,6 +206,27 @@ describe("mapSseToChatEvent", () => {
     ).toBeNull();
   });
 
+  it("drops an empty or non-string model but keeps the event", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 100, model: "" },
+      }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 100, model: "   " },
+      }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+    expect(
+      mapSseToChatEvent({
+        event: "context_usage",
+        data: { contextTokens: 100, model: 42 },
+      }),
+    ).toEqual({ type: "context_usage", contextTokens: 100 });
+  });
+
   it("drops a non-positive or fractional contextWindow but keeps the event", () => {
     expect(
       mapSseToChatEvent({

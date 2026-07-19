@@ -98,7 +98,7 @@ function mapSseToChatEvent(ev) {
 				type: "context_usage",
 				contextTokens,
 				...Number.isSafeInteger(contextWindow) && contextWindow > 0 ? { contextWindow } : {},
-				...typeof model === "string" ? { model } : {}
+				...typeof model === "string" && model.trim() !== "" ? { model } : {}
 			};
 		}
 		case "stderr": {

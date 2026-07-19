@@ -187,11 +187,13 @@ type ChatStreamEvent =
  * more than once (each supersedes the last); clients render the latest as a
  * context meter. `contextWindow` is absent when the provider reported no
  * window and none could be resolved — show `contextTokens` without a
- * percentage in that case.
+ * percentage in that case. Counts are provider-reported and may be
+ * approximate; clamp the meter at 100% rather than treating overflow as an
+ * error.
  */
 {
   type: "context_usage";
-  /** Tokens occupying the context window as of the latest request. */
+  /** Tokens occupying the context window, per the provider's best report. */
   contextTokens: number;
   /** Total window size in tokens, when known. */
   contextWindow?: number;
@@ -227,4 +229,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { ParsedQuestionText as _, isTerminalEvent as a, ControlValues as c, SelectControl as d, SliderControl as f, valuesEqual as g, validateControls as h, ToolCallDetail as i, ControlsSpec as l, parseControlsBlock as m, ChatStreamEvent as n, ColorControl as o, initialControlValues as p, PROTOCOL_VERSION as r, Control as s, AbortReason as t, ParsedControlsText as u, QuestionSpec as v, parseQuestionBlock as y };
-//# sourceMappingURL=events-CwMSwgnb.d.ts.map
+//# sourceMappingURL=events-CXmHO5K8.d.ts.map

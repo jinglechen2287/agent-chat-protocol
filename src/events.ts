@@ -83,11 +83,13 @@ export type ChatStreamEvent =
    * more than once (each supersedes the last); clients render the latest as a
    * context meter. `contextWindow` is absent when the provider reported no
    * window and none could be resolved — show `contextTokens` without a
-   * percentage in that case.
+   * percentage in that case. Counts are provider-reported and may be
+   * approximate; clamp the meter at 100% rather than treating overflow as an
+   * error.
    */
   | {
       type: "context_usage";
-      /** Tokens occupying the context window as of the latest request. */
+      /** Tokens occupying the context window, per the provider's best report. */
       contextTokens: number;
       /** Total window size in tokens, when known. */
       contextWindow?: number;

@@ -130,7 +130,7 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
         ...(Number.isSafeInteger(contextWindow) && (contextWindow as number) > 0
           ? { contextWindow: contextWindow as number }
           : {}),
-        ...(typeof model === "string" ? { model } : {}),
+        ...(typeof model === "string" && model.trim() !== "" ? { model } : {}),
       };
     }
     case "stderr": {
