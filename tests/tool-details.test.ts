@@ -91,6 +91,24 @@ describe("toolCallDetails", () => {
     ]);
   });
 
+  it("projects Skill to the skill name and its arguments", () => {
+    expect(
+      toolCallDetails({
+        name: "Skill",
+        input: { skill: "code-review", args: "--base main" },
+      }),
+    ).toEqual([
+      { label: "Skill", value: "code-review" },
+      { label: "Arguments", value: "--base main" },
+    ]);
+  });
+
+  it("projects Skill with just the skill name when there are no arguments", () => {
+    expect(
+      toolCallDetails({ name: "Skill", input: { skill: "linear" } }),
+    ).toEqual([{ label: "Skill", value: "linear" }]);
+  });
+
   it("expands Codex file_change batches on Edit", () => {
     expect(
       toolCallDetails({

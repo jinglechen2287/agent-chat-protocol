@@ -27,6 +27,7 @@ function fallbackLabel(name) {
 		case "Agent":
 		case "TaskCreate":
 		case "TaskUpdate": return "Task";
+		case "Skill": return "Skill";
 		default: return "Details";
 	}
 }
@@ -129,6 +130,10 @@ function toolCallDetails(info) {
 				add("Task", input.subject);
 				add("Task ID", input.taskId);
 				add("Status", displayStatus(input.status));
+				break;
+			case "Skill":
+				add("Skill", input.skill);
+				add("Arguments", input.args);
 				break;
 		}
 	}
