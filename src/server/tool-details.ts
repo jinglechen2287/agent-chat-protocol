@@ -125,6 +125,7 @@ export function toolCallDetails(info: ToolUseInfo): ToolCallDetail[] {
     switch (info.name) {
       case "Bash":
         add("Command", input.command);
+        add("Description", input.description);
         break;
       case "Read":
       case "Edit":
@@ -142,6 +143,7 @@ export function toolCallDetails(info: ToolUseInfo): ToolCallDetail[] {
         break;
       case "WebFetch":
         add("URL", input.url);
+        add("Prompt", input.prompt);
         break;
       case "WebSearch":
         add("Query", input.query);
@@ -149,6 +151,7 @@ export function toolCallDetails(info: ToolUseInfo): ToolCallDetail[] {
       case "Task":
       case "Agent":
         add("Task", input.description);
+        add("Agent", input.subagent_type);
         break;
       case "TaskCreate":
         add("Task", input.subject);

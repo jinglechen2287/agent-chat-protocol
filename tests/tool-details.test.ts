@@ -34,6 +34,44 @@ describe("toolCallDetails", () => {
     ).toEqual([{ label: "Query", value: "how" }]);
   });
 
+  it("projects WebFetch's extraction prompt alongside the URL", () => {
+    expect(
+      toolCallDetails({
+        name: "WebFetch",
+        input: { url: "https://x.test", prompt: "Summarize the changelog" },
+      }),
+    ).toEqual([
+      { label: "URL", value: "https://x.test" },
+      { label: "Prompt", value: "Summarize the changelog" },
+    ]);
+  });
+
+  it("projects Bash's human description alongside the command", () => {
+    expect(
+      toolCallDetails({
+        name: "Bash",
+        input: { command: "bun test", description: "Run the test suite" },
+      }),
+    ).toEqual([
+      { label: "Command", value: "bun test" },
+      { label: "Description", value: "Run the test suite" },
+    ]);
+  });
+
+  it("projects the launched subagent type for Task and Agent", () => {
+    for (const name of ["Task", "Agent"]) {
+      expect(
+        toolCallDetails({
+          name,
+          input: { description: "Map the plumbing", subagent_type: "Explore" },
+        }),
+      ).toEqual([
+        { label: "Task", value: "Map the plumbing" },
+        { label: "Agent", value: "Explore" },
+      ]);
+    }
+  });
+
   it("projects task creation metadata", () => {
     expect(
       toolCallDetails({
