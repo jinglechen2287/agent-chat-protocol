@@ -1,5 +1,5 @@
 /**
- * The runner→events bridge: adapts agent-cli-runner's four callbacks into the
+ * The runner→events bridge: adapts agent-cli-runner callbacks into the
  * typed {@link ChatStreamEvent} stream, applying the emit-side grammar
  * (question/controls block extraction) on the way through.
  *
@@ -16,7 +16,12 @@
  *   }
  */
 
-import type { AgentCallbacks, TokenUsage, ToolUseInfo } from "agent-cli-runner";
+import type {
+  AgentCallbacks,
+  TokenUsage,
+  ToolResultInfo,
+  ToolUseInfo,
+} from "agent-cli-runner";
 import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
 import { parseQuestionBlock } from "../question";
 import {
@@ -24,7 +29,7 @@ import {
   validateControls,
   type ControlsSpec,
 } from "../controls";
-import { toolCallDetails } from "./tool-details";
+import { toolCallDetails, toolTaskMetadata } from "./tool-details";
 
 export interface ChatEventBridgeOptions {
   /**
@@ -51,7 +56,7 @@ export interface ChatEventBridgeOptions {
 }
 
 export interface ChatEventBridge {
-  /** Wire these into the runner's run options (all four callbacks). */
+  /** Wire these into the runner's run options. */
   callbacks: Required<AgentCallbacks>;
   /** Call with the runner's result to emit the terminal `done` event. */
   finish(result: { exitCode: number }): void;
@@ -66,6 +71,8 @@ export function createChatEventBridge(
 ): ChatEventBridge {
   let announcedSessionId = options.knownSessionId;
   let terminal = false;
+  const pendingTaskCreates = new Map<string, ToolUseInfo>();
+  const taskSubjects = new Map<string, string>();
 
   const announceSession = (sessionId: string): void => {
     if (sessionId === announcedSessionId) return;
@@ -110,14 +117,65 @@ export function createChatEventBridge(
     }
   };
 
-  const onToolUse = (info: ToolUseInfo): void => {
+  const emitToolUse = (info: ToolUseInfo): void => {
     const details = toolCallDetails(info);
+    const task = toolTaskMetadata(info);
+    if (task?.id && task.subject) taskSubjects.set(task.id, task.subject);
     emit({
       type: "tool_use",
       name: info.name,
       ...(info.summary !== undefined ? { summary: info.summary } : {}),
       ...(details.length > 0 ? { details } : {}),
+      ...(task ? { task } : {}),
     });
+  };
+
+  const withKnownTaskSubject = (info: ToolUseInfo): ToolUseInfo => {
+    if (info.name !== "TaskUpdate" || !info.input) return info;
+    const taskId = typeof info.input.taskId === "string" ? info.input.taskId.trim() : "";
+    const subject = taskSubjects.get(taskId);
+    return subject
+      ? { ...info, input: { ...info.input, subject } }
+      : info;
+  };
+
+  const onToolUse = (info: ToolUseInfo): void => {
+    if (info.name === "TaskCreate" && info.callId) {
+      pendingTaskCreates.set(info.callId, info);
+      return;
+    }
+    emitToolUse(withKnownTaskSubject(info));
+  };
+
+  const resultText = (content: unknown): string | undefined => {
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return undefined;
+    const parts = content.flatMap((block) => {
+      if (!block || typeof block !== "object" || Array.isArray(block)) return [];
+      const value = (block as Record<string, unknown>).text;
+      return typeof value === "string" ? [value] : [];
+    });
+    return parts.length > 0 ? parts.join("\n") : undefined;
+  };
+
+  const taskIdFromResult = (result: ToolResultInfo): string | undefined => {
+    if (result.isError) return undefined;
+    return resultText(result.content)?.match(/Task #([^\s:]+) created successfully/)?.[1];
+  };
+
+  const onToolResult = (result: ToolResultInfo): void => {
+    const pending = pendingTaskCreates.get(result.callId);
+    if (!pending) return;
+    pendingTaskCreates.delete(result.callId);
+    const taskId = taskIdFromResult(result);
+    emitToolUse(taskId
+      ? { ...pending, input: { ...pending.input, taskId } }
+      : pending);
+  };
+
+  const flushPendingTaskCreates = (): void => {
+    for (const pending of pendingTaskCreates.values()) emitToolUse(pending);
+    pendingTaskCreates.clear();
   };
 
   const onStderr = (chunk: string): void => {
@@ -134,11 +192,20 @@ export function createChatEventBridge(
   };
 
   return {
-    callbacks: { onSessionId, onAssistantText, onToolUse, onStderr, onUsage },
+    callbacks: {
+      onSessionId,
+      onAssistantText,
+      onToolUse,
+      onToolResult,
+      onStderr,
+      onUsage,
+    },
     finish(result: { exitCode: number }): void {
+      flushPendingTaskCreates();
       emitTerminal({ type: "done", exitCode: result.exitCode });
     },
     fail(err: unknown): void {
+      flushPendingTaskCreates();
       const name = (err as { name?: string } | null)?.name;
       if (name === "AbortError") {
         emitTerminal({ type: "aborted", reason: "user" });

@@ -6,7 +6,7 @@
  */
 
 import type { ToolUseInfo } from "agent-cli-runner";
-import type { ToolCallDetail } from "../events";
+import type { ToolCallDetail, ToolTaskMetadata } from "../events";
 
 function text(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -39,10 +39,33 @@ function fallbackLabel(name: string): string {
       return "Query";
     case "Task":
     case "Agent":
+    case "TaskCreate":
+    case "TaskUpdate":
       return "Task";
     default:
       return "Details";
   }
+}
+
+function displayStatus(value: unknown): string | undefined {
+  const status = text(value)?.replace(/_/g, " ");
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : undefined;
+}
+
+/** Extracts the stable task identity that clients use to correlate task calls. */
+export function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefined {
+  if (info.name !== "TaskCreate" && info.name !== "TaskUpdate") return undefined;
+  const input = info.input;
+  if (!input) return undefined;
+  const id = text(input.taskId);
+  const subject = text(input.subject);
+  const status = text(input.status);
+  const task = {
+    ...(id ? { id } : {}),
+    ...(subject ? { subject } : {}),
+    ...(status ? { status } : {}),
+  };
+  return Object.keys(task).length > 0 ? task : undefined;
 }
 
 function fileChangeLabel(kind: unknown): string {
@@ -118,6 +141,17 @@ export function toolCallDetails(info: ToolUseInfo): ToolCallDetail[] {
       case "Task":
       case "Agent":
         add("Task", input.description);
+        break;
+      case "TaskCreate":
+        add("Task", input.subject);
+        add("Task ID", input.taskId);
+        add("Description", input.description);
+        add("Active form", input.activeForm);
+        break;
+      case "TaskUpdate":
+        add("Task", input.subject);
+        add("Task ID", input.taskId);
+        add("Status", displayStatus(input.status));
         break;
     }
   }

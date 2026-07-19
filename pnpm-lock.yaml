@@ -13,7 +13,7 @@ importers:
         version: 22.20.1
       agent-cli-runner:
         specifier: github:jinglechen2287/agent-cli-runner
-        version: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/5311b285d15c7f651d509eb0a1a39b3fac47ad58
+        version: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52
       tsdown:
         specifier: ^0.22.9
         version: 0.22.9(typescript@5.9.3)
@@ -593,8 +593,8 @@ packages:
   '@yuku-toolchain/types@0.6.8':
     resolution: {integrity: sha512-AbUd1775RVkOxJkh8hkldIWoU6kRMTCsZFSZq8Ny53q7GkbaVe5UCfleNZ3RWCoz/ZKE8qwfeB7Cj0xqhLWsKA==}
 
-  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/5311b285d15c7f651d509eb0a1a39b3fac47ad58:
-    resolution: {tarball: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/5311b285d15c7f651d509eb0a1a39b3fac47ad58}
+  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52:
+    resolution: {tarball: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52}
     version: 0.1.0
     engines: {node: '>=18'}
 
@@ -1287,7 +1287,7 @@ snapshots:
 
   '@yuku-toolchain/types@0.6.8': {}
 
-  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/5311b285d15c7f651d509eb0a1a39b3fac47ad58: {}
+  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52: {}
 
   ansis@4.3.1: {}
 

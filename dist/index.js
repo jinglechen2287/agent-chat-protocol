@@ -64,11 +64,13 @@ function mapSseToChatEvent(ev) {
 			const summary = get("summary");
 			const rawDetails = get("details");
 			const details = isToolCallDetails(rawDetails) ? rawDetails : void 0;
+			const task = toolTaskMetadata(get("task"));
 			return {
 				type: "tool_use",
 				name,
 				...typeof summary === "string" ? { summary } : {},
-				...details ? { details } : {}
+				...details ? { details } : {},
+				...task ? { task } : {}
 			};
 		}
 		case "question": {
@@ -132,6 +134,23 @@ function mapSseToChatEvent(ev) {
 		}
 		default: return null;
 	}
+}
+function toolTaskMetadata(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
+	const record = value;
+	const field = (key) => {
+		const candidate = record[key];
+		return typeof candidate === "string" && candidate.trim() !== "" ? candidate : void 0;
+	};
+	const id = field("id");
+	const subject = field("subject");
+	const status = field("status");
+	const task = {
+		...id ? { id } : {},
+		...subject ? { subject } : {},
+		...status ? { status } : {}
+	};
+	return Object.keys(task).length > 0 ? task : void 0;
 }
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
 * the SSE event name; the rest becomes the data payload. The `controls` spec

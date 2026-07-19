@@ -11,7 +11,7 @@
  * the contract; this module is one encoding of it.
  */
 
-import type { ChatStreamEvent, ToolCallDetail } from "./events";
+import type { ChatStreamEvent, ToolCallDetail, ToolTaskMetadata } from "./events";
 import { validateControls } from "./controls";
 
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
@@ -93,11 +93,13 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const summary = get("summary");
       const rawDetails = get("details");
       const details = isToolCallDetails(rawDetails) ? rawDetails : undefined;
+      const task = toolTaskMetadata(get("task"));
       return {
         type: "tool_use",
         name,
         ...(typeof summary === "string" ? { summary } : {}),
         ...(details ? { details } : {}),
+        ...(task ? { task } : {}),
       };
     }
     case "question": {
@@ -162,6 +164,26 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     default:
       return null;
   }
+}
+
+function toolTaskMetadata(value: unknown): ToolTaskMetadata | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const field = (key: string): string | undefined => {
+    const candidate = record[key];
+    return typeof candidate === "string" && candidate.trim() !== ""
+      ? candidate
+      : undefined;
+  };
+  const id = field("id");
+  const subject = field("subject");
+  const status = field("status");
+  const task = {
+    ...(id ? { id } : {}),
+    ...(subject ? { subject } : {}),
+    ...(status ? { status } : {}),
+  };
+  return Object.keys(task).length > 0 ? task : undefined;
 }
 
 /** Converts a typed event into its wire frame: the `type` discriminant becomes

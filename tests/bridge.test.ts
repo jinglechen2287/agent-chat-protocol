@@ -132,6 +132,98 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([{ type: "tool_use", name: "Mystery" }]);
   });
 
+  it("waits for a TaskCreate result and emits its assigned id", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onToolUse?.({
+      callId: "create-1",
+      name: "TaskCreate",
+      summary: "Ship task indicators",
+      input: {
+        subject: "Ship task indicators",
+        description: "Show useful task details.",
+        activeForm: "Shipping task indicators",
+      },
+    });
+    expect(events).toEqual([]);
+
+    bridge.callbacks.onToolResult?.({
+      callId: "create-1",
+      content: "Task #7 created successfully: Ship task indicators",
+      isError: false,
+    });
+
+    expect(events).toEqual([
+      {
+        type: "tool_use",
+        name: "TaskCreate",
+        summary: "Ship task indicators",
+        task: { id: "7", subject: "Ship task indicators" },
+        details: [
+          { label: "Task", value: "Ship task indicators" },
+          { label: "Task ID", value: "7" },
+          { label: "Description", value: "Show useful task details." },
+          { label: "Active form", value: "Shipping task indicators" },
+        ],
+      },
+    ]);
+  });
+
+  it("includes the known task subject on later TaskUpdate events", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onToolUse?.({
+      callId: "create-1",
+      name: "TaskCreate",
+      summary: "Ship task indicators",
+      input: { subject: "Ship task indicators" },
+    });
+    bridge.callbacks.onToolResult?.({
+      callId: "create-1",
+      content: "Task #7 created successfully: Ship task indicators",
+    });
+    bridge.callbacks.onToolUse?.({
+      callId: "update-1",
+      name: "TaskUpdate",
+      summary: "Task #7 · in progress",
+      input: { taskId: "7", status: "in_progress" },
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: "tool_use",
+      name: "TaskUpdate",
+      summary: "Task #7 · in progress",
+      task: { id: "7", subject: "Ship task indicators", status: "in_progress" },
+      details: [
+        { label: "Task", value: "Ship task indicators" },
+        { label: "Task ID", value: "7" },
+        { label: "Status", value: "In progress" },
+      ],
+    });
+  });
+
+  it("flushes TaskCreate without an id before the terminal event when no result arrives", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onToolUse?.({
+      callId: "create-1",
+      name: "TaskCreate",
+      summary: "Ship task indicators",
+      input: { subject: "Ship task indicators" },
+    });
+    bridge.finish({ exitCode: 0 });
+    expect(events).toEqual([
+      {
+        type: "tool_use",
+        name: "TaskCreate",
+        summary: "Ship task indicators",
+        task: { subject: "Ship task indicators" },
+        details: [{ label: "Task", value: "Ship task indicators" }],
+      },
+      { type: "done", exitCode: 0 },
+    ]);
+  });
+
   it("forwards a usage snapshot as context_usage, dropping absent fields", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

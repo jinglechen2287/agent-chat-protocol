@@ -24,9 +24,30 @@ function fallbackLabel(name) {
 		case "WebFetch": return "URL";
 		case "WebSearch": return "Query";
 		case "Task":
-		case "Agent": return "Task";
+		case "Agent":
+		case "TaskCreate":
+		case "TaskUpdate": return "Task";
 		default: return "Details";
 	}
+}
+function displayStatus(value) {
+	const status = text(value)?.replace(/_/g, " ");
+	return status ? status.charAt(0).toUpperCase() + status.slice(1) : void 0;
+}
+/** Extracts the stable task identity that clients use to correlate task calls. */
+function toolTaskMetadata(info) {
+	if (info.name !== "TaskCreate" && info.name !== "TaskUpdate") return void 0;
+	const input = info.input;
+	if (!input) return void 0;
+	const id = text(input.taskId);
+	const subject = text(input.subject);
+	const status = text(input.status);
+	const task = {
+		...id ? { id } : {},
+		...subject ? { subject } : {},
+		...status ? { status } : {}
+	};
+	return Object.keys(task).length > 0 ? task : void 0;
 }
 function fileChangeLabel(kind) {
 	switch (kind) {
@@ -93,6 +114,17 @@ function toolCallDetails(info) {
 			case "Agent":
 				add("Task", input.description);
 				break;
+			case "TaskCreate":
+				add("Task", input.subject);
+				add("Task ID", input.taskId);
+				add("Description", input.description);
+				add("Active form", input.activeForm);
+				break;
+			case "TaskUpdate":
+				add("Task", input.subject);
+				add("Task ID", input.taskId);
+				add("Status", displayStatus(input.status));
+				break;
 		}
 	}
 	if (details.length === 0) {
@@ -106,6 +138,8 @@ function toolCallDetails(info) {
 function createChatEventBridge(emit, options = {}) {
 	let announcedSessionId = options.knownSessionId;
 	let terminal = false;
+	const pendingTaskCreates = /* @__PURE__ */ new Map();
+	const taskSubjects = /* @__PURE__ */ new Map();
 	const announceSession = (sessionId) => {
 		if (sessionId === announcedSessionId) return;
 		announcedSessionId = sessionId;
@@ -141,14 +175,67 @@ function createChatEventBridge(emit, options = {}) {
 			spec: parsedControls.controls
 		});
 	};
-	const onToolUse = (info) => {
+	const emitToolUse = (info) => {
 		const details = toolCallDetails(info);
+		const task = toolTaskMetadata(info);
+		if (task?.id && task.subject) taskSubjects.set(task.id, task.subject);
 		emit({
 			type: "tool_use",
 			name: info.name,
 			...info.summary !== void 0 ? { summary: info.summary } : {},
-			...details.length > 0 ? { details } : {}
+			...details.length > 0 ? { details } : {},
+			...task ? { task } : {}
 		});
+	};
+	const withKnownTaskSubject = (info) => {
+		if (info.name !== "TaskUpdate" || !info.input) return info;
+		const taskId = typeof info.input.taskId === "string" ? info.input.taskId.trim() : "";
+		const subject = taskSubjects.get(taskId);
+		return subject ? {
+			...info,
+			input: {
+				...info.input,
+				subject
+			}
+		} : info;
+	};
+	const onToolUse = (info) => {
+		if (info.name === "TaskCreate" && info.callId) {
+			pendingTaskCreates.set(info.callId, info);
+			return;
+		}
+		emitToolUse(withKnownTaskSubject(info));
+	};
+	const resultText = (content) => {
+		if (typeof content === "string") return content;
+		if (!Array.isArray(content)) return void 0;
+		const parts = content.flatMap((block) => {
+			if (!block || typeof block !== "object" || Array.isArray(block)) return [];
+			const value = block.text;
+			return typeof value === "string" ? [value] : [];
+		});
+		return parts.length > 0 ? parts.join("\n") : void 0;
+	};
+	const taskIdFromResult = (result) => {
+		if (result.isError) return void 0;
+		return resultText(result.content)?.match(/Task #([^\s:]+) created successfully/)?.[1];
+	};
+	const onToolResult = (result) => {
+		const pending = pendingTaskCreates.get(result.callId);
+		if (!pending) return;
+		pendingTaskCreates.delete(result.callId);
+		const taskId = taskIdFromResult(result);
+		emitToolUse(taskId ? {
+			...pending,
+			input: {
+				...pending.input,
+				taskId
+			}
+		} : pending);
+	};
+	const flushPendingTaskCreates = () => {
+		for (const pending of pendingTaskCreates.values()) emitToolUse(pending);
+		pendingTaskCreates.clear();
 	};
 	const onStderr = (chunk) => {
 		emit({
@@ -169,16 +256,19 @@ function createChatEventBridge(emit, options = {}) {
 			onSessionId,
 			onAssistantText,
 			onToolUse,
+			onToolResult,
 			onStderr,
 			onUsage
 		},
 		finish(result) {
+			flushPendingTaskCreates();
 			emitTerminal({
 				type: "done",
 				exitCode: result.exitCode
 			});
 		},
 		fail(err) {
+			flushPendingTaskCreates();
 			const name = err?.name;
 			if (name === "AbortError") emitTerminal({
 				type: "aborted",
@@ -257,6 +347,6 @@ function createTaskStore(options = {}) {
 	};
 }
 //#endregion
-export { createChatEventBridge, createTaskStore, toolCallDetails };
+export { createChatEventBridge, createTaskStore, toolCallDetails, toolTaskMetadata };
 
 //# sourceMappingURL=index.js.map

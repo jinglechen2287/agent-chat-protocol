@@ -23,6 +23,14 @@ export interface ToolCallDetail {
   value: string;
 }
 
+/** Provider-normalized task identity carried by task-management tool calls.
+ * It lets clients correlate a later TaskUpdate with its earlier TaskCreate. */
+export interface ToolTaskMetadata {
+  id?: string;
+  subject?: string;
+  status?: string;
+}
+
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 export type AbortReason = "user" | "timeout";
@@ -60,6 +68,7 @@ export type ChatStreamEvent =
       name: string;
       summary?: string;
       details?: ToolCallDetail[];
+      task?: ToolTaskMetadata;
     }
   /**
    * A structured clarifying question. Clients MUST render the options as

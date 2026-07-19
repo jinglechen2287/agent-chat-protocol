@@ -34,6 +34,45 @@ describe("toolCallDetails", () => {
     ).toEqual([{ label: "Query", value: "how" }]);
   });
 
+  it("projects task creation metadata", () => {
+    expect(
+      toolCallDetails({
+        name: "TaskCreate",
+        input: {
+          taskId: "7",
+          subject: "Ship task indicators",
+          description: "Show the task subject and status in the transcript.",
+          activeForm: "Shipping task indicators",
+        },
+      }),
+    ).toEqual([
+      { label: "Task", value: "Ship task indicators" },
+      { label: "Task ID", value: "7" },
+      {
+        label: "Description",
+        value: "Show the task subject and status in the transcript.",
+      },
+      { label: "Active form", value: "Shipping task indicators" },
+    ]);
+  });
+
+  it("projects task update metadata", () => {
+    expect(
+      toolCallDetails({
+        name: "TaskUpdate",
+        input: {
+          taskId: "7",
+          subject: "Ship task indicators",
+          status: "in_progress",
+        },
+      }),
+    ).toEqual([
+      { label: "Task", value: "Ship task indicators" },
+      { label: "Task ID", value: "7" },
+      { label: "Status", value: "In progress" },
+    ]);
+  });
+
   it("expands Codex file_change batches on Edit", () => {
     expect(
       toolCallDetails({

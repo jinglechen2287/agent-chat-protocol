@@ -118,6 +118,13 @@ interface ToolCallDetail {
   label: string;
   value: string;
 }
+/** Provider-normalized task identity carried by task-management tool calls.
+ * It lets clients correlate a later TaskUpdate with its earlier TaskCreate. */
+interface ToolTaskMetadata {
+  id?: string;
+  subject?: string;
+  status?: string;
+}
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 type AbortReason = "user" | "timeout";
@@ -157,6 +164,7 @@ type ChatStreamEvent =
   name: string;
   summary?: string;
   details?: ToolCallDetail[];
+  task?: ToolTaskMetadata;
 } |
 /**
  * A structured clarifying question. Clients MUST render the options as
@@ -228,5 +236,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { ParsedQuestionText as _, isTerminalEvent as a, ControlValues as c, SelectControl as d, SliderControl as f, valuesEqual as g, validateControls as h, ToolCallDetail as i, ControlsSpec as l, parseControlsBlock as m, ChatStreamEvent as n, ColorControl as o, initialControlValues as p, PROTOCOL_VERSION as r, Control as s, AbortReason as t, ParsedControlsText as u, QuestionSpec as v, parseQuestionBlock as y };
-//# sourceMappingURL=events-CXmHO5K8.d.ts.map
+export { valuesEqual as _, ToolTaskMetadata as a, parseQuestionBlock as b, Control as c, ParsedControlsText as d, SelectControl as f, validateControls as g, parseControlsBlock as h, ToolCallDetail as i, ControlValues as l, initialControlValues as m, ChatStreamEvent as n, isTerminalEvent as o, SliderControl as p, PROTOCOL_VERSION as r, ColorControl as s, AbortReason as t, ControlsSpec as u, ParsedQuestionText as v, QuestionSpec as y };
+//# sourceMappingURL=events-DkZq91gp.d.ts.map

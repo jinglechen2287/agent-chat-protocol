@@ -32,7 +32,7 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | --- | --- | --- |
 | `session_started` | `sessionId`, `protocolVersion?` | |
 | `assistant_text` | `text` | |
-| `tool_use` | `name`, `summary?`, `details?: {label, value}[]` | |
+| `tool_use` | `name`, `summary?`, `details?: {label, value}[]`, `task?` | `task` correlates task-management calls by ID. |
 | `question` | `question`, `options: string[]` | |
 | `controls` | `spec: ControlsSpec` | |
 | `stderr` | `chunk` | |
@@ -48,7 +48,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 
 - **`session_started`** — persist `sessionId` and send it with the next turn request to continue the conversation. A second occurrence with a different id supersedes the first. Not emitted on resumed turns (the client already holds the id it resumed with).
 - **`assistant_text`** — render as sanitized GitHub-flavored markdown. Multiple occurrences are separate messages in order, not fragments to concatenate.
-- **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is an optional concise description and `details` are optional curated label/value metadata. A client MUST preserve every event and its stream order. No tool output is carried — this traces what ran, not results.
+- **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is an optional concise description and `details` are optional curated label/value metadata. Task-management calls may also carry `task: { id?, subject?, status? }`, allowing clients to resolve a later update to the earlier task subject. A client MUST preserve every event and its stream order. No tool output is carried — this traces what ran, not results.
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.

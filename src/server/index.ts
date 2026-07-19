@@ -20,4 +20,4 @@ export {
   type TurnTask,
 } from "./task-store";
 
-export { toolCallDetails } from "./tool-details";
+export { toolCallDetails, toolTaskMetadata } from "./tool-details";

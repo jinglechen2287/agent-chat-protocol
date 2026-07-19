@@ -115,6 +115,22 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
+  it("maps optional task metadata on tool_use", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "tool_use",
+        data: {
+          name: "TaskUpdate",
+          task: { id: "7", subject: "Ship task indicators", status: "completed" },
+        },
+      }),
+    ).toEqual({
+      type: "tool_use",
+      name: "TaskUpdate",
+      task: { id: "7", subject: "Ship task indicators", status: "completed" },
+    });
+  });
+
   it("preserves empty tool_use details arrays", () => {
     expect(
       mapSseToChatEvent({ event: "tool_use", data: { name: "Bash", details: [] } }),

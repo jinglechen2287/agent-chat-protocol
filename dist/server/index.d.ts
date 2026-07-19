@@ -1,4 +1,4 @@
-import { i as ToolCallDetail, l as ControlsSpec, n as ChatStreamEvent } from "../events-CXmHO5K8.js";
+import { a as ToolTaskMetadata, i as ToolCallDetail, n as ChatStreamEvent, u as ControlsSpec } from "../events-DkZq91gp.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -25,7 +25,7 @@ interface ChatEventBridgeOptions {
   controlsValidator?: (value: unknown) => ControlsSpec | null;
 }
 interface ChatEventBridge {
-  /** Wire these into the runner's run options (all four callbacks). */
+  /** Wire these into the runner's run options. */
   callbacks: Required<AgentCallbacks>;
   /** Call with the runner's result to emit the terminal `done` event. */
   finish(result: {
@@ -74,11 +74,13 @@ interface TaskStore {
 declare function createTaskStore(options?: TaskStoreOptions): TaskStore;
 //#endregion
 //#region src/server/tool-details.d.ts
+/** Extracts the stable task identity that clients use to correlate task calls. */
+declare function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefined;
 /**
  * Reduce provider-specific raw tool input to the useful values the transcript
  * should retain.
  */
 declare function toolCallDetails(info: ToolUseInfo): ToolCallDetail[];
 //#endregion
-export { type ChatEventBridge, type ChatEventBridgeOptions, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createTaskStore, toolCallDetails };
+export { type ChatEventBridge, type ChatEventBridgeOptions, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createTaskStore, toolCallDetails, toolTaskMetadata };
 //# sourceMappingURL=index.d.ts.map
