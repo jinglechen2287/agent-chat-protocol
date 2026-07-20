@@ -3,7 +3,7 @@
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -228,4 +228,4 @@ function parseBlockBody(body) {
 //#endregion
 export { valuesEqual as a, validateControls as i, initialControlValues as n, PROTOCOL_VERSION as o, parseControlsBlock as r, isTerminalEvent as s, parseQuestionBlock as t };
 
-//# sourceMappingURL=question-Da5kVhU_.js.map
+//# sourceMappingURL=question-Dd1pNNW2.js.map

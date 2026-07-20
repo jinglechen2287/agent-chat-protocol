@@ -21,3 +21,18 @@ export {
 } from "./task-store";
 
 export { toolCallDetails, toolTaskMetadata } from "./tool-details";
+
+export {
+  CHAT_TITLE_MODELS,
+  createChatTitleGenerator,
+  fallbackChatTitle,
+  normalizeChatTitle,
+  type ChatTitleGeneratorOptions,
+  type ChatTitleInput,
+  type ChatTitleProvider,
+  type ChatTitleResult,
+  type ChatTitleRunner,
+  type ChatTitleRunRequest,
+  type ChatTitleRunResult,
+  type ChatTitleSource,
+} from "./title";

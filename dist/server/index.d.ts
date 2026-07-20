@@ -1,4 +1,4 @@
-import { d as ControlsSpec, i as ToolCallDetail, n as ChatStreamEvent, o as ToolTaskMetadata } from "../events-DgP9dX9B.js";
+import { d as ControlsSpec, i as ToolCallDetail, n as ChatStreamEvent, o as ToolTaskMetadata } from "../events-locKqm0o.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -82,5 +82,51 @@ declare function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefin
  */
 declare function toolCallDetails(info: ToolUseInfo): ToolCallDetail[];
 //#endregion
-export { type ChatEventBridge, type ChatEventBridgeOptions, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createTaskStore, toolCallDetails, toolTaskMetadata };
+//#region src/server/title.d.ts
+declare const CHAT_TITLE_MODELS: {
+  readonly claude: "haiku";
+  readonly codex: "gpt-5.6-luna";
+};
+type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;
+type ChatTitleSource = "model" | "fallback";
+interface ChatTitleInput {
+  provider: ChatTitleProvider;
+  prompt: string;
+  /** Existing generated title. The model should preserve it unless the main
+   * task has materially changed. Omit for a chat's first user request. */
+  currentTitle?: string;
+  /** Earlier user requests, oldest first. Callers should pass only the most
+   * recent few messages needed to identify topic drift. */
+  previousPrompts?: readonly string[];
+  attachmentNames?: readonly string[];
+  signal?: AbortSignal;
+}
+interface ChatTitleRunRequest {
+  provider: ChatTitleProvider;
+  prompt: string;
+  model: string;
+  effort: "low";
+  isolated: true;
+  timeoutMs: number;
+  signal?: AbortSignal;
+}
+interface ChatTitleRunResult {
+  text: string;
+  exitCode: number;
+}
+type ChatTitleRunner = (request: ChatTitleRunRequest) => Promise<ChatTitleRunResult>;
+interface ChatTitleResult {
+  title: string;
+  source: ChatTitleSource;
+}
+interface ChatTitleGeneratorOptions {
+  run: ChatTitleRunner;
+  timeoutMs?: number;
+  maxInputChars?: number;
+}
+declare function normalizeChatTitle(raw: string): string | undefined;
+declare function fallbackChatTitle(prompt: string, attachmentNames?: readonly string[]): string;
+declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
+//#endregion
+export { CHAT_TITLE_MODELS, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, toolCallDetails, toolTaskMetadata };
 //# sourceMappingURL=index.d.ts.map

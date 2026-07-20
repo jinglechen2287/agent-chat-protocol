@@ -1,4 +1,4 @@
-import { a as valuesEqual, i as validateControls, n as initialControlValues, o as PROTOCOL_VERSION, r as parseControlsBlock, s as isTerminalEvent, t as parseQuestionBlock } from "./question-Da5kVhU_.js";
+import { a as valuesEqual, i as validateControls, n as initialControlValues, o as PROTOCOL_VERSION, r as parseControlsBlock, s as isTerminalEvent, t as parseQuestionBlock } from "./question-Dd1pNNW2.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -104,6 +104,13 @@ function mapSseToChatEvent(ev) {
 				...Number.isSafeInteger(contextWindow) && contextWindow > 0 ? { contextWindow } : {},
 				...typeof model === "string" && model.trim() !== "" ? { model } : {}
 			};
+		}
+		case "thread_title": {
+			const title = get("title");
+			return typeof title === "string" && title.trim() !== "" ? {
+				type: "thread_title",
+				title
+			} : null;
 		}
 		case "stderr": {
 			const chunk = get("chunk");

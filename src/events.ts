@@ -14,7 +14,7 @@ import type { ControlsSpec } from "./controls";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -112,6 +112,13 @@ export type ChatStreamEvent =
       /** Model that produced the usage, when known. */
       model?: string;
     }
+  /**
+   * The canonical title for the chat containing this turn. Non-terminal and
+   * emitted when an asynchronous title generator replaces the app's immediate
+   * fallback. Clients MUST update the chat/thread title without adding a
+   * transcript message.
+   */
+  | { type: "thread_title"; title: string }
   /**
    * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
    * or surface it in a collapsed log. Never render it as assistant prose.

@@ -111,7 +111,7 @@ declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, val
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 1;
+declare const PROTOCOL_VERSION = 2;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -215,6 +215,16 @@ type ChatStreamEvent =
   model?: string;
 } |
 /**
+ * The canonical title for the chat containing this turn. Non-terminal and
+ * emitted when an asynchronous title generator replaces the app's immediate
+ * fallback. Clients MUST update the chat/thread title without adding a
+ * transcript message.
+ */
+{
+  type: "thread_title";
+  title: string;
+} |
+/**
  * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
  * or surface it in a collapsed log. Never render it as assistant prose.
  */
@@ -243,4 +253,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { validateControls as _, ToolPlanItem as a, QuestionSpec as b, ColorControl as c, ControlsSpec as d, ParsedControlsText as f, parseControlsBlock as g, initialControlValues as h, ToolCallDetail as i, Control as l, SliderControl as m, ChatStreamEvent as n, ToolTaskMetadata as o, SelectControl as p, PROTOCOL_VERSION as r, isTerminalEvent as s, AbortReason as t, ControlValues as u, valuesEqual as v, parseQuestionBlock as x, ParsedQuestionText as y };
-//# sourceMappingURL=events-DgP9dX9B.d.ts.map
+//# sourceMappingURL=events-locKqm0o.d.ts.map

@@ -14,7 +14,9 @@ describe("tool-call documentation", () => {
 });
 
 describe("event documentation", () => {
-  it("lists every stream event in the client contract, including context_usage", () => {
+  it("lists every stream event in the client contract, including metadata events", () => {
     expect(readme).toContain("**`context_usage`**");
+    expect(readme).toContain("**`thread_title`**");
+    expect(readme).toContain("createChatTitleGenerator");
   });
 });

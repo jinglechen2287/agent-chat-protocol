@@ -22,11 +22,11 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 `dist/` is committed, so a `github:` install is build-free. Two entry points:
 
 - `agent-chat-protocol` — **client-safe**: event types, SSE codec, question/controls parsers + validators, prompt sections. No Node-only imports; safe in browser bundles.
-- `agent-chat-protocol/server` — **server-only glue**: the runner→events bridge, the reattachable turn store, the tool-detail projection. Peer-depends on `agent-cli-runner`.
+- `agent-chat-protocol/server` — **server-only glue**: the runner→events bridge, the reattachable turn store, tool-detail projection, and opt-in chat-title orchestration. Peer-depends on `agent-cli-runner`.
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 1` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 2` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -35,6 +35,8 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `tool_use` | `name`, `summary?`, `details?: {label, value}[]`, `task?`, `plan?` | `task` correlates task-management calls by ID; `plan` carries Codex step/status snapshots. |
 | `question` | `question`, `options: string[]` | |
 | `controls` | `spec: ControlsSpec` | |
+| `context_usage` | `contextTokens`, `contextWindow?`, `model?` | |
+| `thread_title` | `title` | |
 | `stderr` | `chunk` | |
 | `done` | `exitCode` | ✓ |
 | `aborted` | `reason?: "user" \| "timeout"` | ✓ |
@@ -52,6 +54,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.
+- **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
 - **`aborted`** — killed before completing. Render `user` (deliberate cancel) and `timeout` (wall-clock limit) differently; absent reason means treat as `user`.
@@ -167,11 +170,54 @@ function stream(task, write: (chunk: string) => void) {
 
 `bridge.fail` maps the runner's failures onto the contract: `AbortError` → `aborted (user)`, `TimeoutError` → `aborted (timeout)`, anything else → `error`.
 
+## Chat titles
+
+`createChatTitleGenerator` provides one shared, opt-in policy for apps that use
+the Claude Code and Codex CLI stack: Claude uses `haiku`, Codex uses
+`gpt-5.6-luna`, and both use low effort in an isolated run. The helper owns the
+prompt, bounded input, normalization, and heuristic fallback; the app injects
+its runner so this package never starts a process or triggers billable work by
+itself.
+
+```ts
+import { createChatTitleGenerator } from "agent-chat-protocol/server";
+
+const generateTitle = createChatTitleGenerator({
+  run: (request) => runAgent({
+    ...request,
+    cwd: temporaryDirectory,
+    continueConversation: false,
+  }),
+});
+
+const result = await generateTitle({
+  provider: "codex",
+  prompt: latestUserMessage,
+  currentTitle,
+  previousPrompts: previousUserMessages.slice(-2),
+  attachmentNames: ["checkout.png"],
+  signal,
+});
+
+if (result.source === "model") {
+  persistTitle(result.title);
+  emit({ type: "thread_title", title: result.title });
+}
+```
+
+Apps can call the helper on every user turn. When `currentTitle` is supplied,
+the prompt asks the model to return it exactly unless the main task has
+materially changed; `previousPrompts` provides a small amount of topic context.
+Generation failure, timeout, an empty response, or a non-zero exit returns the
+current title (or the first-line/image-name fallback for a new chat) with
+`source: "fallback"`. Apps should keep the persisted title in that case and
+emit no title event. Cancellation is propagated to the caller.
+
 ## Design constraints
 
 - **Types + functions, not a framework.** No view layer ships here; rendering is Layer 3, per app.
 - **Zero runtime dependencies.** `agent-cli-runner` is a (type-only) peer of the server entry.
-- **Provider-neutral.** Nothing in the contract leaks a Claude- or Codex-specific shape; provider branching stays behind the bridge.
+- **Provider-neutral wire contract.** Stream events carry no Claude- or Codex-specific shape. The optional server title helper deliberately centralizes the shared CLI model policy behind an injected runner.
 - **Strict ESM**, built with tsdown; `dist/` committed for `github:` installs.
 
 ## Development

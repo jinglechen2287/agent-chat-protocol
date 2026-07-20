@@ -244,6 +244,15 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "context_usage", contextTokens: 100 });
   });
 
+  it("maps a non-empty thread title", () => {
+    expect(
+      mapSseToChatEvent({ event: "thread_title", data: { title: "Fix login redirect" } }),
+    ).toEqual({ type: "thread_title", title: "Fix login redirect" });
+    expect(
+      mapSseToChatEvent({ event: "thread_title", data: { title: "   " } }),
+    ).toBeNull();
+  });
+
   it("rejects context_usage without a numeric contextTokens", () => {
     expect(
       mapSseToChatEvent({ event: "context_usage", data: { contextWindow: 200000 } }),
@@ -370,6 +379,7 @@ describe("encode/decode round trip", () => {
       model: "claude-opus-4-8[1m]",
     },
     { type: "context_usage", contextTokens: 4004 },
+    { type: "thread_title", title: "Fix login redirect" },
     { type: "stderr", chunk: "some diagnostics\nwith newlines" },
     { type: "done", exitCode: 0 },
     { type: "aborted", reason: "timeout" },

@@ -142,6 +142,12 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
         ...(typeof model === "string" && model.trim() !== "" ? { model } : {}),
       };
     }
+    case "thread_title": {
+      const title = get("title");
+      return typeof title === "string" && title.trim() !== ""
+        ? { type: "thread_title", title }
+        : null;
+    }
     case "stderr": {
       const chunk = get("chunk");
       if (typeof chunk === "string") return { type: "stderr", chunk };
