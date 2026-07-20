@@ -291,6 +291,48 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([{ type: "stderr", chunk: "warning: x\n" }]);
   });
 
+  it("forwards background-agent lifecycle snapshots as mutable events", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onBackgroundAgentUpdate?.({
+      id: "agent-thread",
+      provider: "codex",
+      parentToolCallId: "collab-1",
+      description: "Inspect authentication",
+      agentType: "explorer",
+      status: "running",
+      summary: "Checking middleware",
+      progress: {
+        totalTokens: 1200,
+        toolUses: 4,
+        durationMs: 900,
+        lastToolName: "Grep",
+      },
+      startedAt: 1_000,
+      updatedAt: 2_000,
+    });
+    expect(events).toEqual([{
+      type: "background_agent_updated",
+      agent: {
+        id: "agent-thread",
+        provider: "codex",
+        parentToolCallId: "collab-1",
+        description: "Inspect authentication",
+        agentType: "explorer",
+        status: "running",
+        summary: "Checking middleware",
+        progress: {
+          totalTokens: 1200,
+          toolUses: 4,
+          durationMs: 900,
+          lastToolName: "Grep",
+        },
+        startedAt: 1_000,
+        updatedAt: 2_000,
+      },
+    }]);
+  });
+
   it("finish emits done with the exit code", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

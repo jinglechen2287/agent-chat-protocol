@@ -12,6 +12,8 @@
  */
 
 import type {
+  BackgroundAgent,
+  BackgroundAgentProgress,
   ChatStreamEvent,
   ToolCallDetail,
   ToolPlanItem,
@@ -148,6 +150,10 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
         ? { type: "thread_title", title }
         : null;
     }
+    case "background_agent_updated": {
+      const agent = backgroundAgent(get("agent"));
+      return agent ? { type: "background_agent_updated", agent } : null;
+    }
     case "stderr": {
       const chunk = get("chunk");
       if (typeof chunk === "string") return { type: "stderr", chunk };
@@ -177,6 +183,99 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     default:
       return null;
   }
+}
+
+function optionalNonEmptyString(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined | null {
+  const value = record[key];
+  if (value === undefined || value === null) return undefined;
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function optionalNonNegativeInteger(
+  record: Record<string, unknown>,
+  key: string,
+): number | undefined | null {
+  const value = record[key];
+  if (value === undefined || value === null) return undefined;
+  return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : null;
+}
+
+function backgroundAgentProgress(value: unknown): BackgroundAgentProgress | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const totalTokens = optionalNonNegativeInteger(record, "totalTokens");
+  const toolUses = optionalNonNegativeInteger(record, "toolUses");
+  const durationMs = optionalNonNegativeInteger(record, "durationMs");
+  const lastToolName = optionalNonEmptyString(record, "lastToolName");
+  if (
+    totalTokens === null
+    || toolUses === null
+    || durationMs === null
+    || lastToolName === null
+  ) return null;
+  return {
+    ...(totalTokens !== undefined ? { totalTokens } : {}),
+    ...(toolUses !== undefined ? { toolUses } : {}),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+    ...(lastToolName !== undefined ? { lastToolName } : {}),
+  };
+}
+
+function backgroundAgent(value: unknown): BackgroundAgent | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const id = optionalNonEmptyString(record, "id");
+  const provider = record.provider;
+  const status = record.status;
+  const startedAt = optionalNonNegativeInteger(record, "startedAt");
+  const updatedAt = optionalNonNegativeInteger(record, "updatedAt");
+  if (
+    !id
+    || (provider !== "claude" && provider !== "codex")
+    || !["pending", "running", "completed", "failed", "interrupted"].includes(
+      typeof status === "string" ? status : "",
+    )
+    || startedAt === undefined
+    || startedAt === null
+    || updatedAt === undefined
+    || updatedAt === null
+  ) return null;
+
+  const parentToolCallId = optionalNonEmptyString(record, "parentToolCallId");
+  const description = optionalNonEmptyString(record, "description");
+  const agentType = optionalNonEmptyString(record, "agentType");
+  const summary = optionalNonEmptyString(record, "summary");
+  const error = optionalNonEmptyString(record, "error");
+  const endedAt = optionalNonNegativeInteger(record, "endedAt");
+  const progress = backgroundAgentProgress(record.progress);
+  if (
+    parentToolCallId === null
+    || description === null
+    || agentType === null
+    || summary === null
+    || error === null
+    || endedAt === null
+    || progress === null
+  ) return null;
+
+  return {
+    id,
+    provider,
+    status: status as BackgroundAgent["status"],
+    startedAt,
+    updatedAt,
+    ...(parentToolCallId !== undefined ? { parentToolCallId } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(agentType !== undefined ? { agentType } : {}),
+    ...(summary !== undefined ? { summary } : {}),
+    ...(error !== undefined ? { error } : {}),
+    ...(progress !== undefined ? { progress } : {}),
+    ...(endedAt !== undefined ? { endedAt } : {}),
+  };
 }
 
 function toolPlanItems(value: unknown): ToolPlanItem[] | undefined {

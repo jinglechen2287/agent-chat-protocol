@@ -26,7 +26,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 2` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 3` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -37,6 +37,7 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `controls` | `spec: ControlsSpec` | |
 | `context_usage` | `contextTokens`, `contextWindow?`, `model?` | |
 | `thread_title` | `title` | |
+| `background_agent_updated` | `agent: BackgroundAgent` | |
 | `stderr` | `chunk` | |
 | `done` | `exitCode` | ✓ |
 | `aborted` | `reason?: "user" \| "timeout"` | ✓ |
@@ -55,6 +56,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.
 - **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event.
+- **`background_agent_updated`** — upsert the complete snapshot by `agent.id`, replacing the prior snapshot for that agent. Do not append progress heartbeats as transcript messages. Status is normalized to `pending`, `running`, `completed`, `failed`, or `interrupted`; provider-specific IDs, spawn correlation, progress, summary, errors, and timestamps remain available on the snapshot.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
 - **`aborted`** — killed before completing. Render `user` (deliberate cancel) and `timeout` (wall-clock limit) differently; absent reason means treat as `user`.

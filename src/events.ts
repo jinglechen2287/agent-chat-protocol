@@ -14,7 +14,7 @@ import type { ControlsSpec } from "./controls";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -35,6 +35,39 @@ export interface ToolTaskMetadata {
 export interface ToolPlanItem {
   text: string;
   status: string;
+}
+
+export type BackgroundAgentStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export interface BackgroundAgentProgress {
+  totalTokens?: number;
+  toolUses?: number;
+  durationMs?: number;
+  lastToolName?: string;
+}
+
+/** A complete, replace-in-place snapshot of one provider background agent. */
+export interface BackgroundAgent {
+  id: string;
+  provider: "claude" | "codex";
+  parentToolCallId?: string;
+  description?: string;
+  agentType?: string;
+  status: BackgroundAgentStatus;
+  summary?: string;
+  error?: string;
+  progress?: BackgroundAgentProgress;
+  /** Unix epoch timestamp in milliseconds, captured by the runner clock. */
+  startedAt: number;
+  /** Unix epoch timestamp in milliseconds for this snapshot. */
+  updatedAt: number;
+  /** Unix epoch timestamp in milliseconds when the agent reached a terminal state. */
+  endedAt?: number;
 }
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
@@ -119,6 +152,15 @@ export type ChatStreamEvent =
    * transcript message.
    */
   | { type: "thread_title"; title: string }
+  /**
+   * A full background-agent lifecycle snapshot. Non-terminal and mutable:
+   * clients MUST upsert by `agent.id`, replacing the prior snapshot instead
+   * of appending a transcript message for every progress event. Status is one
+   * of `pending`, `running`, `completed`, `failed`, or `interrupted`; provider
+   * ids, spawn correlation, progress, summaries, errors, and Unix-millisecond
+   * timestamps remain available on the snapshot.
+   */
+  | { type: "background_agent_updated"; agent: BackgroundAgent }
   /**
    * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
    * or surface it in a collapsed log. Never render it as assistant prose.

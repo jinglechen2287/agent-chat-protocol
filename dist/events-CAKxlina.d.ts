@@ -111,7 +111,7 @@ declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, val
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 2;
+declare const PROTOCOL_VERSION = 3;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -129,6 +129,31 @@ interface ToolTaskMetadata {
 interface ToolPlanItem {
   text: string;
   status: string;
+}
+type BackgroundAgentStatus = "pending" | "running" | "completed" | "failed" | "interrupted";
+interface BackgroundAgentProgress {
+  totalTokens?: number;
+  toolUses?: number;
+  durationMs?: number;
+  lastToolName?: string;
+}
+/** A complete, replace-in-place snapshot of one provider background agent. */
+interface BackgroundAgent {
+  id: string;
+  provider: "claude" | "codex";
+  parentToolCallId?: string;
+  description?: string;
+  agentType?: string;
+  status: BackgroundAgentStatus;
+  summary?: string;
+  error?: string;
+  progress?: BackgroundAgentProgress;
+  /** Unix epoch timestamp in milliseconds, captured by the runner clock. */
+  startedAt: number;
+  /** Unix epoch timestamp in milliseconds for this snapshot. */
+  updatedAt: number;
+  /** Unix epoch timestamp in milliseconds when the agent reached a terminal state. */
+  endedAt?: number;
 }
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
@@ -225,6 +250,18 @@ type ChatStreamEvent =
   title: string;
 } |
 /**
+ * A full background-agent lifecycle snapshot. Non-terminal and mutable:
+ * clients MUST upsert by `agent.id`, replacing the prior snapshot instead
+ * of appending a transcript message for every progress event. Status is one
+ * of `pending`, `running`, `completed`, `failed`, or `interrupted`; provider
+ * ids, spawn correlation, progress, summaries, errors, and Unix-millisecond
+ * timestamps remain available on the snapshot.
+ */
+{
+  type: "background_agent_updated";
+  agent: BackgroundAgent;
+} |
+/**
  * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
  * or surface it in a collapsed log. Never render it as assistant prose.
  */
@@ -252,5 +289,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { validateControls as _, ToolPlanItem as a, QuestionSpec as b, ColorControl as c, ControlsSpec as d, ParsedControlsText as f, parseControlsBlock as g, initialControlValues as h, ToolCallDetail as i, Control as l, SliderControl as m, ChatStreamEvent as n, ToolTaskMetadata as o, SelectControl as p, PROTOCOL_VERSION as r, isTerminalEvent as s, AbortReason as t, ControlValues as u, valuesEqual as v, parseQuestionBlock as x, ParsedQuestionText as y };
-//# sourceMappingURL=events-locKqm0o.d.ts.map
+export { QuestionSpec as C, ParsedQuestionText as S, SliderControl as _, ChatStreamEvent as a, validateControls as b, ToolPlanItem as c, ColorControl as d, Control as f, SelectControl as g, ParsedControlsText as h, BackgroundAgentStatus as i, ToolTaskMetadata as l, ControlsSpec as m, BackgroundAgent as n, PROTOCOL_VERSION as o, ControlValues as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, initialControlValues as v, parseQuestionBlock as w, valuesEqual as x, parseControlsBlock as y };
+//# sourceMappingURL=events-CAKxlina.d.ts.map

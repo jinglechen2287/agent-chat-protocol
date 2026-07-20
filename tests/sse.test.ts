@@ -227,6 +227,91 @@ describe("mapSseToChatEvent", () => {
     );
   });
 
+  it("maps a complete background-agent lifecycle snapshot", () => {
+    expect(mapSseToChatEvent({
+      event: "background_agent_updated",
+      data: {
+        agent: {
+          id: "task-1",
+          provider: "claude",
+          parentToolCallId: "tool-1",
+          description: "Inspect authentication",
+          agentType: "Explore",
+          status: "failed",
+          error: "Subagent crashed",
+          progress: {
+            totalTokens: 1200,
+            toolUses: 4,
+            durationMs: 900,
+            lastToolName: "Grep",
+          },
+          startedAt: 1_000,
+          updatedAt: 2_000,
+          endedAt: 1_900,
+        },
+      },
+    })).toEqual({
+      type: "background_agent_updated",
+      agent: {
+        id: "task-1",
+        provider: "claude",
+        parentToolCallId: "tool-1",
+        description: "Inspect authentication",
+        agentType: "Explore",
+        status: "failed",
+        error: "Subagent crashed",
+        progress: {
+          totalTokens: 1200,
+          toolUses: 4,
+          durationMs: 900,
+          lastToolName: "Grep",
+        },
+        startedAt: 1_000,
+        updatedAt: 2_000,
+        endedAt: 1_900,
+      },
+    });
+  });
+
+  it("rejects malformed background-agent lifecycle snapshots", () => {
+    expect(mapSseToChatEvent({
+      event: "background_agent_updated",
+      data: { agent: { id: "task-1", provider: "claude", status: "unknown" } },
+    })).toBeNull();
+    expect(mapSseToChatEvent({
+      event: "background_agent_updated",
+      data: { agent: { id: "", provider: "claude", status: "running" } },
+    })).toBeNull();
+  });
+
+  it("treats null background-agent optionals as absent", () => {
+    expect(mapSseToChatEvent({
+      event: "background_agent_updated",
+      data: {
+        agent: {
+          id: "task-1",
+          provider: "claude",
+          status: "running",
+          parentToolCallId: null,
+          description: null,
+          progress: null,
+          endedAt: null,
+          startedAt: 1_000,
+          updatedAt: 2_000,
+        },
+      },
+    })).toEqual({
+      type: "background_agent_updated",
+      agent: {
+        id: "task-1",
+        provider: "claude",
+        status: "running",
+        startedAt: 1_000,
+        updatedAt: 2_000,
+      },
+    });
+  });
+
   it("maps context_usage with optional window and model", () => {
     expect(
       mapSseToChatEvent({
@@ -380,6 +465,19 @@ describe("encode/decode round trip", () => {
     },
     { type: "context_usage", contextTokens: 4004 },
     { type: "thread_title", title: "Fix login redirect" },
+    {
+      type: "background_agent_updated",
+      agent: {
+        id: "agent-thread",
+        provider: "codex",
+        description: "Inspect authentication",
+        status: "completed",
+        summary: "Found the session middleware",
+        startedAt: 1_000,
+        updatedAt: 2_000,
+        endedAt: 2_000,
+      },
+    },
     { type: "stderr", chunk: "some diagnostics\nwith newlines" },
     { type: "done", exitCode: 0 },
     { type: "aborted", reason: "timeout" },

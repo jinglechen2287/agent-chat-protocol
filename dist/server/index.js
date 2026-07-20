@@ -1,4 +1,4 @@
-import { i as validateControls, r as parseControlsBlock, t as parseQuestionBlock } from "../question-Dd1pNNW2.js";
+import { i as validateControls, r as parseControlsBlock, t as parseQuestionBlock } from "../question-CSrvam8s.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -159,7 +159,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 2
+			protocolVersion: 3
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -265,12 +265,19 @@ function createChatEventBridge(emit, options = {}) {
 			...usage.model !== void 0 ? { model: usage.model } : {}
 		});
 	};
+	const onBackgroundAgentUpdate = (agent) => {
+		emit({
+			type: "background_agent_updated",
+			agent
+		});
+	};
 	return {
 		callbacks: {
 			onSessionId,
 			onAssistantText,
 			onToolUse,
 			onToolResult,
+			onBackgroundAgentUpdate,
 			onStderr,
 			onUsage
 		},

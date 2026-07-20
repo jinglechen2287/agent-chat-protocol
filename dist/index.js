@@ -1,4 +1,4 @@
-import { a as valuesEqual, i as validateControls, n as initialControlValues, o as PROTOCOL_VERSION, r as parseControlsBlock, s as isTerminalEvent, t as parseQuestionBlock } from "./question-Dd1pNNW2.js";
+import { a as valuesEqual, i as validateControls, n as initialControlValues, o as PROTOCOL_VERSION, r as parseControlsBlock, s as isTerminalEvent, t as parseQuestionBlock } from "./question-CSrvam8s.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -112,6 +112,13 @@ function mapSseToChatEvent(ev) {
 				title
 			} : null;
 		}
+		case "background_agent_updated": {
+			const agent = backgroundAgent(get("agent"));
+			return agent ? {
+				type: "background_agent_updated",
+				agent
+			} : null;
+		}
 		case "stderr": {
 			const chunk = get("chunk");
 			if (typeof chunk === "string") return {
@@ -143,6 +150,70 @@ function mapSseToChatEvent(ev) {
 		}
 		default: return null;
 	}
+}
+function optionalNonEmptyString(record, key) {
+	const value = record[key];
+	if (value === void 0 || value === null) return void 0;
+	return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+function optionalNonNegativeInteger(record, key) {
+	const value = record[key];
+	if (value === void 0 || value === null) return void 0;
+	return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+function backgroundAgentProgress(value) {
+	if (value === void 0 || value === null) return void 0;
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const record = value;
+	const totalTokens = optionalNonNegativeInteger(record, "totalTokens");
+	const toolUses = optionalNonNegativeInteger(record, "toolUses");
+	const durationMs = optionalNonNegativeInteger(record, "durationMs");
+	const lastToolName = optionalNonEmptyString(record, "lastToolName");
+	if (totalTokens === null || toolUses === null || durationMs === null || lastToolName === null) return null;
+	return {
+		...totalTokens !== void 0 ? { totalTokens } : {},
+		...toolUses !== void 0 ? { toolUses } : {},
+		...durationMs !== void 0 ? { durationMs } : {},
+		...lastToolName !== void 0 ? { lastToolName } : {}
+	};
+}
+function backgroundAgent(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const record = value;
+	const id = optionalNonEmptyString(record, "id");
+	const provider = record.provider;
+	const status = record.status;
+	const startedAt = optionalNonNegativeInteger(record, "startedAt");
+	const updatedAt = optionalNonNegativeInteger(record, "updatedAt");
+	if (!id || provider !== "claude" && provider !== "codex" || ![
+		"pending",
+		"running",
+		"completed",
+		"failed",
+		"interrupted"
+	].includes(typeof status === "string" ? status : "") || startedAt === void 0 || startedAt === null || updatedAt === void 0 || updatedAt === null) return null;
+	const parentToolCallId = optionalNonEmptyString(record, "parentToolCallId");
+	const description = optionalNonEmptyString(record, "description");
+	const agentType = optionalNonEmptyString(record, "agentType");
+	const summary = optionalNonEmptyString(record, "summary");
+	const error = optionalNonEmptyString(record, "error");
+	const endedAt = optionalNonNegativeInteger(record, "endedAt");
+	const progress = backgroundAgentProgress(record.progress);
+	if (parentToolCallId === null || description === null || agentType === null || summary === null || error === null || endedAt === null || progress === null) return null;
+	return {
+		id,
+		provider,
+		status,
+		startedAt,
+		updatedAt,
+		...parentToolCallId !== void 0 ? { parentToolCallId } : {},
+		...description !== void 0 ? { description } : {},
+		...agentType !== void 0 ? { agentType } : {},
+		...summary !== void 0 ? { summary } : {},
+		...error !== void 0 ? { error } : {},
+		...progress !== void 0 ? { progress } : {},
+		...endedAt !== void 0 ? { endedAt } : {}
+	};
 }
 function toolPlanItems(value) {
 	if (!Array.isArray(value) || value.length === 0) return void 0;

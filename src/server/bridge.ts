@@ -18,6 +18,7 @@
 
 import type {
   AgentCallbacks,
+  BackgroundAgentInfo,
   TokenUsage,
   ToolResultInfo,
   ToolUseInfo,
@@ -192,12 +193,17 @@ export function createChatEventBridge(
     });
   };
 
+  const onBackgroundAgentUpdate = (agent: BackgroundAgentInfo): void => {
+    emit({ type: "background_agent_updated", agent });
+  };
+
   return {
     callbacks: {
       onSessionId,
       onAssistantText,
       onToolUse,
       onToolResult,
+      onBackgroundAgentUpdate,
       onStderr,
       onUsage,
     },
