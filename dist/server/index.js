@@ -1,4 +1,4 @@
-import { c as parseControlsBlock, i as QUESTION_BLOCK_NAME, l as validateControls, n as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, r as LEGACY_QUESTION_BLOCK_NAME, t as CONTROLS_BLOCK_NAME } from "../prompt-BUMK-DQ3.js";
+import { c as LEGACY_QUESTION_BLOCK_NAME, d as VIEW_BLOCK_NAME, i as parseViewBlock, l as QUESTION_BLOCK_NAME, m as validateControls, o as CONTROLS_BLOCK_NAME, p as parseControlsBlock, s as LEGACY_CONTROLS_BLOCK_NAME, t as parseQuestionBlock } from "../question-CquQxWgU.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -167,6 +167,7 @@ const FENCE = "```";
 const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
 	QUESTION_BLOCK_NAME,
 	CONTROLS_BLOCK_NAME,
+	VIEW_BLOCK_NAME,
 	LEGACY_QUESTION_BLOCK_NAME,
 	LEGACY_CONTROLS_BLOCK_NAME
 ]);
@@ -235,7 +236,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 4
+			protocolVersion: 5
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -262,9 +263,14 @@ function createChatEventBridge(emit, options = {}) {
 	const onAssistantText = (text) => {
 		const parsedQuestion = parseQuestionBlock(text);
 		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
-		if (!parsedControls.controls && parsedControls.text) emit({
+		const parsedView = parseViewBlock(parsedControls.text);
+		if (!parsedControls.controls && parsedView.text) emit({
 			type: "assistant_text",
-			text: parsedControls.text
+			text: parsedView.text
+		});
+		if (parsedView.view) emit({
+			type: "view",
+			spec: parsedView.view
 		});
 		if (parsedQuestion.question) emit({
 			type: "question",

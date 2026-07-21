@@ -9,12 +9,13 @@
 
 import type { QuestionSpec } from "./question";
 import type { ControlsSpec } from "./controls";
+import type { ViewSpec } from "./view";
 
 /**
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -141,6 +142,17 @@ export type ChatStreamEvent =
    * retired by the next user message.
    */
   | { type: "controls"; spec: ControlsSpec }
+  /**
+   * A generative-UI view composed from the shared component catalog.
+   * Clients MUST render known components natively in graph order, skip
+   * unknown or invalid ones (the rest of the view still renders), and treat
+   * the event as a transcript message alongside `assistant_text`. Inputs
+   * bind view-local $vars; a Button's `message` template — `{$var}` tokens
+   * interpolated from those values — is sent verbatim as the next user turn,
+   * and `href` Buttons open externally. Views are static content otherwise:
+   * no handlers, no expressions, no executable payloads.
+   */
+  | { type: "view"; spec: ViewSpec }
   /**
    * A context-window usage snapshot for the turn. Non-terminal and may arrive
    * more than once (each supersedes the last); clients render the latest as a

@@ -139,6 +139,54 @@ describe("createChatEventBridge", () => {
     });
   });
 
+  describe("view blocks", () => {
+    const viewBlock = [
+      "```agent-view",
+      '{"id":"root","type":"Stack","children":["t"]}',
+      '{"id":"t","type":"Text","value":"All good."}',
+      "```",
+    ].join("\n");
+
+    it("lifts a view block into text + view events, keeping surrounding prose", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.(`Here is the summary.\n\n${viewBlock}`);
+      expect(events.map((ev) => ev.type)).toEqual(["assistant_text", "view"]);
+      expect(events[0]).toMatchObject({ text: "Here is the summary." });
+      expect(events[1]).toMatchObject({
+        spec: { components: [{ id: "root" }, { id: "t", value: "All good." }] },
+      });
+    });
+
+    it("emits a view alongside a question block", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.(
+        `${viewBlock}\n\n\`\`\`agent-question\n{"question": "More?", "options": ["Yes", "No"]}\n\`\`\``,
+      );
+      expect(events.map((ev) => ev.type)).toEqual(["view", "question"]);
+    });
+
+    it("leaves an invalid view block in the prose", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.("```agent-view\n{\"id\":\"t\",\"type\":\"Text\",\"value\":\"no root\"}\n```");
+      expect(events.map((ev) => ev.type)).toEqual(["assistant_text"]);
+    });
+
+    it("withholds view fence deltas while streaming", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of ["Report:\n", "```agent-", "view\n", '{"id":"root"...', "\n```"]) {
+        bridge.callbacks.onAssistantTextDelta?.(chunk);
+      }
+      const streamed = events
+        .flatMap((ev) => (ev.type === "assistant_text_delta" ? [ev.delta] : []))
+        .join("");
+      expect(streamed).toBe("Report:\n");
+    });
+  });
+
   it("lifts a question block into text + question events", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

@@ -240,6 +240,29 @@ describe("mapSseToChatEvent", () => {
     ).toBeNull();
   });
 
+  it("maps a view through the catalog validator", () => {
+    const mapped = mapSseToChatEvent({
+      event: "view",
+      data: {
+        components: [
+          { id: "root", type: "Stack", children: ["t"] },
+          { id: "t", type: "Text", value: "hi" },
+          { id: "bad", type: "Hologram" },
+        ],
+      },
+    });
+    expect(mapped).toMatchObject({ type: "view" });
+    const specValue = (mapped as { spec: { components: { id: string }[] } }).spec;
+    expect(specValue.components.map((c) => c.id)).toEqual(["root", "t"]);
+  });
+
+  it("rejects a view without a valid root", () => {
+    expect(mapSseToChatEvent({
+      event: "view",
+      data: { components: [{ id: "t", type: "Text", value: "x" }] },
+    })).toBeNull();
+  });
+
   it("maps stderr", () => {
     expect(mapSseToChatEvent({ event: "stderr", data: { chunk: "warn\n" } })).toEqual(
       { type: "stderr", chunk: "warn\n" },

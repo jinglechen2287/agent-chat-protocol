@@ -1,4 +1,4 @@
-import { C as QuestionSpec, S as ParsedQuestionText, _ as SliderControl, a as ChatStreamEvent, b as validateControls, c as ToolPlanItem, d as ColorControl, f as Control, g as SelectControl, h as ParsedControlsText, i as BackgroundAgentStatus, l as ToolTaskMetadata, m as ControlsSpec, n as BackgroundAgent, o as PROTOCOL_VERSION, p as ControlValues, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as initialControlValues, w as parseQuestionBlock, x as valuesEqual, y as parseControlsBlock } from "./events-BU--abZS.js";
+import { A as QuestionSpec, C as SelectControl, D as validateControls, E as parseControlsBlock, O as valuesEqual, S as ParsedControlsText, T as initialControlValues, _ as validateViewSpec, a as ChatStreamEvent, b as ControlValues, c as ToolPlanItem, d as ParsedViewText, f as VIEW_CATALOG, g as parseViewBlock, h as ViewSpec, i as BackgroundAgentStatus, j as parseQuestionBlock, k as ParsedQuestionText, l as ToolTaskMetadata, m as ViewComponent, n as BackgroundAgent, o as PROTOCOL_VERSION, p as VIEW_PROMPT, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as ColorControl, w as SliderControl, x as ControlsSpec, y as Control } from "./events-CaRmWv7u.js";
 //#region src/sse.d.ts
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -69,6 +69,7 @@ declare function consumeSseResponse<TEvent>(res: Response, onEvent: (e: TEvent) 
  */
 declare const QUESTION_BLOCK_NAME = "agent-question";
 declare const CONTROLS_BLOCK_NAME = "agent-controls";
+declare const VIEW_BLOCK_NAME = "agent-view";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 declare const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
@@ -76,5 +77,5 @@ declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
 //#endregion
-export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, type ParsedControlsText, type ParsedQuestionText, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, toSseEvent, validateControls, valuesEqual };
+export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, type ParsedControlsText, type ParsedQuestionText, type ParsedViewText, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

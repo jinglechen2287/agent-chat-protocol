@@ -26,7 +26,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 4` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 5` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -36,6 +36,7 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `tool_use` | `name`, `summary?`, `details?: {label, value}[]`, `task?`, `plan?` | `task` correlates task-management calls by ID; `plan` carries Codex step/status snapshots. |
 | `question` | `question`, `options: string[]` | |
 | `controls` | `spec: ControlsSpec` | |
+| `view` | `spec: ViewSpec` | A generative-UI view composed from the shared component catalog. |
 | `context_usage` | `contextTokens`, `contextWindow?`, `model?` | |
 | `thread_title` | `title` | |
 | `background_agent_updated` | `agent: BackgroundAgent` | |
@@ -56,6 +57,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is an optional concise description and `details` are optional curated label/value metadata. Task-management calls may also carry `task: { id?, subject?, status? }`, allowing clients to resolve a later update to the earlier task subject. Codex plan updates may carry `plan: { text, status }[]`; clients can render every step while `details` provides the provider-neutral expanded rows. A client MUST preserve every event and its stream order. No tool output is carried — this traces what ran, not results.
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
+- **`view`** — render known catalog components natively in graph order and skip unknown or invalid ones — the rest of the view still renders. The event is a transcript message alongside `assistant_text` (a view's surrounding prose is kept, unlike controls). Inputs bind view-local `$vars`; a Button's `message` template with `{$var}` tokens interpolated is sent verbatim as the next user turn, and `href` Buttons open externally (`noopener`). Views carry no handlers, no expressions, and no executable payloads — the catalog (`VIEW_CATALOG`) is the entire vocabulary, and `VIEW_PROMPT` is generated from it so prompt and validator cannot drift.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.
 - **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event.
 - **`background_agent_updated`** — upsert the complete snapshot by `agent.id`, replacing the prior snapshot for that agent. Do not append progress heartbeats as transcript messages. Status is normalized to `pending`, `running`, `completed`, `failed`, or `interrupted`; provider-specific IDs, spawn correlation, progress, summary, errors, and timestamps remain available on the snapshot.

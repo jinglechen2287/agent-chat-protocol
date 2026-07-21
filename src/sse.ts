@@ -20,6 +20,7 @@ import type {
   ToolTaskMetadata,
 } from "./events";
 import { validateControls } from "./controls";
+import { validateViewSpec } from "./view";
 
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -133,6 +134,11 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     case "controls": {
       const spec = validateControls(d);
       if (spec) return { type: "controls", spec };
+      return null;
+    }
+    case "view": {
+      const spec = validateViewSpec(d);
+      if (spec) return { type: "view", spec };
       return null;
     }
     case "context_usage": {
@@ -327,6 +333,7 @@ function toolTaskMetadata(value: unknown): ToolTaskMetadata | undefined {
  * is sent directly as the payload (not wrapped in `{spec}`). */
 export function toSseEvent(ev: ChatStreamEvent): SseEvent {
   if (ev.type === "controls") return { event: "controls", data: ev.spec };
+  if (ev.type === "view") return { event: "view", data: ev.spec };
   const { type, ...data } = ev;
   return { event: type, data };
 }

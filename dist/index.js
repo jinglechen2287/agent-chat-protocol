@@ -1,4 +1,4 @@
-import { a as QUESTION_PROMPT, c as parseControlsBlock, d as PROTOCOL_VERSION, f as isTerminalEvent, i as QUESTION_BLOCK_NAME, l as validateControls, n as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, r as LEGACY_QUESTION_BLOCK_NAME, s as initialControlValues, t as CONTROLS_BLOCK_NAME, u as valuesEqual } from "./prompt-BUMK-DQ3.js";
+import { _ as isTerminalEvent, a as validateViewSpec, c as LEGACY_QUESTION_BLOCK_NAME, d as VIEW_BLOCK_NAME, f as initialControlValues, g as PROTOCOL_VERSION, h as valuesEqual, i as parseViewBlock, l as QUESTION_BLOCK_NAME, m as validateControls, n as VIEW_CATALOG, o as CONTROLS_BLOCK_NAME, p as parseControlsBlock, r as VIEW_PROMPT, s as LEGACY_CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_PROMPT } from "./question-CquQxWgU.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -100,6 +100,14 @@ function mapSseToChatEvent(ev) {
 			const spec = validateControls(d);
 			if (spec) return {
 				type: "controls",
+				spec
+			};
+			return null;
+		}
+		case "view": {
+			const spec = validateViewSpec(d);
+			if (spec) return {
+				type: "view",
 				spec
 			};
 			return null;
@@ -265,6 +273,10 @@ function toSseEvent(ev) {
 		event: "controls",
 		data: ev.spec
 	};
+	if (ev.type === "view") return {
+		event: "view",
+		data: ev.spec
+	};
 	const { type, ...data } = ev;
 	return {
 		event: type,
@@ -304,6 +316,6 @@ function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
-export { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, toSseEvent, validateControls, valuesEqual };
+export { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

@@ -30,6 +30,7 @@ import {
   validateControls,
   type ControlsSpec,
 } from "../controls";
+import { parseViewBlock } from "../view";
 import { toolCallDetails, toolTaskMetadata } from "./tool-details";
 import { createTextDeltaStream } from "./text-stream";
 
@@ -115,13 +116,18 @@ export function createChatEventBridge(
   };
 
   const onAssistantText = (text: string): void => {
-    // The agent may end a message with a structured question or controls
-    // block. Controls are a complete UI response, so when one is valid
-    // suppress all surrounding prose and emit only the panel.
+    // The agent may end a message with structured question, controls, or
+    // view blocks. Controls are a complete UI response, so when one is valid
+    // suppress all surrounding prose and emit only the panel. A view is
+    // content like prose — its surrounding text stays.
     const parsedQuestion = parseQuestionBlock(text);
     const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
-    if (!parsedControls.controls && parsedControls.text) {
-      emit({ type: "assistant_text", text: parsedControls.text });
+    const parsedView = parseViewBlock(parsedControls.text);
+    if (!parsedControls.controls && parsedView.text) {
+      emit({ type: "assistant_text", text: parsedView.text });
+    }
+    if (parsedView.view) {
+      emit({ type: "view", spec: parsedView.view });
     }
     if (parsedQuestion.question) {
       emit({ type: "question", ...parsedQuestion.question });

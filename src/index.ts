@@ -58,4 +58,15 @@ export {
   LEGACY_QUESTION_BLOCK_NAME,
   QUESTION_BLOCK_NAME,
   QUESTION_PROMPT,
+  VIEW_BLOCK_NAME,
 } from "./prompt";
+
+export {
+  VIEW_CATALOG,
+  VIEW_PROMPT,
+  parseViewBlock,
+  validateViewSpec,
+  type ParsedViewText,
+  type ViewComponent,
+  type ViewSpec,
+} from "./view";

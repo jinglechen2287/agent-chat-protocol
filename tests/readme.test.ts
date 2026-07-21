@@ -26,6 +26,15 @@ describe("event documentation", () => {
   });
 });
 
+describe("view documentation", () => {
+  it("documents the view rendering contract and its degradation rule", () => {
+    expect(readme).toContain("**`view`**");
+    expect(readme).toContain("skip unknown or invalid ones");
+    expect(readme).toContain("no executable payloads");
+    expect(readme).toContain("VIEW_PROMPT");
+  });
+});
+
 describe("streamed text documentation", () => {
   it("states that fragments are scratch state, not transcript messages", () => {
     expect(readme).toContain("**`assistant_text_delta`**");
