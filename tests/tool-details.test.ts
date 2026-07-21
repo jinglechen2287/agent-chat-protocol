@@ -147,25 +147,28 @@ describe("toolCallDetails", () => {
     ).toEqual([{ label: "Skill", value: "linear" }]);
   });
 
-  it("expands Codex file_change batches on Edit", () => {
-    expect(
-      toolCallDetails({
-        name: "Edit",
-        input: {
-          type: "file_change",
-          changes: [
-            { kind: "update", path: "a.ts" },
-            { kind: "add", path: "b.ts" },
-            { kind: "delete", path: "c.ts" },
-          ],
-        },
-      }),
-    ).toEqual([
-      { label: "Modified file", value: "a.ts" },
-      { label: "Added file", value: "b.ts" },
-      { label: "Deleted file", value: "c.ts" },
-    ]);
-  });
+  it.each(["file_change", "fileChange"])(
+    "expands Codex %s batches on Edit",
+    (type) => {
+      expect(
+        toolCallDetails({
+          name: "Edit",
+          input: {
+            type,
+            changes: [
+              { kind: "update", path: "a.ts" },
+              { kind: "add", path: "b.ts" },
+              { kind: "delete", path: "c.ts" },
+            ],
+          },
+        }),
+      ).toEqual([
+        { label: "Modified file", value: "a.ts" },
+        { label: "Added file", value: "b.ts" },
+        { label: "Deleted file", value: "c.ts" },
+      ]);
+    },
+  );
 
   it("falls back to the summary with a tool-appropriate label", () => {
     expect(toolCallDetails({ name: "Bash", summary: "ls -la" })).toEqual([

@@ -64,7 +64,7 @@ function fileChangeLabel(kind) {
 	}
 }
 function codexFileChanges(input) {
-	if (input.type !== "file_change" || !Array.isArray(input.changes)) return [];
+	if (input.type !== "file_change" && input.type !== "fileChange" || !Array.isArray(input.changes)) return [];
 	const details = [];
 	for (const change of input.changes) {
 		if (!change || typeof change !== "object" || Array.isArray(change)) continue;
