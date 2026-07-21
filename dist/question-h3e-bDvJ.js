@@ -250,8 +250,10 @@ const button = component("Button", {
 	]).optional(),
 	/** Template sent as the next user turn; `{$var}` interpolates input state. */
 	message: z.string().min(1).max(1e3).optional(),
-	/** External link opened in a new tab. */
-	href: z.string().url().max(2e3).optional()
+	/** External link opened in a new tab. Web-only schemes: z.url() alone
+	* admits javascript:/data:, and a click on those would execute
+	* agent-authored code in the app origin. */
+	href: z.string().url().max(2e3).regex(/^https?:\/\//i).optional()
 }).refine((b) => b.message === void 0 !== (b.href === void 0), { message: "Button requires exactly one of message or href" });
 /**
 * Every component the agent may emit. `prompt` is the exact line VIEW_PROMPT
@@ -727,4 +729,4 @@ function parseBlockBody(body) {
 //#endregion
 export { PROTOCOL_VERSION as _, validateViewComponent as a, LEGACY_CONTROLS_BLOCK_NAME as c, QUESTION_PROMPT as d, VIEW_BLOCK_NAME as f, valuesEqual as g, validateControls as h, parseViewBlock as i, LEGACY_QUESTION_BLOCK_NAME as l, parseControlsBlock as m, VIEW_CATALOG as n, validateViewSpec as o, initialControlValues as p, VIEW_PROMPT as r, CONTROLS_BLOCK_NAME as s, parseQuestionBlock as t, QUESTION_BLOCK_NAME as u, isTerminalEvent as v };
 
-//# sourceMappingURL=question-C-8So3Vl.js.map
+//# sourceMappingURL=question-h3e-bDvJ.js.map

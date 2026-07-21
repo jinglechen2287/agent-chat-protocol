@@ -60,6 +60,14 @@ describe("component schemas", () => {
     expect(ok({ id: "i", type: "Input", bind: "$1bad", label: "x" })).toBeUndefined();
   });
 
+  // z.url() alone admits javascript: and data: — a Button click would run
+  // agent-authored script in the app origin.
+  it("rejects Button hrefs that are not http(s)", () => {
+    expect(ok({ id: "b", type: "Button", label: "x", href: "javascript:alert(1)" })).toBeUndefined();
+    expect(ok({ id: "b", type: "Button", label: "x", href: "data:text/html,hi" })).toBeUndefined();
+    expect(ok({ id: "b", type: "Button", label: "x", href: "http://internal/dash" })).toBeDefined();
+  });
+
   it("requires a Button to have exactly one of message or href", () => {
     expect(ok({ id: "b", type: "Button", label: "x" })).toBeUndefined();
     expect(ok({ id: "b", type: "Button", label: "x", message: "m", href: "https://x" })).toBeUndefined();

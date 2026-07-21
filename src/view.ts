@@ -46,8 +46,10 @@ const button = component("Button", {
   variant: z.enum(["primary", "secondary", "ghost"]).optional(),
   /** Template sent as the next user turn; `{$var}` interpolates input state. */
   message: z.string().min(1).max(1_000).optional(),
-  /** External link opened in a new tab. */
-  href: z.string().url().max(2_000).optional(),
+  /** External link opened in a new tab. Web-only schemes: z.url() alone
+   * admits javascript:/data:, and a click on those would execute
+   * agent-authored code in the app origin. */
+  href: z.string().url().max(2_000).regex(/^https?:\/\//i).optional(),
 }).refine((b) => (b.message === undefined) !== (b.href === undefined), {
   message: "Button requires exactly one of message or href",
 });
