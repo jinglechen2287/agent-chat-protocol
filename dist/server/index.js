@@ -1,4 +1,4 @@
-import { i as validateControls, r as parseControlsBlock, t as parseQuestionBlock } from "../question-CSrvam8s.js";
+import { c as parseControlsBlock, i as QUESTION_BLOCK_NAME, l as validateControls, n as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, r as LEGACY_QUESTION_BLOCK_NAME, t as CONTROLS_BLOCK_NAME } from "../prompt-BUMK-DQ3.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -147,6 +147,82 @@ function toolCallDetails(info) {
 	return details;
 }
 //#endregion
+//#region src/server/text-stream.ts
+/**
+* Fence-aware chunking for streamed assistant prose.
+*
+* A message may end with a generative-UI block (```agent-question```,
+* ```agent-controls```) that the *completed* message lifts into its own event.
+* Streaming that block through verbatim would flash raw JSON in the transcript
+* a moment before the rendered card replaces it, so the streamer stops at the
+* opening fence and lets the completed message speak for the remainder.
+*
+* The other job is not splitting a fence: a fragment can end mid-marker, and
+* ```` ``` ```` on its own tells us nothing until the info string that follows
+* it arrives. Those bytes are withheld until they can be classified.
+*/
+const FENCE = "```";
+/** Info strings whose block the completed message renders as a card. Mirrors
+* what the question/controls parsers accept, legacy fences included. */
+const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
+	QUESTION_BLOCK_NAME,
+	CONTROLS_BLOCK_NAME,
+	LEGACY_QUESTION_BLOCK_NAME,
+	LEGACY_CONTROLS_BLOCK_NAME
+]);
+function createTextDeltaStream() {
+	let raw = "";
+	let emitted = 0;
+	let suppressed = false;
+	/** First fence marker at or after `from` that opens a line — an indented or
+	* mid-sentence run of backticks is inline code, not a block. */
+	const lineStartFence = (from) => {
+		let at = raw.indexOf(FENCE, from);
+		while (at !== -1) {
+			if (at === 0 || raw[at - 1] === "\n") return at;
+			at = raw.indexOf(FENCE, at + 1);
+		}
+		return -1;
+	};
+	/** Length of a trailing backtick run that could still grow into a fence. */
+	const heldTail = () => {
+		const tail = raw.slice(raw.lastIndexOf("\n") + 1);
+		return /^`{1,2}$/.test(tail) ? tail.length : 0;
+	};
+	const take = (end) => {
+		if (end <= emitted) return "";
+		const out = raw.slice(emitted, end);
+		emitted = end;
+		return out;
+	};
+	return {
+		push(chunk) {
+			raw += chunk;
+			if (suppressed) return "";
+			let scan = emitted;
+			for (;;) {
+				const fence = lineStartFence(scan);
+				if (fence === -1) break;
+				const infoEnd = raw.indexOf("\n", fence + 3);
+				if (infoEnd === -1) return take(fence);
+				const info = raw.slice(fence + 3, infoEnd).trim();
+				if (AGENT_BLOCK_NAMES.has(info)) {
+					const out = take(fence);
+					suppressed = true;
+					return out;
+				}
+				scan = infoEnd + 1;
+			}
+			return take(raw.length - heldTail());
+		},
+		reset() {
+			raw = "";
+			emitted = 0;
+			suppressed = false;
+		}
+	};
+}
+//#endregion
 //#region src/server/bridge.ts
 function createChatEventBridge(emit, options = {}) {
 	let announcedSessionId = options.knownSessionId;
@@ -159,7 +235,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 3
+			protocolVersion: 4
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -172,6 +248,17 @@ function createChatEventBridge(emit, options = {}) {
 		announceSession(id);
 	};
 	const controlsValidator = options.controlsValidator ?? validateControls;
+	const textStream = createTextDeltaStream();
+	let messageIndex = 0;
+	const onAssistantTextDelta = (chunk) => {
+		if (terminal) return;
+		const delta = textStream.push(chunk);
+		if (delta) emit({
+			type: "assistant_text_delta",
+			index: messageIndex,
+			delta
+		});
+	};
 	const onAssistantText = (text) => {
 		const parsedQuestion = parseQuestionBlock(text);
 		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
@@ -187,6 +274,8 @@ function createChatEventBridge(emit, options = {}) {
 			type: "controls",
 			spec: parsedControls.controls
 		});
+		textStream.reset();
+		messageIndex += 1;
 	};
 	const emitToolUse = (info) => {
 		const details = toolCallDetails(info);
@@ -275,6 +364,7 @@ function createChatEventBridge(emit, options = {}) {
 		callbacks: {
 			onSessionId,
 			onAssistantText,
+			onAssistantTextDelta,
 			onToolUse,
 			onToolResult,
 			onBackgroundAgentUpdate,
@@ -308,7 +398,19 @@ function createChatEventBridge(emit, options = {}) {
 }
 //#endregion
 //#region src/server/task-store.ts
+/** The events an in-flight assistant message resolves into. Once one is
+* buffered, every fragment held so far describes text the transcript now owns. */
+function completesAssistantMessage(ev) {
+	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls";
+}
 const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
+/** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
+* cause its peers to be skipped, and a broken one can't block the rest. */
+function notify(task, ev) {
+	for (const sub of [...task.subscribers]) try {
+		sub(ev);
+	} catch {}
+}
 function createTaskStore(options = {}) {
 	const defaultTtl = options.completeTtlMs ?? DEFAULT_COMPLETE_TTL_MS;
 	const tasks = /* @__PURE__ */ new Map();
@@ -322,6 +424,7 @@ function createTaskStore(options = {}) {
 			const task = {
 				id,
 				events: [],
+				partials: /* @__PURE__ */ new Map(),
 				done: false,
 				abort: new AbortController(),
 				subscribers: /* @__PURE__ */ new Set()
@@ -331,10 +434,21 @@ function createTaskStore(options = {}) {
 		},
 		push(task, ev) {
 			if (task.done || tasks.get(task.id) !== task) return;
+			if (completesAssistantMessage(ev)) task.partials.clear();
 			task.events.push(ev);
-			for (const sub of [...task.subscribers]) try {
-				sub(ev);
-			} catch {}
+			notify(task, ev);
+		},
+		pushPartial(task, ev) {
+			if (task.done || tasks.get(task.id) !== task) return;
+			task.partials.set(ev.index, (task.partials.get(ev.index) ?? "") + ev.delta);
+			notify(task, ev);
+		},
+		pendingPartials(task) {
+			return [...task.partials.entries()].sort(([a], [b]) => a - b).map(([index, delta]) => ({
+				type: "assistant_text_delta",
+				index,
+				delta
+			}));
 		},
 		subscribe(task, listener) {
 			task.subscribers.add(listener);
@@ -345,6 +459,7 @@ function createTaskStore(options = {}) {
 		complete(task, completeOptions = {}) {
 			if (task.done) return;
 			task.done = true;
+			task.partials.clear();
 			const ttl = completeOptions.ttlMs ?? defaultTtl;
 			task.cleanupTimer = setTimeout(() => {
 				tasks.delete(task.id);

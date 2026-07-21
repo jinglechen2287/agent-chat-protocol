@@ -7,6 +7,15 @@ const textEvent = (text: string): ChatStreamEvent => ({
   text,
 });
 
+const deltaEvent = (
+  index: number,
+  delta: string,
+): Extract<ChatStreamEvent, { type: "assistant_text_delta" }> => ({
+  type: "assistant_text_delta",
+  index,
+  delta,
+});
+
 describe("createTaskStore", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -88,6 +97,61 @@ describe("createTaskStore", () => {
     store.complete(task);
     store.push(task, textEvent("late"));
     expect(task.events).toEqual([textEvent("a")]);
+  });
+
+  describe("streamed text fragments", () => {
+    it("notifies subscribers without entering the replay buffer", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      const seen: ChatStreamEvent[] = [];
+      store.subscribe(task, (ev) => seen.push(ev));
+      store.pushPartial(task, deltaEvent(0, "Hel"));
+      store.pushPartial(task, deltaEvent(0, "lo"));
+      expect(seen).toEqual([deltaEvent(0, "Hel"), deltaEvent(0, "lo")]);
+      expect(task.events).toEqual([]);
+    });
+
+    it("hands a late subscriber the accumulated text as one fragment", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushPartial(task, deltaEvent(0, "Hel"));
+      store.pushPartial(task, deltaEvent(0, "lo"));
+      expect(store.pendingPartials(task)).toEqual([deltaEvent(0, "Hello")]);
+    });
+
+    it("keeps fragments for different messages apart, in index order", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushPartial(task, deltaEvent(1, "second"));
+      store.pushPartial(task, deltaEvent(0, "first"));
+      expect(store.pendingPartials(task)).toEqual([
+        deltaEvent(0, "first"),
+        deltaEvent(1, "second"),
+      ]);
+    });
+
+    // The completed message is in the replay buffer, so replaying its
+    // fragments too would render the text twice.
+    it("drops a message's fragments once its assistant_text is buffered", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushPartial(task, deltaEvent(0, "Hello"));
+      store.push(task, textEvent("Hello"));
+      store.pushPartial(task, deltaEvent(1, "next"));
+      expect(store.pendingPartials(task)).toEqual([deltaEvent(1, "next")]);
+    });
+
+    it("ignores fragments after completion or through a stale handle", () => {
+      const store = createTaskStore();
+      const stale = store.create("t1");
+      store.delete("t1");
+      const replacement = store.create("t1");
+      store.pushPartial(stale, deltaEvent(0, "from old run"));
+      expect(store.pendingPartials(stale)).toEqual([]);
+      store.complete(replacement);
+      store.pushPartial(replacement, deltaEvent(0, "late"));
+      expect(store.pendingPartials(replacement)).toEqual([]);
+    });
   });
 
   it("ignores pushes through a stale handle after delete and recreate", () => {

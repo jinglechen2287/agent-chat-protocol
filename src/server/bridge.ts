@@ -31,6 +31,7 @@ import {
   type ControlsSpec,
 } from "../controls";
 import { toolCallDetails, toolTaskMetadata } from "./tool-details";
+import { createTextDeltaStream } from "./text-stream";
 
 export interface ChatEventBridgeOptions {
   /**
@@ -101,6 +102,18 @@ export function createChatEventBridge(
 
   const controlsValidator = options.controlsValidator ?? validateControls;
 
+  // Fragments carry the index of the message they will become, so a client can
+  // keep per-message scratch buffers and discard each one when its completed
+  // `assistant_text` lands.
+  const textStream = createTextDeltaStream();
+  let messageIndex = 0;
+
+  const onAssistantTextDelta = (chunk: string): void => {
+    if (terminal) return;
+    const delta = textStream.push(chunk);
+    if (delta) emit({ type: "assistant_text_delta", index: messageIndex, delta });
+  };
+
   const onAssistantText = (text: string): void => {
     // The agent may end a message with a structured question or controls
     // block. Controls are a complete UI response, so when one is valid
@@ -116,6 +129,10 @@ export function createChatEventBridge(
     if (parsedControls.controls) {
       emit({ type: "controls", spec: parsedControls.controls });
     }
+    // This message is now transcript content; fragments start over for the
+    // next one, whether or not this one produced an `assistant_text`.
+    textStream.reset();
+    messageIndex += 1;
   };
 
   const emitToolUse = (info: ToolUseInfo): void => {
@@ -201,6 +218,7 @@ export function createChatEventBridge(
     callbacks: {
       onSessionId,
       onAssistantText,
+      onAssistantTextDelta,
       onToolUse,
       onToolResult,
       onBackgroundAgentUpdate,

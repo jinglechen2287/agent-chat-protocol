@@ -14,7 +14,7 @@ import type { ControlsSpec } from "./controls";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -94,6 +94,20 @@ export type ChatStreamEvent =
    * messages, in order — not fragments to concatenate.
    */
   | { type: "assistant_text"; text: string }
+  /**
+   * A fragment of the assistant message still being written. `index` counts
+   * assistant messages within the turn from 0, so fragments belong to the
+   * message the next `assistant_text` will deliver.
+   *
+   * Clients MUST append `delta` to a scratch buffer for `index` and MAY render
+   * that buffer as in-progress prose, and MUST discard the buffer when the
+   * `assistant_text` for the same index arrives — that event is the transcript
+   * message, and the buffer is never one. Fragments are best-effort: they are
+   * not persisted, they stop at a generative-UI block (whose rendered card
+   * would otherwise be preceded by its raw markup), and a turn may deliver an
+   * `assistant_text` with no preceding fragments at all.
+   */
+  | { type: "assistant_text_delta"; index: number; delta: string }
   /**
    * The agent invoked a tool. Clients MUST show at least `name` inline in the
    * transcript and preserve every event in stream order relative to assistant

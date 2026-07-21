@@ -26,12 +26,13 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 3` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 4` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
 | `session_started` | `sessionId`, `protocolVersion?` | |
 | `assistant_text` | `text` | |
+| `assistant_text_delta` | `index`, `delta` | Best-effort fragments of the message `assistant_text` will deliver; never persisted. |
 | `tool_use` | `name`, `summary?`, `details?: {label, value}[]`, `task?`, `plan?` | `task` correlates task-management calls by ID; `plan` carries Codex step/status snapshots. |
 | `question` | `question`, `options: string[]` | |
 | `controls` | `spec: ControlsSpec` | |
@@ -51,6 +52,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 
 - **`session_started`** — persist `sessionId` and send it with the next turn request to continue the conversation. A second occurrence with a different id supersedes the first. Not emitted on resumed turns (the client already holds the id it resumed with).
 - **`assistant_text`** — render as sanitized GitHub-flavored markdown. Multiple occurrences are separate messages in order, not fragments to concatenate.
+- **`assistant_text_delta`** — append `delta` to a scratch buffer for `index` (assistant messages within the turn, counted from 0) and MAY render that buffer as in-progress prose. Discard the buffer when the `assistant_text` for the same index arrives: that event is the transcript message and a fragment buffer is never one, so it MUST NOT be persisted or counted as a replayed message. Fragments are best-effort — they stop at a generative-UI block so its raw markup never precedes the rendered card, and a turn may deliver an `assistant_text` with no preceding fragments at all.
 - **`tool_use`** — show at least `name` inline in the transcript, in stream order relative to text (this is the visible tool trace: "Read `api.ts`", "Bash `bun test`"). `summary` is an optional concise description and `details` are optional curated label/value metadata. Task-management calls may also carry `task: { id?, subject?, status? }`, allowing clients to resolve a later update to the earlier task subject. Codex plan updates may carry `plan: { text, status }[]`; clients can render every step while `details` provides the provider-neutral expanded rows. A client MUST preserve every event and its stream order. No tool output is carried — this traces what ran, not results.
 - **`question`** — render `options` as selectable choices. The chosen option's label (or a typed free-text reply) is sent **verbatim as the next user turn** — there is no special reply channel. Selecting marks the card answered locally.
 - **`controls`** — render each control as an input seeded with its `value` (`slider` → range input with `min`/`max`/`step`, `color` → color picker, `select` → dropdown). On Apply, send an **app-defined message composed from the final values** as the next user turn (carve composes CSS declarations; a simpler app can send `id: value` pairs). Apps may extend the spec with extra fields via the validator seams below — a client that doesn't understand an extension renders the widgets + Apply round-trip and ignores the rest. A panel is retired by the next user message, whatever it is.
@@ -76,6 +78,8 @@ If consumers eventually need to distinguish an intentional batch or a set of par
 ### Reconnect / replay
 
 An in-flight turn is rebuilt by replaying its buffered events from the start and then continuing live — the server's turn store keeps the buffer (see `createTaskStore`), and a reattach endpoint replays `task.events` before subscribing. Because replay and live events are the same union in the same order, a client needs no special reattach rendering path: process events identically either way. Completed turns stay reattachable for a TTL so a refresh just after `done` still sees the terminal event.
+
+`assistant_text_delta` is the one event kept **out** of that buffer. Buffering a fragment per token would make every reattach replay thousands of frames to rebuild text the eventual `assistant_text` supersedes anyway. Instead the store accumulates fragments per index (`pushPartial`) and hands a late subscriber the text accumulated so far as a **single** fragment, after the replay and before it goes live. Appending it to an empty scratch buffer lands the reattaching client exactly where a continuously-connected one already is, so both still run one code path.
 
 ## SSE codec
 

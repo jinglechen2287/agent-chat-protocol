@@ -1,4 +1,4 @@
-import { a as valuesEqual, i as validateControls, n as initialControlValues, o as PROTOCOL_VERSION, r as parseControlsBlock, s as isTerminalEvent, t as parseQuestionBlock } from "./question-CSrvam8s.js";
+import { a as QUESTION_PROMPT, c as parseControlsBlock, d as PROTOCOL_VERSION, f as isTerminalEvent, i as QUESTION_BLOCK_NAME, l as validateControls, n as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, r as LEGACY_QUESTION_BLOCK_NAME, s as initialControlValues, t as CONTROLS_BLOCK_NAME, u as valuesEqual } from "./prompt-BUMK-DQ3.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -57,6 +57,17 @@ function mapSseToChatEvent(ev) {
 				text
 			};
 			return null;
+		}
+		case "assistant_text_delta": {
+			const index = get("index");
+			const delta = get("delta");
+			if (!Number.isSafeInteger(index) || index < 0) return null;
+			if (typeof delta !== "string") return null;
+			return {
+				type: "assistant_text_delta",
+				index,
+				delta
+			};
 		}
 		case "tool_use": {
 			const name = get("name");
@@ -292,38 +303,6 @@ async function consumeSseResponse(res, onEvent, options = {}) {
 function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
-//#endregion
-//#region src/prompt.ts
-/**
-* The emit side of the generative-UI grammar: the prompt section that teaches
-* an agent when and how to end a message with an ```agent-question``` block.
-* Apps append it to their system prompt (Claude `--append-system-prompt`,
-* Codex `developerInstructions`) so the grammar survives long conversations
-* where early user messages get compacted away.
-*
-* Kept in this package alongside the parse-side (parseQuestionBlock) so the
-* two can't drift.
-*
-* Controls emission guidance is app-specific — what the controls tune (CSS in
-* carve's case) is an app extension, so each app authors its own controls
-* prompt section, using {@link CONTROLS_BLOCK_NAME} as the fence and keeping
-* the core widget schema this package validates.
-*/
-const QUESTION_BLOCK_NAME = "agent-question";
-const CONTROLS_BLOCK_NAME = "agent-controls";
-/** Accepted by the parsers during migration; do not teach agents to emit. */
-const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
-/** Accepted by the parsers during migration; do not teach agents to emit. */
-const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
-/** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
-const QUESTION_PROMPT = [
-	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
-	"- When a clarifying question has a small, fixed set of answers, end your message with a question block so the user can answer in one click:",
-	`  \`\`\`${QUESTION_BLOCK_NAME}`,
-	"  {\"question\": \"Short question?\", \"options\": [\"First choice\", \"Second choice\"]}",
-	"  ```",
-	"  Emit at most one such block, as the very last thing in the message, with 2–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text."
-].join("\n");
 //#endregion
 export { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, toSseEvent, validateControls, valuesEqual };
 

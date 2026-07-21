@@ -3,7 +3,7 @@
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 3;
+const PROTOCOL_VERSION = 4;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -226,6 +226,38 @@ function parseBlockBody(body) {
 	};
 }
 //#endregion
-export { valuesEqual as a, validateControls as i, initialControlValues as n, PROTOCOL_VERSION as o, parseControlsBlock as r, isTerminalEvent as s, parseQuestionBlock as t };
+//#region src/prompt.ts
+/**
+* The emit side of the generative-UI grammar: the prompt section that teaches
+* an agent when and how to end a message with an ```agent-question``` block.
+* Apps append it to their system prompt (Claude `--append-system-prompt`,
+* Codex `developerInstructions`) so the grammar survives long conversations
+* where early user messages get compacted away.
+*
+* Kept in this package alongside the parse-side (parseQuestionBlock) so the
+* two can't drift.
+*
+* Controls emission guidance is app-specific — what the controls tune (CSS in
+* carve's case) is an app extension, so each app authors its own controls
+* prompt section, using {@link CONTROLS_BLOCK_NAME} as the fence and keeping
+* the core widget schema this package validates.
+*/
+const QUESTION_BLOCK_NAME = "agent-question";
+const CONTROLS_BLOCK_NAME = "agent-controls";
+/** Accepted by the parsers during migration; do not teach agents to emit. */
+const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
+/** Accepted by the parsers during migration; do not teach agents to emit. */
+const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
+/** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
+const QUESTION_PROMPT = [
+	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
+	"- When a clarifying question has a small, fixed set of answers, end your message with a question block so the user can answer in one click:",
+	`  \`\`\`${QUESTION_BLOCK_NAME}`,
+	"  {\"question\": \"Short question?\", \"options\": [\"First choice\", \"Second choice\"]}",
+	"  ```",
+	"  Emit at most one such block, as the very last thing in the message, with 2–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text."
+].join("\n");
+//#endregion
+export { QUESTION_PROMPT as a, parseControlsBlock as c, PROTOCOL_VERSION as d, isTerminalEvent as f, QUESTION_BLOCK_NAME as i, validateControls as l, LEGACY_CONTROLS_BLOCK_NAME as n, parseQuestionBlock as o, LEGACY_QUESTION_BLOCK_NAME as r, initialControlValues as s, CONTROLS_BLOCK_NAME as t, valuesEqual as u };
 
-//# sourceMappingURL=question-CSrvam8s.js.map
+//# sourceMappingURL=prompt-BUMK-DQ3.js.map

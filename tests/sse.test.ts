@@ -94,6 +94,25 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "assistant_text", text: "hello" });
   });
 
+  it("maps assistant_text_delta", () => {
+    expect(
+      mapSseToChatEvent({ event: "assistant_text_delta", data: { index: 2, delta: "hel" } }),
+    ).toEqual({ type: "assistant_text_delta", index: 2, delta: "hel" });
+  });
+
+  it("rejects assistant_text_delta without a valid index or delta", () => {
+    for (const data of [
+      { index: -1, delta: "x" },
+      { index: 1.5, delta: "x" },
+      { index: "0", delta: "x" },
+      { delta: "x" },
+      { index: 0 },
+      { index: 0, delta: 7 },
+    ]) {
+      expect(mapSseToChatEvent({ event: "assistant_text_delta", data })).toBeNull();
+    }
+  });
+
   it("maps tool_use with optional summary and details", () => {
     expect(mapSseToChatEvent({ event: "tool_use", data: { name: "Bash" } })).toEqual(
       { type: "tool_use", name: "Bash" },

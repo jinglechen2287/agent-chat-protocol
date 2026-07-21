@@ -63,6 +63,82 @@ describe("createChatEventBridge", () => {
     expect(events).toEqual([{ type: "assistant_text", text: "Just prose." }]);
   });
 
+  describe("assistant text deltas", () => {
+    const deltas = (events: ChatStreamEvent[]): string[] =>
+      events.flatMap((ev) => (ev.type === "assistant_text_delta" ? [ev.delta] : []));
+
+    const stream = (bridge: ReturnType<typeof createChatEventBridge>, chunks: string[]): void => {
+      for (const chunk of chunks) bridge.callbacks.onAssistantTextDelta?.(chunk);
+    };
+
+    it("emits each fragment of prose as it arrives", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["Hello", " there"]);
+      expect(events).toEqual([
+        { type: "assistant_text_delta", index: 0, delta: "Hello" },
+        { type: "assistant_text_delta", index: 0, delta: " there" },
+      ]);
+    });
+
+    it("advances the index for each completed message", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["one"]);
+      bridge.callbacks.onAssistantText?.("one");
+      stream(bridge, ["two"]);
+      bridge.callbacks.onAssistantText?.("two");
+      expect(events).toEqual([
+        { type: "assistant_text_delta", index: 0, delta: "one" },
+        { type: "assistant_text", text: "one" },
+        { type: "assistant_text_delta", index: 1, delta: "two" },
+        { type: "assistant_text", text: "two" },
+      ]);
+    });
+
+    // The completed message lifts the block into a question/controls event, so
+    // streaming its raw JSON would flash markup that then disappears.
+    it("stops emitting once an agent block fence opens", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["Pick ", "one:\n", "``", "`agent-", "question\n", '{"question": "A?"}', "\n```"]);
+      expect(deltas(events)).toEqual(["Pick ", "one:\n"]);
+    });
+
+    it("keeps streaming through an ordinary fenced code block", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["Run:\n", "```sh\n", "bun test\n", "```\n", "Done."]);
+      expect(deltas(events).join("")).toBe("Run:\n```sh\nbun test\n```\nDone.");
+    });
+
+    it("withholds a partial fence until its info string is known", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["text\n", "``"]);
+      expect(deltas(events).join("")).toBe("text\n");
+      stream(bridge, ["`js\n"]);
+      expect(deltas(events).join("")).toBe("text\n```js\n");
+    });
+
+    it("resumes streaming on the message after a suppressed one", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      stream(bridge, ["```agent-question\n", '{"question": "A?"}\n', "```"]);
+      bridge.callbacks.onAssistantText?.('```agent-question\n{"question": "A?", "options": ["a", "b"]}\n```');
+      stream(bridge, ["next message"]);
+      expect(deltas(events)).toEqual(["next message"]);
+    });
+
+    it("ignores deltas that arrive after a terminal event", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.finish({ exitCode: 0 });
+      stream(bridge, ["late"]);
+      expect(deltas(events)).toEqual([]);
+    });
+  });
+
   it("lifts a question block into text + question events", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

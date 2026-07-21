@@ -1,4 +1,4 @@
-import { a as ChatStreamEvent, l as ToolTaskMetadata, m as ControlsSpec, s as ToolCallDetail } from "../events-CAKxlina.js";
+import { a as ChatStreamEvent, l as ToolTaskMetadata, m as ControlsSpec, s as ToolCallDetail } from "../events-BU--abZS.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -42,6 +42,11 @@ interface TurnTask {
   id: string;
   /** Every event pushed so far, in order — the replay buffer. */
   events: ChatStreamEvent[];
+  /** In-progress assistant text keyed by message index. Deliberately outside
+   * the replay buffer: a fragment per token would make every reattach replay
+   * thousands of frames to rebuild text the completed message supersedes.
+   * An entry is dropped once that message's `assistant_text` is buffered. */
+  partials: Map<number, string>;
   done: boolean;
   /** Abort this to cancel the underlying run (wire it into the runner). */
   abort: AbortController;
@@ -56,12 +61,22 @@ interface CompleteOptions {
   /** Overrides the store-level TTL for this task. */
   ttlMs?: number;
 }
+type AssistantTextDelta = Extract<ChatStreamEvent, {
+  type: "assistant_text_delta";
+}>;
 interface TaskStore {
   get(id: string): TurnTask | undefined;
   /** Returns the existing task when the id is already registered. */
   create(id: string): TurnTask;
   /** Buffers the event and notifies current subscribers. */
   push(task: TurnTask, ev: ChatStreamEvent): void;
+  /** Notifies subscribers of a text fragment and accumulates it per message
+   * index, without adding it to the replay buffer. */
+  pushPartial(task: TurnTask, ev: AssistantTextDelta): void;
+  /** One fragment per in-flight message carrying everything accumulated so
+   * far, in index order. Replay these to a late subscriber after `task.events`
+   * so it catches up to where a connected client already is. */
+  pendingPartials(task: TurnTask): AssistantTextDelta[];
   /** Returns an unsubscribe function. */
   subscribe(task: TurnTask, listener: (ev: ChatStreamEvent) => void): () => void;
   /** Marks the task done and schedules its removal after the TTL. */

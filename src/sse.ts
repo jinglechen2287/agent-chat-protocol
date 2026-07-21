@@ -94,6 +94,13 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       if (typeof text === "string") return { type: "assistant_text", text };
       return null;
     }
+    case "assistant_text_delta": {
+      const index = get("index");
+      const delta = get("delta");
+      if (!Number.isSafeInteger(index) || (index as number) < 0) return null;
+      if (typeof delta !== "string") return null;
+      return { type: "assistant_text_delta", index: index as number, delta };
+    }
     case "tool_use": {
       const name = get("name");
       if (typeof name !== "string") return null;
