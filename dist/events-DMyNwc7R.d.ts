@@ -626,6 +626,22 @@ type ChatStreamEvent =
   spec: ViewSpec;
 } |
 /**
+ * One validated component of a view still being written, in stream order.
+ * `index` counts assistant messages within the turn, matching
+ * `assistant_text_delta`. Clients MAY hydrate a skeleton view from these
+ * fragments and MUST discard them when the completed `view` (or the
+ * message's `assistant_text`) arrives — that event is authoritative and
+ * runs full graph validation, which per-line delivery cannot. Like text
+ * fragments they are best-effort scratch state: never persisted, never
+ * counted as replayed messages, and a view may arrive with no preceding
+ * lines at all.
+ */
+{
+  type: "view_line";
+  index: number;
+  component: ViewComponent;
+} |
+/**
  * A context-window usage snapshot for the turn. Non-terminal and may arrive
  * more than once (each supersedes the last); clients render the latest as a
  * context meter. `contextWindow` is absent when the provider reported no
@@ -694,4 +710,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-CaRmWv7u.d.ts.map
+//# sourceMappingURL=events-DMyNwc7R.d.ts.map

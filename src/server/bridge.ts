@@ -30,7 +30,7 @@ import {
   validateControls,
   type ControlsSpec,
 } from "../controls";
-import { parseViewBlock } from "../view";
+import { parseViewBlock, validateViewComponent } from "../view";
 import { toolCallDetails, toolTaskMetadata } from "./tool-details";
 import { createTextDeltaStream } from "./text-stream";
 
@@ -111,8 +111,21 @@ export function createChatEventBridge(
 
   const onAssistantTextDelta = (chunk: string): void => {
     if (terminal) return;
-    const delta = textStream.push(chunk);
-    if (delta) emit({ type: "assistant_text_delta", index: messageIndex, delta });
+    const { text, viewLines } = textStream.push(chunk);
+    if (text) emit({ type: "assistant_text_delta", index: messageIndex, delta: text });
+    for (const line of viewLines) {
+      // Per-line validation only — graph rules run on the completed view,
+      // which supersedes these fragments. A bad line is dropped, matching
+      // parseViewBlock's skip-and-survive behavior.
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      const component = validateViewComponent(parsed);
+      if (component) emit({ type: "view_line", index: messageIndex, component });
+    }
   };
 
   const onAssistantText = (text: string): void => {

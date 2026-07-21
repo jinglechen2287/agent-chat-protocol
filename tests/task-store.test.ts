@@ -154,6 +154,46 @@ describe("createTaskStore", () => {
     });
   });
 
+  describe("streamed view lines", () => {
+    const line = (
+      index: number,
+      id: string,
+    ): Extract<ChatStreamEvent, { type: "view_line" }> => ({
+      type: "view_line",
+      index,
+      component: { id, type: "Divider" },
+    });
+
+    it("notifies subscribers without entering the replay buffer", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      const seen: ChatStreamEvent[] = [];
+      store.subscribe(task, (ev) => seen.push(ev));
+      store.pushViewLine(task, line(0, "root"));
+      expect(seen).toEqual([line(0, "root")]);
+      expect(task.events).toEqual([]);
+    });
+
+    it("replays accumulated lines to a late subscriber in arrival order", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushViewLine(task, line(0, "root"));
+      store.pushViewLine(task, line(0, "s1"));
+      expect(store.pendingViewLines(task)).toEqual([line(0, "root"), line(0, "s1")]);
+    });
+
+    it("drops a message's lines once its view (or text) is buffered", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushViewLine(task, line(0, "root"));
+      store.push(task, {
+        type: "view",
+        spec: { components: [{ id: "root", type: "Divider" }] },
+      });
+      expect(store.pendingViewLines(task)).toEqual([]);
+    });
+  });
+
   it("ignores pushes through a stale handle after delete and recreate", () => {
     const store = createTaskStore();
     const stale = store.create("t1");

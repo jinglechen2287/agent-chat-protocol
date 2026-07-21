@@ -263,6 +263,23 @@ describe("mapSseToChatEvent", () => {
     })).toBeNull();
   });
 
+  it("maps a view_line through the component validator", () => {
+    expect(mapSseToChatEvent({
+      event: "view_line",
+      data: { index: 1, component: { id: "s1", type: "Divider" } },
+    })).toEqual({ type: "view_line", index: 1, component: { id: "s1", type: "Divider" } });
+  });
+
+  it("rejects view_line frames with bad indexes or unknown components", () => {
+    for (const data of [
+      { index: -1, component: { id: "s1", type: "Divider" } },
+      { index: 0, component: { id: "s1", type: "Hologram" } },
+      { index: 0 },
+    ]) {
+      expect(mapSseToChatEvent({ event: "view_line", data })).toBeNull();
+    }
+  });
+
   it("maps stderr", () => {
     expect(mapSseToChatEvent({ event: "stderr", data: { chunk: "warn\n" } })).toEqual(
       { type: "stderr", chunk: "warn\n" },

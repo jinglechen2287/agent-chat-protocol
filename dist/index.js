@@ -1,4 +1,4 @@
-import { _ as isTerminalEvent, a as validateViewSpec, c as LEGACY_QUESTION_BLOCK_NAME, d as VIEW_BLOCK_NAME, f as initialControlValues, g as PROTOCOL_VERSION, h as valuesEqual, i as parseViewBlock, l as QUESTION_BLOCK_NAME, m as validateControls, n as VIEW_CATALOG, o as CONTROLS_BLOCK_NAME, p as parseControlsBlock, r as VIEW_PROMPT, s as LEGACY_CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_PROMPT } from "./question-CquQxWgU.js";
+import { _ as PROTOCOL_VERSION, a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, d as QUESTION_PROMPT, f as VIEW_BLOCK_NAME, g as valuesEqual, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, n as VIEW_CATALOG, o as validateViewSpec, p as initialControlValues, r as VIEW_PROMPT, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME, v as isTerminalEvent } from "./question-C-8So3Vl.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -111,6 +111,17 @@ function mapSseToChatEvent(ev) {
 				spec
 			};
 			return null;
+		}
+		case "view_line": {
+			const index = get("index");
+			if (!Number.isSafeInteger(index) || index < 0) return null;
+			const component = validateViewComponent(get("component"));
+			if (!component) return null;
+			return {
+				type: "view_line",
+				index,
+				component
+			};
 		}
 		case "context_usage": {
 			const contextTokens = get("contextTokens");

@@ -9,7 +9,7 @@
 
 import type { QuestionSpec } from "./question";
 import type { ControlsSpec } from "./controls";
-import type { ViewSpec } from "./view";
+import type { ViewComponent, ViewSpec } from "./view";
 
 /**
  * Version of this event contract. Servers include it on `session_started` so
@@ -153,6 +153,18 @@ export type ChatStreamEvent =
    * no handlers, no expressions, no executable payloads.
    */
   | { type: "view"; spec: ViewSpec }
+  /**
+   * One validated component of a view still being written, in stream order.
+   * `index` counts assistant messages within the turn, matching
+   * `assistant_text_delta`. Clients MAY hydrate a skeleton view from these
+   * fragments and MUST discard them when the completed `view` (or the
+   * message's `assistant_text`) arrives — that event is authoritative and
+   * runs full graph validation, which per-line delivery cannot. Like text
+   * fragments they are best-effort scratch state: never persisted, never
+   * counted as replayed messages, and a view may arrive with no preceding
+   * lines at all.
+   */
+  | { type: "view_line"; index: number; component: ViewComponent }
   /**
    * A context-window usage snapshot for the turn. Non-terminal and may arrive
    * more than once (each supersedes the last); clients render the latest as a

@@ -185,6 +185,78 @@ describe("createChatEventBridge", () => {
         .join("");
       expect(streamed).toBe("Report:\n");
     });
+
+    it("emits each completed view line as a view_line event, split across chunks", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of [
+        "Report:\n```agent-view\n",
+        '{"id":"root","type":"Stack",',
+        '"children":["s1"]}\n{"id":"s1","type":"Stat",',
+        '"label":"Uptime","value":"99.9%"}\n',
+        "```",
+      ]) {
+        bridge.callbacks.onAssistantTextDelta?.(chunk);
+      }
+      const lines = events.filter((ev) => ev.type === "view_line");
+      expect(lines).toEqual([
+        {
+          type: "view_line",
+          index: 0,
+          component: { id: "root", type: "Stack", children: ["s1"] },
+        },
+        {
+          type: "view_line",
+          index: 0,
+          component: { id: "s1", type: "Stat", label: "Uptime", value: "99.9%" },
+        },
+      ]);
+    });
+
+    it("skips malformed and unknown view lines without dropping the stream", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of [
+        "```agent-view\n",
+        "{not json\n",
+        '{"id":"x","type":"Hologram"}\n',
+        '{"id":"root","type":"Divider"}\n',
+      ]) {
+        bridge.callbacks.onAssistantTextDelta?.(chunk);
+      }
+      const lines = events.filter((ev) => ev.type === "view_line");
+      expect(lines).toEqual([
+        { type: "view_line", index: 0, component: { id: "root", type: "Divider" } },
+      ]);
+    });
+
+    it("does not emit view_line events for question or controls blocks", () => {
+      const blocks = [
+        ["```agent-question\n", '{"question": "A?"}\n', "```"],
+        [
+          "```agent-controls\n",
+          '{"controls": [{"id": "size", "type": "slider", "label": "Size", "min": 0, "max": 10, "value": 5}]}\n',
+          "```",
+        ],
+      ];
+      for (const chunks of blocks) {
+        const { events, emit } = collect();
+        const bridge = createChatEventBridge(emit);
+        for (const chunk of chunks) bridge.callbacks.onAssistantTextDelta?.(chunk);
+        expect(events.filter((ev) => ev.type === "view_line")).toEqual([]);
+      }
+    });
+
+    it("carries the message index on view lines from later messages", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.("first message");
+      bridge.callbacks.onAssistantTextDelta?.('```agent-view\n{"id":"root","type":"Divider"}\n');
+      const lines = events.filter((ev) => ev.type === "view_line");
+      expect(lines).toEqual([
+        { type: "view_line", index: 1, component: { id: "root", type: "Divider" } },
+      ]);
+    });
   });
 
   it("lifts a question block into text + question events", () => {

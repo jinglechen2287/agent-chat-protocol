@@ -35,6 +35,14 @@ describe("view documentation", () => {
   });
 });
 
+describe("streamed view documentation", () => {
+  it("states that view lines are scratch the completed view supersedes", () => {
+    expect(readme).toContain("**`view_line`**");
+    expect(readme).toContain("full graph validation, which per-line delivery cannot");
+    expect(readme).toContain("pendingViewLines");
+  });
+});
+
 describe("streamed text documentation", () => {
   it("states that fragments are scratch state, not transcript messages", () => {
     expect(readme).toContain("**`assistant_text_delta`**");

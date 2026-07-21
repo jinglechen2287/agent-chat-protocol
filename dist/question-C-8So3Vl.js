@@ -524,6 +524,12 @@ const MAX_BLOCK_BYTES = 65536;
 * hostile frame cannot buy unbounded parse work. Generous headroom over the
 * render cap keeps legitimate skipped-line noise from starving late ids. */
 const MAX_VALIDATED_ENTRIES = MAX_COMPONENTS * 4;
+/** Validates one component line against the catalog — the per-line half of
+* {@link validateViewSpec}, exported for streamed `view_line` delivery where
+* whole-graph validation cannot run yet. */
+function validateViewComponent(value) {
+	return validateComponent(value);
+}
 function validateComponent(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 	const type = value.type;
@@ -719,6 +725,6 @@ function parseBlockBody(body) {
 	};
 }
 //#endregion
-export { isTerminalEvent as _, validateViewSpec as a, LEGACY_QUESTION_BLOCK_NAME as c, VIEW_BLOCK_NAME as d, initialControlValues as f, PROTOCOL_VERSION as g, valuesEqual as h, parseViewBlock as i, QUESTION_BLOCK_NAME as l, validateControls as m, VIEW_CATALOG as n, CONTROLS_BLOCK_NAME as o, parseControlsBlock as p, VIEW_PROMPT as r, LEGACY_CONTROLS_BLOCK_NAME as s, parseQuestionBlock as t, QUESTION_PROMPT as u };
+export { PROTOCOL_VERSION as _, validateViewComponent as a, LEGACY_CONTROLS_BLOCK_NAME as c, QUESTION_PROMPT as d, VIEW_BLOCK_NAME as f, valuesEqual as g, validateControls as h, parseViewBlock as i, LEGACY_QUESTION_BLOCK_NAME as l, parseControlsBlock as m, VIEW_CATALOG as n, validateViewSpec as o, initialControlValues as p, VIEW_PROMPT as r, CONTROLS_BLOCK_NAME as s, parseQuestionBlock as t, QUESTION_BLOCK_NAME as u, isTerminalEvent as v };
 
-//# sourceMappingURL=question-CquQxWgU.js.map
+//# sourceMappingURL=question-C-8So3Vl.js.map

@@ -20,7 +20,7 @@ import type {
   ToolTaskMetadata,
 } from "./events";
 import { validateControls } from "./controls";
-import { validateViewSpec } from "./view";
+import { validateViewComponent, validateViewSpec } from "./view";
 
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -140,6 +140,13 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const spec = validateViewSpec(d);
       if (spec) return { type: "view", spec };
       return null;
+    }
+    case "view_line": {
+      const index = get("index");
+      if (!Number.isSafeInteger(index) || (index as number) < 0) return null;
+      const component = validateViewComponent(get("component"));
+      if (!component) return null;
+      return { type: "view_line", index: index as number, component };
     }
     case "context_usage": {
       const contextTokens = get("contextTokens");

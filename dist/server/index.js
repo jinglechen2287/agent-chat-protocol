@@ -1,4 +1,4 @@
-import { c as LEGACY_QUESTION_BLOCK_NAME, d as VIEW_BLOCK_NAME, i as parseViewBlock, l as QUESTION_BLOCK_NAME, m as validateControls, o as CONTROLS_BLOCK_NAME, p as parseControlsBlock, s as LEGACY_CONTROLS_BLOCK_NAME, t as parseQuestionBlock } from "../question-CquQxWgU.js";
+import { a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, f as VIEW_BLOCK_NAME, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME } from "../question-C-8So3Vl.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -152,18 +152,23 @@ function toolCallDetails(info) {
 * Fence-aware chunking for streamed assistant prose.
 *
 * A message may end with a generative-UI block (```agent-question```,
-* ```agent-controls```) that the *completed* message lifts into its own event.
-* Streaming that block through verbatim would flash raw JSON in the transcript
-* a moment before the rendered card replaces it, so the streamer stops at the
-* opening fence and lets the completed message speak for the remainder.
+* ```agent-controls```, ```agent-view```) that the *completed* message lifts
+* into its own event. Streaming such a block through verbatim would flash raw
+* JSON in the transcript a moment before the rendered card replaces it, so
+* the streamer stops emitting text at the opening fence.
 *
-* The other job is not splitting a fence: a fragment can end mid-marker, and
-* ```` ``` ```` on its own tells us nothing until the info string that follows
-* it arrives. Those bytes are withheld until they can be classified.
+* View blocks get a third behavior: while suppressed from the text stream,
+* each *completed line* inside the block is surfaced separately so the bridge
+* can stream validated components into a skeleton view. Question and controls
+* blocks stay fully suppressed — they render as one card, so partial delivery
+* has nothing to hydrate.
+*
+* The remaining job is not splitting a fence: a fragment can end mid-marker,
+* and ```` ``` ```` on its own tells us nothing until the info string that
+* follows it arrives. Those bytes are withheld until they can be classified.
 */
 const FENCE = "```";
-/** Info strings whose block the completed message renders as a card. Mirrors
-* what the question/controls parsers accept, legacy fences included. */
+/** Info strings whose block the completed message renders as a card. */
 const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
 	QUESTION_BLOCK_NAME,
 	CONTROLS_BLOCK_NAME,
@@ -175,8 +180,10 @@ function createTextDeltaStream() {
 	let raw = "";
 	let emitted = 0;
 	let suppressed = false;
-	/** First fence marker at or after `from` that opens a line — an indented or
-	* mid-sentence run of backticks is inline code, not a block. */
+	/** Inside an agent-view block: the scan position for completed lines, or
+	* null when suppression is not view-flavored (question/controls) or the
+	* view block has closed. */
+	let viewScan = null;
 	const lineStartFence = (from) => {
 		let at = raw.indexOf(FENCE, from);
 		while (at !== -1) {
@@ -196,30 +203,61 @@ function createTextDeltaStream() {
 		emitted = end;
 		return out;
 	};
+	/** Completed lines inside the view block since the last push. A line that
+	* closes the block ends collection; later content stays suppressed. */
+	const collectViewLines = () => {
+		const lines = [];
+		while (viewScan !== null) {
+			const newline = raw.indexOf("\n", viewScan);
+			if (newline === -1) break;
+			const line = raw.slice(viewScan, newline).trimEnd();
+			viewScan = newline + 1;
+			if (line.trim().startsWith(FENCE)) {
+				viewScan = null;
+				break;
+			}
+			if (line.trim()) lines.push(line);
+		}
+		return lines;
+	};
 	return {
 		push(chunk) {
 			raw += chunk;
-			if (suppressed) return "";
+			if (suppressed) return {
+				text: "",
+				viewLines: collectViewLines()
+			};
 			let scan = emitted;
 			for (;;) {
 				const fence = lineStartFence(scan);
 				if (fence === -1) break;
 				const infoEnd = raw.indexOf("\n", fence + 3);
-				if (infoEnd === -1) return take(fence);
+				if (infoEnd === -1) return {
+					text: take(fence),
+					viewLines: []
+				};
 				const info = raw.slice(fence + 3, infoEnd).trim();
 				if (AGENT_BLOCK_NAMES.has(info)) {
 					const out = take(fence);
 					suppressed = true;
-					return out;
+					if (info === "agent-view") viewScan = infoEnd + 1;
+					return {
+						text: out,
+						viewLines: collectViewLines()
+					};
 				}
 				scan = infoEnd + 1;
 			}
-			return take(raw.length - heldTail());
+			return {
+				text: take(raw.length - heldTail()),
+				viewLines: []
+			};
 		},
 		reset() {
 			raw = "";
 			emitted = 0;
 			suppressed = false;
+			viewScan = null;
 		}
 	};
 }
@@ -253,12 +291,26 @@ function createChatEventBridge(emit, options = {}) {
 	let messageIndex = 0;
 	const onAssistantTextDelta = (chunk) => {
 		if (terminal) return;
-		const delta = textStream.push(chunk);
-		if (delta) emit({
+		const { text, viewLines } = textStream.push(chunk);
+		if (text) emit({
 			type: "assistant_text_delta",
 			index: messageIndex,
-			delta
+			delta: text
 		});
+		for (const line of viewLines) {
+			let parsed;
+			try {
+				parsed = JSON.parse(line);
+			} catch {
+				continue;
+			}
+			const component = validateViewComponent(parsed);
+			if (component) emit({
+				type: "view_line",
+				index: messageIndex,
+				component
+			});
+		}
 	};
 	const onAssistantText = (text) => {
 		const parsedQuestion = parseQuestionBlock(text);
@@ -405,9 +457,10 @@ function createChatEventBridge(emit, options = {}) {
 //#endregion
 //#region src/server/task-store.ts
 /** The events an in-flight assistant message resolves into. Once one is
-* buffered, every fragment held so far describes text the transcript now owns. */
+* buffered, every fragment held so far describes content the transcript now
+* owns. */
 function completesAssistantMessage(ev) {
-	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls";
+	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "view";
 }
 const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
 /** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
@@ -431,6 +484,7 @@ function createTaskStore(options = {}) {
 				id,
 				events: [],
 				partials: /* @__PURE__ */ new Map(),
+				viewPartials: /* @__PURE__ */ new Map(),
 				done: false,
 				abort: new AbortController(),
 				subscribers: /* @__PURE__ */ new Set()
@@ -440,7 +494,10 @@ function createTaskStore(options = {}) {
 		},
 		push(task, ev) {
 			if (task.done || tasks.get(task.id) !== task) return;
-			if (completesAssistantMessage(ev)) task.partials.clear();
+			if (completesAssistantMessage(ev)) {
+				task.partials.clear();
+				task.viewPartials.clear();
+			}
 			task.events.push(ev);
 			notify(task, ev);
 		},
@@ -456,6 +513,16 @@ function createTaskStore(options = {}) {
 				delta
 			}));
 		},
+		pushViewLine(task, ev) {
+			if (task.done || tasks.get(task.id) !== task) return;
+			const lines = task.viewPartials.get(ev.index) ?? [];
+			lines.push(ev);
+			task.viewPartials.set(ev.index, lines);
+			notify(task, ev);
+		},
+		pendingViewLines(task) {
+			return [...task.viewPartials.entries()].sort(([a], [b]) => a - b).flatMap(([, lines]) => lines);
+		},
 		subscribe(task, listener) {
 			task.subscribers.add(listener);
 			return () => {
@@ -466,6 +533,7 @@ function createTaskStore(options = {}) {
 			if (task.done) return;
 			task.done = true;
 			task.partials.clear();
+			task.viewPartials.clear();
 			const ttl = completeOptions.ttlMs ?? defaultTtl;
 			task.cleanupTimer = setTimeout(() => {
 				tasks.delete(task.id);

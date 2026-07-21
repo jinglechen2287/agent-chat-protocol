@@ -1,4 +1,4 @@
-import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-CaRmWv7u.js";
+import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-DMyNwc7R.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -47,6 +47,9 @@ interface TurnTask {
    * thousands of frames to rebuild text the completed message supersedes.
    * An entry is dropped once that message's `assistant_text` is buffered. */
   partials: Map<number, string>;
+  /** In-progress view components keyed by message index, same lifecycle as
+   * `partials`: live-only scratch the completed `view` event supersedes. */
+  viewPartials: Map<number, AssistantViewLine[]>;
   done: boolean;
   /** Abort this to cancel the underlying run (wire it into the runner). */
   abort: AbortController;
@@ -64,6 +67,9 @@ interface CompleteOptions {
 type AssistantTextDelta = Extract<ChatStreamEvent, {
   type: "assistant_text_delta";
 }>;
+type AssistantViewLine = Extract<ChatStreamEvent, {
+  type: "view_line";
+}>;
 interface TaskStore {
   get(id: string): TurnTask | undefined;
   /** Returns the existing task when the id is already registered. */
@@ -77,6 +83,12 @@ interface TaskStore {
    * far, in index order. Replay these to a late subscriber after `task.events`
    * so it catches up to where a connected client already is. */
   pendingPartials(task: TurnTask): AssistantTextDelta[];
+  /** Notifies subscribers of a streamed view component and accumulates it,
+   * same lifecycle as {@link pushPartial}. */
+  pushViewLine(task: TurnTask, ev: AssistantViewLine): void;
+  /** Every accumulated in-flight view line in index-then-arrival order, for
+   * late-subscriber catch-up after `task.events`. */
+  pendingViewLines(task: TurnTask): AssistantViewLine[];
   /** Returns an unsubscribe function. */
   subscribe(task: TurnTask, listener: (ev: ChatStreamEvent) => void): () => void;
   /** Marks the task done and schedules its removal after the TTL. */

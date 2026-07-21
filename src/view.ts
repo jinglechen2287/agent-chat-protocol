@@ -265,6 +265,13 @@ const MAX_BLOCK_BYTES = 65_536;
  * render cap keeps legitimate skipped-line noise from starving late ids. */
 const MAX_VALIDATED_ENTRIES = MAX_COMPONENTS * 4;
 
+/** Validates one component line against the catalog — the per-line half of
+ * {@link validateViewSpec}, exported for streamed `view_line` delivery where
+ * whole-graph validation cannot run yet. */
+export function validateViewComponent(value: unknown): ViewComponent | null {
+  return validateComponent(value);
+}
+
 function validateComponent(value: unknown): ViewComponent | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const type = (value as Record<string, unknown>).type;

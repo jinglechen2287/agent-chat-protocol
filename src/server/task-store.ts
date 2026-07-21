@@ -20,6 +20,9 @@ export interface TurnTask {
    * thousands of frames to rebuild text the completed message supersedes.
    * An entry is dropped once that message's `assistant_text` is buffered. */
   partials: Map<number, string>;
+  /** In-progress view components keyed by message index, same lifecycle as
+   * `partials`: live-only scratch the completed `view` event supersedes. */
+  viewPartials: Map<number, AssistantViewLine[]>;
   done: boolean;
   /** Abort this to cancel the underlying run (wire it into the runner). */
   abort: AbortController;
@@ -38,11 +41,16 @@ export interface CompleteOptions {
 }
 
 type AssistantTextDelta = Extract<ChatStreamEvent, { type: "assistant_text_delta" }>;
+type AssistantViewLine = Extract<ChatStreamEvent, { type: "view_line" }>;
 
 /** The events an in-flight assistant message resolves into. Once one is
- * buffered, every fragment held so far describes text the transcript now owns. */
+ * buffered, every fragment held so far describes content the transcript now
+ * owns. */
 function completesAssistantMessage(ev: ChatStreamEvent): boolean {
-  return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls";
+  return ev.type === "assistant_text"
+    || ev.type === "question"
+    || ev.type === "controls"
+    || ev.type === "view";
 }
 
 export interface TaskStore {
@@ -58,6 +66,12 @@ export interface TaskStore {
    * far, in index order. Replay these to a late subscriber after `task.events`
    * so it catches up to where a connected client already is. */
   pendingPartials(task: TurnTask): AssistantTextDelta[];
+  /** Notifies subscribers of a streamed view component and accumulates it,
+   * same lifecycle as {@link pushPartial}. */
+  pushViewLine(task: TurnTask, ev: AssistantViewLine): void;
+  /** Every accumulated in-flight view line in index-then-arrival order, for
+   * late-subscriber catch-up after `task.events`. */
+  pendingViewLines(task: TurnTask): AssistantViewLine[];
   /** Returns an unsubscribe function. */
   subscribe(task: TurnTask, listener: (ev: ChatStreamEvent) => void): () => void;
   /** Marks the task done and schedules its removal after the TTL. */
@@ -98,6 +112,7 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
         id,
         events: [],
         partials: new Map(),
+        viewPartials: new Map(),
         done: false,
         abort: new AbortController(),
         subscribers: new Set(),
@@ -111,7 +126,10 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
       // arriving after completion — a terminal event must be the last thing
       // in the buffer, and replaced ids must not receive the old run's events.
       if (task.done || tasks.get(task.id) !== task) return;
-      if (completesAssistantMessage(ev)) task.partials.clear();
+      if (completesAssistantMessage(ev)) {
+        task.partials.clear();
+        task.viewPartials.clear();
+      }
       task.events.push(ev);
       notify(task, ev);
     },
@@ -128,6 +146,20 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
         .map(([index, delta]) => ({ type: "assistant_text_delta", index, delta }));
     },
 
+    pushViewLine(task, ev) {
+      if (task.done || tasks.get(task.id) !== task) return;
+      const lines = task.viewPartials.get(ev.index) ?? [];
+      lines.push(ev);
+      task.viewPartials.set(ev.index, lines);
+      notify(task, ev);
+    },
+
+    pendingViewLines(task) {
+      return [...task.viewPartials.entries()]
+        .sort(([a], [b]) => a - b)
+        .flatMap(([, lines]) => lines);
+    },
+
     subscribe(task, listener) {
       task.subscribers.add(listener);
       return () => {
@@ -139,8 +171,9 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
       if (task.done) return;
       task.done = true;
       // The buffered terminal event and the persisted transcript are now
-      // authoritative; nothing should replay half-written text over them.
+      // authoritative; nothing should replay half-written content over them.
       task.partials.clear();
+      task.viewPartials.clear();
       const ttl = completeOptions.ttlMs ?? defaultTtl;
       task.cleanupTimer = setTimeout(() => {
         tasks.delete(task.id);
