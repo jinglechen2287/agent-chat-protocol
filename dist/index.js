@@ -1,4 +1,4 @@
-import { _ as PROTOCOL_VERSION, a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, d as QUESTION_PROMPT, f as VIEW_BLOCK_NAME, g as valuesEqual, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, n as VIEW_CATALOG, o as validateViewSpec, p as initialControlValues, r as VIEW_PROMPT, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME, v as isTerminalEvent } from "./question-h3e-bDvJ.js";
+import { _ as PROTOCOL_VERSION, a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, d as QUESTION_PROMPT, f as VIEW_BLOCK_NAME, g as valuesEqual, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, n as VIEW_CATALOG, o as validateViewSpec, p as initialControlValues, r as VIEW_PROMPT, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME, v as isTerminalEvent } from "./question-DAw5htTL.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the

@@ -217,4 +217,16 @@ describe("VIEW_PROMPT", () => {
     expect(VIEW_PROMPT).toContain('"root"');
     expect(VIEW_PROMPT).toContain("one JSON object per line");
   });
+
+  it("frames views as the default, triggered by content rather than document type", () => {
+    expect(VIEW_PROMPT).toContain("visualization mode");
+    expect(VIEW_PROMPT).toContain("Default to answering with a view");
+    // The trigger list catches conversational data (a stock chat), not just
+    // things that announce themselves as reports.
+    expect(VIEW_PROMPT).toContain("numbers, comparisons, trends");
+  });
+
+  it("guards the harder push with a no-fabrication rule", () => {
+    expect(VIEW_PROMPT).toContain("Never invent data");
+  });
 });

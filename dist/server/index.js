@@ -1,4 +1,4 @@
-import { a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, f as VIEW_BLOCK_NAME, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME } from "../question-h3e-bDvJ.js";
+import { a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, f as VIEW_BLOCK_NAME, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME } from "../question-DAw5htTL.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;

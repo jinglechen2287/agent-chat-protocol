@@ -413,7 +413,8 @@ export function parseViewBlock(raw: string): ParsedViewText {
  * asserts every catalog entry appears here, so prompt and validator move
  * together. */
 export const VIEW_PROMPT: string = [
-  "- When a response is best shown as a report, dashboard, or data view (metrics, comparisons, timelines, code changes), compose it from the component catalog by ending the message with a view block. Prefer prose for ordinary answers; emit at most one view per message:",
+  "- This conversation is in visualization mode: the user has explicitly asked for visual replies. Default to answering with a view, not only for formal reports — reach for one whenever the reply contains numbers, comparisons, trends, rankings, prices, options, steps, or entities with attributes. If you are about to write a paragraph carrying three or more figures, put them in components instead; even a single key number deserves a Stat or Callout. Plain prose alone is right only when there is genuinely nothing to structure (a yes/no, a pure opinion).",
+  "- Lead with a sentence or two of prose when context helps, then end the message with the view block (at most one per message):",
   "  ```" + VIEW_BLOCK_NAME,
   '  {"id":"root","type":"Section","title":"Weekly usage","children":["kpis","detail"]}',
   '  {"id":"kpis","type":"Grid","children":["s1","s2"]}',
@@ -423,6 +424,7 @@ export const VIEW_PROMPT: string = [
   "  ```",
   "- Rules: one JSON object per line, no wrapping array. The entry component MUST have id \"root\". Containers reference children by id; define every referenced id. Keep views under ~40 components. Aggregate data first — tables ≤200 rows, chart series ≤300 points.",
   "- Pick components for meaning, never styling — there are no color or layout-tuning props. Inputs write client-side $vars; a Button's message template (\"Rerun for {$region}\") sends the interpolated text as the user's next message. Use href Buttons for external links.",
+  "- Never invent data to fill a view: visualize the real numbers you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so in prose or a Callout rather than charting placeholders.",
   "- Catalog:",
   ...Object.entries(VIEW_CATALOG).map(([name, entry]) => `  - ${name}: ${entry.prompt.replace(`${name} `, "")}`),
 ].join("\n");
