@@ -4,7 +4,7 @@ import * as z from "zod";
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 7;
+const PROTOCOL_VERSION = 8;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -925,4 +925,4 @@ const HTML_PROMPT = [
 //#endregion
 export { validateControls as C, isTerminalEvent as E, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-Byo1ppmR.js.map
+//# sourceMappingURL=html-CDfgQN-j.js.map

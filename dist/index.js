@@ -1,4 +1,4 @@
-import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-Byo1ppmR.js";
+import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-CDfgQN-j.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -95,6 +95,34 @@ function mapSseToChatEvent(ev) {
 				options
 			};
 			return null;
+		}
+		case "user_input_request": {
+			const requestId = get("requestId");
+			const questions = userInputQuestions(get("questions"));
+			const autoResolutionMs = get("autoResolutionMs");
+			if (typeof requestId !== "string" || requestId.trim() === "" || !questions) return null;
+			if (autoResolutionMs !== void 0 && (!Number.isSafeInteger(autoResolutionMs) || autoResolutionMs < 0)) return null;
+			return {
+				type: "user_input_request",
+				requestId,
+				questions,
+				...typeof autoResolutionMs === "number" ? { autoResolutionMs } : {}
+			};
+		}
+		case "user_input_resolved": {
+			const requestId = get("requestId");
+			const resolution = get("resolution");
+			const answeredQuestionIds = stringArray(get("answeredQuestionIds"));
+			const rawAnswers = get("answers");
+			const answers = rawAnswers === void 0 ? void 0 : answerRecord(rawAnswers);
+			if (typeof requestId !== "string" || requestId.trim() === "" || resolution !== "answered" && resolution !== "auto" || !answeredQuestionIds || rawAnswers !== void 0 && !answers) return null;
+			return {
+				type: "user_input_resolved",
+				requestId,
+				resolution,
+				answeredQuestionIds,
+				...answers ? { answers } : {}
+			};
 		}
 		case "plan": {
 			const planMarkdown = get("planMarkdown");
@@ -214,6 +242,64 @@ function optionalNonEmptyString(record, key) {
 	const value = record[key];
 	if (value === void 0 || value === null) return void 0;
 	return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+function stringArray(value) {
+	return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : null;
+}
+function answerRecord(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const answers = {};
+	for (const [key, raw] of Object.entries(value)) {
+		const values = stringArray(raw);
+		if (!key.trim() || !values || values.length === 0 || values.some((item) => !item.trim())) return null;
+		Object.defineProperty(answers, key, {
+			value: values,
+			enumerable: true,
+			configurable: true,
+			writable: true
+		});
+	}
+	return answers;
+}
+function userInputQuestions(value) {
+	if (!Array.isArray(value) || value.length === 0) return null;
+	const questions = [];
+	const ids = /* @__PURE__ */ new Set();
+	for (const rawQuestion of value) {
+		if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
+		const question = rawQuestion;
+		const id = optionalNonEmptyString(question, "id");
+		const header = optionalNonEmptyString(question, "header");
+		const prompt = optionalNonEmptyString(question, "question");
+		if (!id || !header || !prompt || ids.has(id)) return null;
+		if (!Array.isArray(question.options)) return null;
+		const options = [];
+		for (const rawOption of question.options) {
+			if (!rawOption || typeof rawOption !== "object" || Array.isArray(rawOption)) return null;
+			const option = rawOption;
+			const label = optionalNonEmptyString(option, "label");
+			const rawDescription = option.description;
+			if (rawDescription !== void 0 && rawDescription !== null && typeof rawDescription !== "string") return null;
+			const description = typeof rawDescription === "string" && rawDescription.trim() ? rawDescription.trim() : void 0;
+			if (!label) return null;
+			options.push({
+				label,
+				...description ? { description } : {}
+			});
+		}
+		if (typeof question.multiSelect !== "boolean" || typeof question.allowOther !== "boolean" || typeof question.secret !== "boolean") return null;
+		ids.add(id);
+		questions.push({
+			id,
+			header,
+			question: prompt,
+			options,
+			multiSelect: question.multiSelect,
+			allowOther: question.allowOther,
+			secret: question.secret
+		});
+	}
+	return questions;
 }
 function optionalNonNegativeInteger(record, key) {
 	const value = record[key];

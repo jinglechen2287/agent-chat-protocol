@@ -13,6 +13,10 @@ import {
   toSseEvent,
 } from "../src/index";
 
+it("increments the native-question protocol revision", () => {
+  expect(PROTOCOL_VERSION).toBe(8);
+});
+
 describe("parseSseBuffer", () => {
   it("parses a complete event block and returns the trailing remainder", () => {
     const result = parseSseBuffer(
@@ -131,6 +135,128 @@ describe("mapSseToChatEvent", () => {
       name: "Bash",
       summary: "bun test",
       details: [{ label: "Command", value: "bun test" }],
+    });
+  });
+
+  it("maps native user-input requests and trims optional descriptions", () => {
+    expect(mapSseToChatEvent({
+      event: "user_input_request",
+      data: {
+        requestId: "request-1",
+        autoResolutionMs: 30_000,
+        questions: [{
+          id: "framework",
+          header: "Framework",
+          question: "Which framework?",
+          options: [
+            { label: "React", description: " Component UI " },
+            { label: "Vue", description: "   " },
+          ],
+          multiSelect: false,
+          allowOther: true,
+          secret: false,
+        }],
+      },
+    })).toEqual({
+      type: "user_input_request",
+      requestId: "request-1",
+      autoResolutionMs: 30_000,
+      questions: [{
+        id: "framework",
+        header: "Framework",
+        question: "Which framework?",
+        options: [
+          { label: "React", description: "Component UI" },
+          { label: "Vue" },
+        ],
+        multiSelect: false,
+        allowOther: true,
+        secret: false,
+      }],
+    });
+  });
+
+  it("maps native user-input resolutions and rejects malformed answers", () => {
+    expect(mapSseToChatEvent({
+      event: "user_input_resolved",
+      data: {
+        requestId: "request-1",
+        resolution: "answered",
+        answeredQuestionIds: ["framework"],
+        answers: { framework: ["React"] },
+      },
+    })).toEqual({
+      type: "user_input_resolved",
+      requestId: "request-1",
+      resolution: "answered",
+      answeredQuestionIds: ["framework"],
+      answers: { framework: ["React"] },
+    });
+    expect(mapSseToChatEvent({
+      event: "user_input_resolved",
+      data: {
+        requestId: "request-1",
+        resolution: "answered",
+        answeredQuestionIds: ["framework"],
+        answers: { framework: [7] },
+      },
+    })).toBeNull();
+    for (const answers of [{ framework: [] }, { framework: ["   "] }]) {
+      expect(mapSseToChatEvent({
+        event: "user_input_resolved",
+        data: {
+          requestId: "request-1",
+          resolution: "answered",
+          answeredQuestionIds: ["framework"],
+          answers,
+        },
+      })).toBeNull();
+    }
+  });
+
+  it("preserves special answer IDs as own properties", () => {
+    const event = mapSseToChatEvent({
+      event: "user_input_resolved",
+      data: {
+        requestId: "request-special",
+        resolution: "answered",
+        answeredQuestionIds: ["__proto__"],
+        answers: JSON.parse('{"__proto__":["safe"]}') as unknown,
+      },
+    });
+    expect(event?.type).toBe("user_input_resolved");
+    if (event?.type !== "user_input_resolved") throw new Error("Expected a resolution event");
+    expect(Object.hasOwn(event.answers ?? {}, "__proto__")).toBe(true);
+    expect(event.answers?.["__proto__"]).toEqual(["safe"]);
+    expect(Object.getPrototypeOf(event.answers)).toBe(Object.prototype);
+  });
+
+  it("preserves auto-resolution and secret completion without answer values", () => {
+    expect(mapSseToChatEvent({
+      event: "user_input_resolved",
+      data: {
+        requestId: "request-auto",
+        resolution: "auto",
+        answeredQuestionIds: [],
+      },
+    })).toEqual({
+      type: "user_input_resolved",
+      requestId: "request-auto",
+      resolution: "auto",
+      answeredQuestionIds: [],
+    });
+    expect(mapSseToChatEvent({
+      event: "user_input_resolved",
+      data: {
+        requestId: "request-secret",
+        resolution: "answered",
+        answeredQuestionIds: ["token"],
+      },
+    })).toEqual({
+      type: "user_input_resolved",
+      requestId: "request-secret",
+      resolution: "answered",
+      answeredQuestionIds: ["token"],
     });
   });
 
@@ -525,6 +651,38 @@ describe("encode/decode round trip", () => {
       details: [{ label: "File", value: "api.ts" }],
     },
     { type: "question", question: "Which nav?", options: ["Sidebar", "Top bar"] },
+    {
+      type: "user_input_request",
+      requestId: "request-1",
+      autoResolutionMs: 30_000,
+      questions: [
+        {
+          id: "framework",
+          header: "Framework",
+          question: "Which framework?",
+          options: [{ label: "React", description: "Component UI" }],
+          multiSelect: false,
+          allowOther: true,
+          secret: false,
+        },
+        {
+          id: "features",
+          header: "Features",
+          question: "Which features?",
+          options: [{ label: "Tests" }, { label: "Types" }],
+          multiSelect: true,
+          allowOther: false,
+          secret: false,
+        },
+      ],
+    },
+    {
+      type: "user_input_resolved",
+      requestId: "request-1",
+      resolution: "answered",
+      answeredQuestionIds: ["framework", "features"],
+      answers: { framework: ["React"], features: ["Tests", "Types"] },
+    },
     { type: "plan", planMarkdown: "# Plan\n\n1. Do it.", title: "Plan" },
     { type: "plan", planMarkdown: "headingless", title: null },
     {

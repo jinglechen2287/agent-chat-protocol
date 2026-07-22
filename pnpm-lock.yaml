@@ -7,13 +7,17 @@ settings:
 importers:
 
   .:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
       agent-cli-runner:
         specifier: github:jinglechen2287/agent-cli-runner
-        version: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52
+        version: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/ca5f04df9423f553863ca2fd8578e8df43331489
       tsdown:
         specifier: ^0.22.9
         version: 0.22.9(typescript@5.9.3)
@@ -593,9 +597,9 @@ packages:
   '@yuku-toolchain/types@0.6.8':
     resolution: {integrity: sha512-AbUd1775RVkOxJkh8hkldIWoU6kRMTCsZFSZq8Ny53q7GkbaVe5UCfleNZ3RWCoz/ZKE8qwfeB7Cj0xqhLWsKA==}
 
-  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52:
-    resolution: {tarball: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52}
-    version: 0.1.0
+  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/ca5f04df9423f553863ca2fd8578e8df43331489:
+    resolution: {tarball: https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/ca5f04df9423f553863ca2fd8578e8df43331489}
+    version: 0.2.0
     engines: {node: '>=18'}
 
   ansis@4.3.1:
@@ -935,6 +939,9 @@ packages:
 
   yuku-parser@0.6.9:
     resolution: {integrity: sha512-ChQnt7Ocxrg633pl0Ve6nLsysxX51uYJ2V6pEUeKyzZoaKSFFhQHFl8G5VBjitIrtpZb/QHktQSQdNoYsPTc5g==}
+
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
 snapshots:
 
@@ -1287,7 +1294,7 @@ snapshots:
 
   '@yuku-toolchain/types@0.6.8': {}
 
-  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/42c49e153f394684f535dd19309a1db38a612d52: {}
+  agent-cli-runner@https://codeload.github.com/jinglechen2287/agent-cli-runner/tar.gz/ca5f04df9423f553863ca2fd8578e8df43331489: {}
 
   ansis@4.3.1: {}
 
@@ -1637,3 +1644,5 @@ snapshots:
       '@yuku-parser/binding-linux-x64-musl': 0.6.9
       '@yuku-parser/binding-win32-arm64': 0.6.9
       '@yuku-parser/binding-win32-x64': 0.6.9
+
+  zod@4.4.3: {}
