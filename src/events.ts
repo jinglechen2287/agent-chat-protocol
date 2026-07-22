@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -132,6 +132,19 @@ export type ChatStreamEvent =
    * answered — no special reply channel exists.
    */
   | { type: "question"; question: string; options: QuestionSpec["options"] }
+  /**
+   * A proposed implementation plan (a `<proposed_plan>` block body) from a
+   * plan-mode turn. Clients MUST render `planMarkdown` as sanitized
+   * GitHub-flavored markdown (like `assistant_text` — it is agent output,
+   * so unsafe raw HTML and URL schemes must not reach the DOM), SHOULD
+   * present it as a distinct plan card (`title` is the plan's first heading,
+   * for compact headers), and SHOULD offer the round-trip the emitting
+   * prompt promises the agent: user feedback refines the plan in a further
+   * plan-mode turn, and an approval sends the plan text back verbatim as an
+   * implement request outside plan mode. The plan is transcript content
+   * alongside `assistant_text`.
+   */
+  | { type: "plan"; planMarkdown: string; title: string | null }
   /**
    * A live parameter panel. Clients MUST render each control as an input
    * seeded with its `value`, and on Apply send an app-defined message

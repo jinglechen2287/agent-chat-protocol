@@ -25,6 +25,7 @@ import type {
 } from "agent-cli-runner";
 import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
 import { parseQuestionBlock } from "../question";
+import { parseProposedPlan } from "../plan";
 import {
   parseControlsBlock,
   validateControls,
@@ -133,16 +134,22 @@ export function createChatEventBridge(
   };
 
   const onAssistantText = (text: string): void => {
-    // The agent may end a message with structured question, controls, view,
-    // or html blocks. Controls are a complete UI response, so when one is
-    // valid suppress all surrounding prose and emit only the panel. Views
+    // The agent may end a message with structured plan, question, controls,
+    // view, or html blocks. Controls are a complete UI response, so when one
+    // is valid suppress all surrounding prose and emit only the panel. Views
     // and html pages are content like prose — their surrounding text stays.
-    const parsedQuestion = parseQuestionBlock(text);
+    // The plan block is lifted first: its body is markdown that may contain
+    // any of the fenced blocks, and those belong to the plan, not the turn.
+    const parsedPlan = parseProposedPlan(text);
+    const parsedQuestion = parseQuestionBlock(parsedPlan.text);
     const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
     const parsedView = parseViewBlock(parsedControls.text);
     const parsedHtml = parseHtmlBlock(parsedView.text);
     if (!parsedControls.controls && parsedHtml.text) {
       emit({ type: "assistant_text", text: parsedHtml.text });
+    }
+    if (parsedPlan.plan) {
+      emit({ type: "plan", ...parsedPlan.plan });
     }
     if (parsedView.view) {
       emit({ type: "view", spec: parsedView.view });

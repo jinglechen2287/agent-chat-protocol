@@ -1,4 +1,4 @@
-import { A as QuestionSpec, C as SelectControl, D as validateControls, E as parseControlsBlock, O as valuesEqual, S as ParsedControlsText, T as initialControlValues, _ as validateViewSpec, a as ChatStreamEvent, b as ControlValues, c as ToolPlanItem, d as ParsedViewText, f as VIEW_CATALOG, g as parseViewBlock, h as ViewSpec, i as BackgroundAgentStatus, j as parseQuestionBlock, k as ParsedQuestionText, l as ToolTaskMetadata, m as ViewComponent, n as BackgroundAgent, o as PROTOCOL_VERSION, p as VIEW_PROMPT, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as ColorControl, w as SliderControl, x as ControlsSpec, y as Control } from "./events-BuSL5iZh.js";
+import { A as QuestionSpec, C as SelectControl, D as validateControls, E as parseControlsBlock, O as valuesEqual, S as ParsedControlsText, T as initialControlValues, _ as validateViewSpec, a as ChatStreamEvent, b as ControlValues, c as ToolPlanItem, d as ParsedViewText, f as VIEW_CATALOG, g as parseViewBlock, h as ViewSpec, i as BackgroundAgentStatus, j as parseQuestionBlock, k as ParsedQuestionText, l as ToolTaskMetadata, m as ViewComponent, n as BackgroundAgent, o as PROTOCOL_VERSION, p as VIEW_PROMPT, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as ColorControl, w as SliderControl, x as ControlsSpec, y as Control } from "./events-qYGUQ2KB.js";
 //#region src/sse.d.ts
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -50,6 +50,40 @@ declare function consumeSseResponse(res: Response, onEvent: (e: ChatStreamEvent)
 declare function consumeSseResponse<TEvent>(res: Response, onEvent: (e: TEvent) => void, options: ConsumeSseOptions<TEvent> & {
   mapEvent: (ev: SseEvent) => TEvent | null;
 }): Promise<void>;
+//#endregion
+//#region src/plan.d.ts
+/**
+ * The proposed-plan block a plan-mode agent ends its final message with:
+ *
+ *   <proposed_plan>
+ *   # Add subtract to a.ts
+ *   ...markdown...
+ *   </proposed_plan>
+ *
+ * When present and well-formed the block is lifted into a `PlanSpec` and
+ * stripped from the surrounding prose. A malformed or unclosed block is left
+ * untouched as plain text — a raw plan in the transcript beats dropping it.
+ *
+ * Tags, not a fenced block, deliberately: plan markdown legitimately contains
+ * code fences, and an inner ``` would close an outer fence. XML-ish tags have
+ * no such collision, stream invisibly through markdown renderers that drop
+ * unknown HTML, and match the `<proposed_plan>` convention Codex is already
+ * trained on.
+ */
+interface PlanSpec {
+  /** The plan body, verbatim markdown. */
+  planMarkdown: string;
+  /** The first markdown heading inside the plan, or null when it has none. */
+  title: string | null;
+}
+interface ParsedPlanText {
+  /** The message text with a valid plan block removed and trimmed. Empty
+   * string when the message was nothing but the block. */
+  text: string;
+  /** The parsed plan, or null when the message had no valid block. */
+  plan: PlanSpec | null;
+}
+declare function parseProposedPlan(raw: string): ParsedPlanText;
 //#endregion
 //#region src/html.d.ts
 /**
@@ -145,8 +179,18 @@ declare const HTML_BLOCK_NAME = "agent-html";
 declare const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
+/** Teaches a plan-mode turn its output contract: research freely, change
+ * nothing, and end the final message with a `<proposed_plan>` block that the
+ * client lifts into a plan card (see plan.ts for the parse side).
+ *
+ * Written for headless CLI turns on either provider. Claude runs it under
+ * `--permission-mode plan` with ExitPlanMode disallowed (the -p CLI never
+ * enables that tool, and without this contract the model hunts for it);
+ * Codex runs it under a read-only sandbox policy. The prompt is what aligns
+ * both on one plan-delivery channel. */
+declare const PLAN_PROMPT: string;
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
 //#endregion
-export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedQuestionText, type ParsedViewText, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
+export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

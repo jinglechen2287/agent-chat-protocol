@@ -211,6 +211,34 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "question", question: "Which?", options: ["A", "B"] });
   });
 
+  it("maps plan", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "plan",
+        data: { planMarkdown: "# T\nBody.", title: "T" },
+      }),
+    ).toEqual({ type: "plan", planMarkdown: "# T\nBody.", title: "T" });
+  });
+
+  it("maps a plan with a null title", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "plan",
+        data: { planMarkdown: "no heading", title: null },
+      }),
+    ).toEqual({ type: "plan", planMarkdown: "no heading", title: null });
+  });
+
+  it("drops a plan without markdown", () => {
+    expect(mapSseToChatEvent({ event: "plan", data: { title: "T" } })).toBeNull();
+  });
+
+  it("drops a plan whose markdown is only whitespace", () => {
+    expect(
+      mapSseToChatEvent({ event: "plan", data: { planMarkdown: " \n\t", title: null } }),
+    ).toBeNull();
+  });
+
   it("maps controls through the core validator, dropping extension fields", () => {
     const spec = {
       controls: [
@@ -497,6 +525,8 @@ describe("encode/decode round trip", () => {
       details: [{ label: "File", value: "api.ts" }],
     },
     { type: "question", question: "Which nav?", options: ["Sidebar", "Top bar"] },
+    { type: "plan", planMarkdown: "# Plan\n\n1. Do it.", title: "Plan" },
+    { type: "plan", planMarkdown: "headingless", title: null },
     {
       type: "controls",
       spec: {

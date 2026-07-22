@@ -131,6 +131,14 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       }
       return null;
     }
+    case "plan": {
+      const planMarkdown = get("planMarkdown");
+      const title = get("title");
+      if (typeof planMarkdown === "string" && planMarkdown.trim() !== "") {
+        return { type: "plan", planMarkdown, title: typeof title === "string" ? title : null };
+      }
+      return null;
+    }
     case "controls": {
       const spec = validateControls(d);
       if (spec) return { type: "controls", spec };

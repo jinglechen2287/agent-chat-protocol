@@ -271,6 +271,38 @@ describe("createChatEventBridge", () => {
     ]);
   });
 
+  it("lifts a proposed_plan block into text + plan events", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onAssistantText?.(
+      "Plan is ready.\n\n<proposed_plan>\n# Add subtract\n\nBody.\n</proposed_plan>",
+    );
+    expect(events).toEqual([
+      { type: "assistant_text", text: "Plan is ready." },
+      { type: "plan", planMarkdown: "# Add subtract\n\nBody.", title: "Add subtract" },
+    ]);
+  });
+
+  it("emits only the plan event when the message is nothing but the block", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onAssistantText?.("<proposed_plan>\n# T\nBody.\n</proposed_plan>");
+    expect(events).toEqual([
+      { type: "plan", planMarkdown: "# T\nBody.", title: "T" },
+    ]);
+  });
+
+  it("does not mis-lift a question fence inside a plan body", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onAssistantText?.(
+      "<proposed_plan>\n# T\n\n```agent-question\n" +
+        '{"question": "Q?", "options": ["A", "B"]}\n```\n</proposed_plan>',
+    );
+    expect(events.map((ev) => ev.type)).toEqual(["plan"]);
+    expect(events[0]).toMatchObject({ type: "plan", title: "T" });
+  });
+
   it("suppresses surrounding prose when a controls block is valid", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);

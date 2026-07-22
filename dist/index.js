@@ -1,4 +1,4 @@
-import { C as isTerminalEvent, S as PROTOCOL_VERSION, _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, g as QUESTION_PROMPT, h as QUESTION_BLOCK_NAME, i as parseHtmlFrameMessage, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, n as HTML_SEND_MAX, o as VIEW_CATALOG, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_PROMPT, t as HTML_PROMPT, u as validateViewSpec, v as initialControlValues, x as valuesEqual, y as parseControlsBlock } from "./html-B858zGal.js";
+import { C as valuesEqual, S as validateControls, T as isTerminalEvent, _ as QUESTION_BLOCK_NAME, a as parseProposedPlan, b as initialControlValues, c as VIEW_PROMPT, d as validateViewSpec, f as CONTROLS_BLOCK_NAME, g as PLAN_PROMPT, h as LEGACY_QUESTION_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as LEGACY_CONTROLS_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as HTML_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_PROMPT, w as PROTOCOL_VERSION, x as parseControlsBlock, y as VIEW_BLOCK_NAME } from "./html-DMkUQL-i.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -93,6 +93,16 @@ function mapSseToChatEvent(ev) {
 				type: "question",
 				question,
 				options
+			};
+			return null;
+		}
+		case "plan": {
+			const planMarkdown = get("planMarkdown");
+			const title = get("title");
+			if (typeof planMarkdown === "string" && planMarkdown.trim() !== "") return {
+				type: "plan",
+				planMarkdown,
+				title: typeof title === "string" ? title : null
 			};
 			return null;
 		}
@@ -346,6 +356,6 @@ function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
-export { CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
+export { CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

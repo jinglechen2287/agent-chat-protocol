@@ -4,7 +4,7 @@ import * as z from "zod";
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 6;
+const PROTOCOL_VERSION = 7;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -141,9 +141,9 @@ function valuesEqual(a, b) {
 /** Matches the first controls fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE$3 = /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE$4 = /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
 function parseControlsBlock(raw, validate = validateControls) {
-	const match = BLOCK_RE$3.exec(raw);
+	const match = BLOCK_RE$4.exec(raw);
 	if (!match) return {
 		text: raw,
 		controls: null
@@ -192,6 +192,49 @@ const HTML_BLOCK_NAME = "agent-html";
 const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
+/** Teaches a plan-mode turn its output contract: research freely, change
+* nothing, and end the final message with a `<proposed_plan>` block that the
+* client lifts into a plan card (see plan.ts for the parse side).
+*
+* Written for headless CLI turns on either provider. Claude runs it under
+* `--permission-mode plan` with ExitPlanMode disallowed (the -p CLI never
+* enables that tool, and without this contract the model hunts for it);
+* Codex runs it under a read-only sandbox policy. The prompt is what aligns
+* both on one plan-delivery channel. */
+const PLAN_PROMPT = [
+	"## Plan mode",
+	"",
+	"You are in plan mode: this turn produces a plan, not changes. Treat every",
+	"request — however imperative — as a request to plan the work, not do it.",
+	"",
+	"Allowed: reading and searching files, inspecting configs and schemas, and",
+	"other non-mutating commands that make the plan more accurate. Explore",
+	"before asking; only ask the user what exploration cannot answer.",
+	"Not allowed: editing or writing files, applying patches, running",
+	"formatters or codegen, or any command whose purpose is to carry out the",
+	"work rather than refine the plan.",
+	"",
+	"You are running headless inside a chat client:",
+	"- The ExitPlanMode tool is NOT available here and MUST NOT be called —",
+	"  there is no approval channel behind it.",
+	"- Do not write the plan to a file; the client cannot read files.",
+	"",
+	"When the plan is complete and decision-complete (the implementer needs to",
+	"make no further decisions), end your final message with the plan wrapped",
+	"in a proposed-plan block:",
+	"",
+	"<proposed_plan>",
+	"# Clear title",
+	"",
+	"Brief summary, the concrete changes (files, interfaces, code where it",
+	"helps), how to verify, and any assumptions you chose.",
+	"</proposed_plan>",
+	"",
+	"Rules for the block: each tag on its own line, markdown inside, keep the",
+	"tag names exactly as written, and emit at most one block per turn — only",
+	"when the plan is complete. Do not ask \"should I proceed?\" afterwards; the",
+	"client offers implementation to the user itself."
+].join("\n");
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 const QUESTION_PROMPT = [
 	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
@@ -615,7 +658,7 @@ function validateViewSpec(value) {
 }
 /** Matches the first agent-view fenced block; the info string must be exactly
 * the block name so ordinary ```json blocks are ignored. */
-const BLOCK_RE$2 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```");
+const BLOCK_RE$3 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```");
 /**
 * Extracts the first ```agent-view``` block: one JSON component per line.
 * Malformed or unknown lines are skipped; a block with no valid root (or one
@@ -623,7 +666,7 @@ const BLOCK_RE$2 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n
 * malformed controls block.
 */
 function parseViewBlock(raw) {
-	const match = BLOCK_RE$2.exec(raw);
+	const match = BLOCK_RE$3.exec(raw);
 	if (!match) return {
 		text: raw,
 		view: null
@@ -682,9 +725,9 @@ const MAX_OPTION_LENGTH = 100;
 /** Matches the first question fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE$1 = /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE$2 = /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
 function parseQuestionBlock(raw) {
-	const match = BLOCK_RE$1.exec(raw);
+	const match = BLOCK_RE$2.exec(raw);
 	if (!match) return {
 		text: raw,
 		question: null
@@ -727,6 +770,40 @@ function parseBlockBody(body) {
 	return {
 		question,
 		options
+	};
+}
+//#endregion
+//#region src/plan.ts
+/** Defensive ceiling on the plan body. Plans are long-form documents, so this
+* is far looser than the question/controls limits — it only exists so a
+* runaway generation can't flood clients through one event. */
+const MAX_PLAN_LENGTH = 1e5;
+/** Matches the first plan block. Both tags must sit on their own line
+* (surrounding whitespace allowed) so an inline mention of the tag in prose
+* is never mistaken for a block. Non-greedy: stops at the first closing tag. */
+const BLOCK_RE$1 = /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/;
+/** The first ATX heading in the plan markdown, used as the card title. */
+function planTitle(planMarkdown) {
+	const heading = /^[^\S\r\n]{0,3}#{1,6}[^\S\r\n]+(.+)$/m.exec(planMarkdown)?.[1]?.trim();
+	return heading && heading.length > 0 ? heading : null;
+}
+function parseProposedPlan(raw) {
+	const match = BLOCK_RE$1.exec(raw);
+	if (!match) return {
+		text: raw,
+		plan: null
+	};
+	const planMarkdown = (match[1] ?? "").replace(/\r\n/g, "\n").trim();
+	if (!planMarkdown || planMarkdown.length > MAX_PLAN_LENGTH) return {
+		text: raw,
+		plan: null
+	};
+	return {
+		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
+		plan: {
+			planMarkdown,
+			title: planTitle(planMarkdown)
+		}
 	};
 }
 //#endregion
@@ -821,6 +898,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { isTerminalEvent as C, PROTOCOL_VERSION as S, VIEW_BLOCK_NAME as _, parseQuestionBlock as a, validateControls as b, parseViewBlock as c, CONTROLS_BLOCK_NAME as d, HTML_BLOCK_NAME as f, QUESTION_PROMPT as g, QUESTION_BLOCK_NAME as h, parseHtmlFrameMessage as i, validateViewComponent as l, LEGACY_QUESTION_BLOCK_NAME as m, HTML_SEND_MAX as n, VIEW_CATALOG as o, LEGACY_CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_PROMPT as s, HTML_PROMPT as t, validateViewSpec as u, initialControlValues as v, valuesEqual as x, parseControlsBlock as y };
+export { valuesEqual as C, validateControls as S, isTerminalEvent as T, QUESTION_BLOCK_NAME as _, parseProposedPlan as a, initialControlValues as b, VIEW_PROMPT as c, validateViewSpec as d, CONTROLS_BLOCK_NAME as f, PLAN_PROMPT as g, LEGACY_QUESTION_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, LEGACY_CONTROLS_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, HTML_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_PROMPT as v, PROTOCOL_VERSION as w, parseControlsBlock as x, VIEW_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-B858zGal.js.map
+//# sourceMappingURL=html-DMkUQL-i.js.map

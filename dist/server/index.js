@@ -1,4 +1,4 @@
-import { _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, h as QUESTION_BLOCK_NAME, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, y as parseControlsBlock } from "../html-B858zGal.js";
+import { S as validateControls, _ as QUESTION_BLOCK_NAME, a as parseProposedPlan, f as CONTROLS_BLOCK_NAME, h as LEGACY_QUESTION_BLOCK_NAME, l as parseViewBlock, m as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, p as HTML_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, x as parseControlsBlock, y as VIEW_BLOCK_NAME } from "../html-DMkUQL-i.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -290,7 +290,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 6
+			protocolVersion: 7
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -334,13 +334,18 @@ function createChatEventBridge(emit, options = {}) {
 		}
 	};
 	const onAssistantText = (text) => {
-		const parsedQuestion = parseQuestionBlock(text);
+		const parsedPlan = parseProposedPlan(text);
+		const parsedQuestion = parseQuestionBlock(parsedPlan.text);
 		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
 		const parsedView = parseViewBlock(parsedControls.text);
 		const parsedHtml = parseHtmlBlock(parsedView.text);
 		if (!parsedControls.controls && parsedHtml.text) emit({
 			type: "assistant_text",
 			text: parsedHtml.text
+		});
+		if (parsedPlan.plan) emit({
+			type: "plan",
+			...parsedPlan.plan
 		});
 		if (parsedView.view) emit({
 			type: "view",

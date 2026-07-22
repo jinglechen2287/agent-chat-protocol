@@ -39,6 +39,12 @@ export {
 } from "./question";
 
 export {
+  parseProposedPlan,
+  type ParsedPlanText,
+  type PlanSpec,
+} from "./plan";
+
+export {
   initialControlValues,
   parseControlsBlock,
   validateControls,
@@ -72,6 +78,7 @@ export {
   HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,
   LEGACY_QUESTION_BLOCK_NAME,
+  PLAN_PROMPT,
   QUESTION_BLOCK_NAME,
   QUESTION_PROMPT,
   VIEW_BLOCK_NAME,

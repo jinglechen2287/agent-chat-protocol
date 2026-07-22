@@ -483,7 +483,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 6;
+declare const PROTOCOL_VERSION = 7;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -597,6 +597,23 @@ type ChatStreamEvent =
   type: "question";
   question: string;
   options: QuestionSpec["options"];
+} |
+/**
+ * A proposed implementation plan (a `<proposed_plan>` block body) from a
+ * plan-mode turn. Clients MUST render `planMarkdown` as sanitized
+ * GitHub-flavored markdown (like `assistant_text` — it is agent output,
+ * so unsafe raw HTML and URL schemes must not reach the DOM), SHOULD
+ * present it as a distinct plan card (`title` is the plan's first heading,
+ * for compact headers), and SHOULD offer the round-trip the emitting
+ * prompt promises the agent: user feedback refines the plan in a further
+ * plan-mode turn, and an approval sends the plan text back verbatim as an
+ * implement request outside plan mode. The plan is transcript content
+ * alongside `assistant_text`.
+ */
+{
+  type: "plan";
+  planMarkdown: string;
+  title: string | null;
 } |
 /**
  * A live parameter panel. Clients MUST render each control as an input
@@ -736,4 +753,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-BuSL5iZh.d.ts.map
+//# sourceMappingURL=events-qYGUQ2KB.d.ts.map
