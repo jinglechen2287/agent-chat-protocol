@@ -196,9 +196,7 @@ declare const PLAN_PROMPT: string;
  * shell commands and denies mutating ones, while a `--tools` whitelist
  * removes the editing tools entirely. Codex enforces it with a read-only
  * turn sandbox. No parse side exists — the reply is ordinary assistant
- * text — but the prompt still fences off the `proposed_plan` block because
- * chat turns share threads with plan turns and see that contract in
- * history. */
+ * text. */
 declare const CHAT_PROMPT: string;
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;

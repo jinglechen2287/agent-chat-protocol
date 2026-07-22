@@ -100,14 +100,10 @@ describe("PLAN_PROMPT", () => {
 });
 
 describe("CHAT_PROMPT", () => {
-  it("frames the read-only answering turn without the plan channel", () => {
+  it("frames the read-only answering turn without teaching the plan block", () => {
     expect(CHAT_PROMPT).toContain("Chat mode");
-    // A chat turn shares its thread with plan turns and sees their contract
-    // in history — the prompt must fence off both plan-mode channels without
-    // teaching the block itself.
+    expect(CHAT_PROMPT).toContain("it does not produce a plan");
     expect(CHAT_PROMPT).not.toMatch(/<\/?proposed_plan\b[^>]*>/i);
-    expect(CHAT_PROMPT).toContain("proposed-plan");
-    expect(CHAT_PROMPT).toContain("ExitPlanMode");
   });
 
   it("forbids every mutation channel, including external tools", () => {
