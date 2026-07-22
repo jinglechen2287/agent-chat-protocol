@@ -1,6 +1,6 @@
 {
   "name": "agent-chat-protocol",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Framework-agnostic contract for rendering an agent turn as a live, interactive chat: the streaming event grammar, SSE codec, generative-UI vocabulary, and runner-to-events bridge.",
   "type": "module",
   "main": "./dist/index.js",

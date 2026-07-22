@@ -101,4 +101,13 @@ describe("HTML_PROMPT", () => {
     expect(HTML_PROMPT).toContain("<script>");
     expect(HTML_PROMPT).toContain(String(HTML_SEND_MAX));
   });
+
+  it("separates surface variables from text variables", () => {
+    // --muted alone reads as "muted text color" and produces invisible
+    // text on the near-identical background; the prompt must teach the
+    // surface/foreground pairs explicitly.
+    expect(HTML_PROMPT).toContain("--muted-foreground");
+    expect(HTML_PROMPT).toContain("--accent-foreground");
+    expect(HTML_PROMPT).toContain("never for text");
+  });
 });

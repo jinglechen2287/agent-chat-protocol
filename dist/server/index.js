@@ -1,4 +1,4 @@
-import { _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, h as QUESTION_BLOCK_NAME, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, y as parseControlsBlock } from "../html-CsaMH8jY.js";
+import { _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, h as QUESTION_BLOCK_NAME, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, y as parseControlsBlock } from "../html-B858zGal.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
