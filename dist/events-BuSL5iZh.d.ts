@@ -483,7 +483,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 5;
+declare const PROTOCOL_VERSION = 6;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -642,6 +642,32 @@ type ChatStreamEvent =
   component: ViewComponent;
 } |
 /**
+ * A freeform generated page (an ```agent-html``` block body). Clients MUST
+ * render it in a sandboxed frame wired to the bridge protocol in html.ts —
+ * never inline in the app document — and treat the event as a transcript
+ * message alongside `assistant_text`. The frame's `agent-html:send`
+ * messages are sent verbatim as the next user turn.
+ */
+{
+  type: "html";
+  content: string;
+} |
+/**
+ * A newline-terminated run of completed lines from an html block still
+ * being written. `index` counts assistant messages within the turn,
+ * matching `assistant_text_delta`. Clients MAY append deltas to a scratch
+ * document and render it as a growing page, and MUST discard the scratch
+ * when the completed `html` (or the message's `assistant_text`) arrives —
+ * that event is authoritative. Like text fragments they are best-effort
+ * scratch state: never persisted, and a page may arrive with no preceding
+ * deltas at all.
+ */
+{
+  type: "html_delta";
+  index: number;
+  delta: string;
+} |
+/**
  * A context-window usage snapshot for the turn. Non-terminal and may arrive
  * more than once (each supersedes the last); clients render the latest as a
  * context meter. `contextWindow` is absent when the provider reported no
@@ -710,4 +736,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-DMyNwc7R.d.ts.map
+//# sourceMappingURL=events-BuSL5iZh.d.ts.map

@@ -23,6 +23,9 @@ export interface TurnTask {
   /** In-progress view components keyed by message index, same lifecycle as
    * `partials`: live-only scratch the completed `view` event supersedes. */
   viewPartials: Map<number, AssistantViewLine[]>;
+  /** In-progress html accumulated per message index, same lifecycle as
+   * `partials`: live-only scratch the completed `html` event supersedes. */
+  htmlPartials: Map<number, string>;
   done: boolean;
   /** Abort this to cancel the underlying run (wire it into the runner). */
   abort: AbortController;
@@ -42,6 +45,7 @@ export interface CompleteOptions {
 
 type AssistantTextDelta = Extract<ChatStreamEvent, { type: "assistant_text_delta" }>;
 type AssistantViewLine = Extract<ChatStreamEvent, { type: "view_line" }>;
+type AssistantHtmlDelta = Extract<ChatStreamEvent, { type: "html_delta" }>;
 
 /** The events an in-flight assistant message resolves into. Once one is
  * buffered, every fragment held so far describes content the transcript now
@@ -50,7 +54,8 @@ function completesAssistantMessage(ev: ChatStreamEvent): boolean {
   return ev.type === "assistant_text"
     || ev.type === "question"
     || ev.type === "controls"
-    || ev.type === "view";
+    || ev.type === "view"
+    || ev.type === "html";
 }
 
 export interface TaskStore {
@@ -72,6 +77,12 @@ export interface TaskStore {
   /** Every accumulated in-flight view line in index-then-arrival order, for
    * late-subscriber catch-up after `task.events`. */
   pendingViewLines(task: TurnTask): AssistantViewLine[];
+  /** Notifies subscribers of streamed html and accumulates it per message
+   * index, same lifecycle as {@link pushPartial}. */
+  pushHtmlDelta(task: TurnTask, ev: AssistantHtmlDelta): void;
+  /** One delta per in-flight page carrying everything accumulated so far, in
+   * index order, for late-subscriber catch-up after `task.events`. */
+  pendingHtmlDeltas(task: TurnTask): AssistantHtmlDelta[];
   /** Returns an unsubscribe function. */
   subscribe(task: TurnTask, listener: (ev: ChatStreamEvent) => void): () => void;
   /** Marks the task done and schedules its removal after the TTL. */
@@ -113,6 +124,7 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
         events: [],
         partials: new Map(),
         viewPartials: new Map(),
+        htmlPartials: new Map(),
         done: false,
         abort: new AbortController(),
         subscribers: new Set(),
@@ -129,6 +141,7 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
       if (completesAssistantMessage(ev)) {
         task.partials.clear();
         task.viewPartials.clear();
+        task.htmlPartials.clear();
       }
       task.events.push(ev);
       notify(task, ev);
@@ -160,6 +173,18 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
         .flatMap(([, lines]) => lines);
     },
 
+    pushHtmlDelta(task, ev) {
+      if (task.done || tasks.get(task.id) !== task) return;
+      task.htmlPartials.set(ev.index, (task.htmlPartials.get(ev.index) ?? "") + ev.delta);
+      notify(task, ev);
+    },
+
+    pendingHtmlDeltas(task) {
+      return [...task.htmlPartials.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([index, delta]) => ({ type: "html_delta", index, delta }));
+    },
+
     subscribe(task, listener) {
       task.subscribers.add(listener);
       return () => {
@@ -174,6 +199,7 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
       // authoritative; nothing should replay half-written content over them.
       task.partials.clear();
       task.viewPartials.clear();
+      task.htmlPartials.clear();
       const ttl = completeOptions.ttlMs ?? defaultTtl;
       task.cleanupTimer = setTimeout(() => {
         tasks.delete(task.id);

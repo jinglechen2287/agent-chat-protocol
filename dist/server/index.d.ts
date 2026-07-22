@@ -1,4 +1,4 @@
-import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-DMyNwc7R.js";
+import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-BuSL5iZh.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -50,6 +50,9 @@ interface TurnTask {
   /** In-progress view components keyed by message index, same lifecycle as
    * `partials`: live-only scratch the completed `view` event supersedes. */
   viewPartials: Map<number, AssistantViewLine[]>;
+  /** In-progress html accumulated per message index, same lifecycle as
+   * `partials`: live-only scratch the completed `html` event supersedes. */
+  htmlPartials: Map<number, string>;
   done: boolean;
   /** Abort this to cancel the underlying run (wire it into the runner). */
   abort: AbortController;
@@ -70,6 +73,9 @@ type AssistantTextDelta = Extract<ChatStreamEvent, {
 type AssistantViewLine = Extract<ChatStreamEvent, {
   type: "view_line";
 }>;
+type AssistantHtmlDelta = Extract<ChatStreamEvent, {
+  type: "html_delta";
+}>;
 interface TaskStore {
   get(id: string): TurnTask | undefined;
   /** Returns the existing task when the id is already registered. */
@@ -89,6 +95,12 @@ interface TaskStore {
   /** Every accumulated in-flight view line in index-then-arrival order, for
    * late-subscriber catch-up after `task.events`. */
   pendingViewLines(task: TurnTask): AssistantViewLine[];
+  /** Notifies subscribers of streamed html and accumulates it per message
+   * index, same lifecycle as {@link pushPartial}. */
+  pushHtmlDelta(task: TurnTask, ev: AssistantHtmlDelta): void;
+  /** One delta per in-flight page carrying everything accumulated so far, in
+   * index order, for late-subscriber catch-up after `task.events`. */
+  pendingHtmlDeltas(task: TurnTask): AssistantHtmlDelta[];
   /** Returns an unsubscribe function. */
   subscribe(task: TurnTask, listener: (ev: ChatStreamEvent) => void): () => void;
   /** Marks the task done and schedules its removal after the TTL. */

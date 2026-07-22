@@ -194,6 +194,43 @@ describe("createTaskStore", () => {
     });
   });
 
+  describe("streamed html deltas", () => {
+    const delta = (
+      index: number,
+      chunk: string,
+    ): Extract<ChatStreamEvent, { type: "html_delta" }> => ({
+      type: "html_delta",
+      index,
+      delta: chunk,
+    });
+
+    it("notifies subscribers without entering the replay buffer", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      const seen: ChatStreamEvent[] = [];
+      store.subscribe(task, (ev) => seen.push(ev));
+      store.pushHtmlDelta(task, delta(0, "<p>a</p>\n"));
+      expect(seen).toEqual([delta(0, "<p>a</p>\n")]);
+      expect(task.events).toEqual([]);
+    });
+
+    it("hands a late subscriber the accumulated html as one delta per index", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushHtmlDelta(task, delta(0, "<p>a</p>\n"));
+      store.pushHtmlDelta(task, delta(0, "<p>b</p>\n"));
+      expect(store.pendingHtmlDeltas(task)).toEqual([delta(0, "<p>a</p>\n<p>b</p>\n")]);
+    });
+
+    it("drops a message's deltas once its html (or text) is buffered", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushHtmlDelta(task, delta(0, "<p>a</p>\n"));
+      store.push(task, { type: "html", content: "<p>a</p>" });
+      expect(store.pendingHtmlDeltas(task)).toEqual([]);
+    });
+  });
+
   it("ignores pushes through a stale handle after delete and recreate", () => {
     const store = createTaskStore();
     const stale = store.create("t1");

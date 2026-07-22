@@ -1,4 +1,4 @@
-import { a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, f as VIEW_BLOCK_NAME, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME } from "../question-DAw5htTL.js";
+import { _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, h as QUESTION_BLOCK_NAME, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, y as parseControlsBlock } from "../html-CsaMH8jY.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -173,6 +173,7 @@ const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
 	QUESTION_BLOCK_NAME,
 	CONTROLS_BLOCK_NAME,
 	VIEW_BLOCK_NAME,
+	HTML_BLOCK_NAME,
 	LEGACY_QUESTION_BLOCK_NAME,
 	LEGACY_CONTROLS_BLOCK_NAME
 ]);
@@ -180,10 +181,11 @@ function createTextDeltaStream() {
 	let raw = "";
 	let emitted = 0;
 	let suppressed = false;
-	/** Inside an agent-view block: the scan position for completed lines, or
-	* null when suppression is not view-flavored (question/controls) or the
-	* view block has closed. */
-	let viewScan = null;
+	/** Inside a view or html block: the scan position for completed lines, or
+	* null when suppression is not line-streamed (question/controls) or the
+	* block has closed. */
+	let blockScan = null;
+	let blockKind = null;
 	const lineStartFence = (from) => {
 		let at = raw.indexOf(FENCE, from);
 		while (at !== -1) {
@@ -203,29 +205,37 @@ function createTextDeltaStream() {
 		emitted = end;
 		return out;
 	};
-	/** Completed lines inside the view block since the last push. A line that
-	* closes the block ends collection; later content stays suppressed. */
-	const collectViewLines = () => {
-		const lines = [];
-		while (viewScan !== null) {
-			const newline = raw.indexOf("\n", viewScan);
+	/** Completed lines inside the view or html block since the last push. A
+	* line that closes the block ends collection; later content stays
+	* suppressed. View lines are trimmed (each is one JSON object); html lines
+	* stay verbatim and newline-terminated — whitespace is content there. */
+	const collectBlockLines = () => {
+		const viewLines = [];
+		const htmlLines = [];
+		while (blockScan !== null) {
+			const newline = raw.indexOf("\n", blockScan);
 			if (newline === -1) break;
-			const line = raw.slice(viewScan, newline).trimEnd();
-			viewScan = newline + 1;
-			if (line.trim().startsWith(FENCE)) {
-				viewScan = null;
+			const line = raw.slice(blockScan, newline).replace(/\r$/, "");
+			blockScan = newline + 1;
+			if (line.trim() === FENCE) {
+				blockScan = null;
+				blockKind = null;
 				break;
 			}
-			if (line.trim()) lines.push(line);
+			if (blockKind === "html") htmlLines.push(`${line}\n`);
+			else if (line.trim()) viewLines.push(line.trimEnd());
 		}
-		return lines;
+		return {
+			viewLines,
+			htmlLines
+		};
 	};
 	return {
 		push(chunk) {
 			raw += chunk;
 			if (suppressed) return {
 				text: "",
-				viewLines: collectViewLines()
+				...collectBlockLines()
 			};
 			let scan = emitted;
 			for (;;) {
@@ -234,30 +244,36 @@ function createTextDeltaStream() {
 				const infoEnd = raw.indexOf("\n", fence + 3);
 				if (infoEnd === -1) return {
 					text: take(fence),
-					viewLines: []
+					viewLines: [],
+					htmlLines: []
 				};
 				const info = raw.slice(fence + 3, infoEnd).trim();
 				if (AGENT_BLOCK_NAMES.has(info)) {
 					const out = take(fence);
 					suppressed = true;
-					if (info === "agent-view") viewScan = infoEnd + 1;
+					if (info === "agent-view" || info === "agent-html") {
+						blockScan = infoEnd + 1;
+						blockKind = info === "agent-view" ? "view" : "html";
+					}
 					return {
 						text: out,
-						viewLines: collectViewLines()
+						...collectBlockLines()
 					};
 				}
 				scan = infoEnd + 1;
 			}
 			return {
 				text: take(raw.length - heldTail()),
-				viewLines: []
+				viewLines: [],
+				htmlLines: []
 			};
 		},
 		reset() {
 			raw = "";
 			emitted = 0;
 			suppressed = false;
-			viewScan = null;
+			blockScan = null;
+			blockKind = null;
 		}
 	};
 }
@@ -274,7 +290,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 5
+			protocolVersion: 6
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -291,11 +307,16 @@ function createChatEventBridge(emit, options = {}) {
 	let messageIndex = 0;
 	const onAssistantTextDelta = (chunk) => {
 		if (terminal) return;
-		const { text, viewLines } = textStream.push(chunk);
+		const { text, viewLines, htmlLines } = textStream.push(chunk);
 		if (text) emit({
 			type: "assistant_text_delta",
 			index: messageIndex,
 			delta: text
+		});
+		if (htmlLines.length > 0) emit({
+			type: "html_delta",
+			index: messageIndex,
+			delta: htmlLines.join("")
 		});
 		for (const line of viewLines) {
 			let parsed;
@@ -316,13 +337,18 @@ function createChatEventBridge(emit, options = {}) {
 		const parsedQuestion = parseQuestionBlock(text);
 		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
 		const parsedView = parseViewBlock(parsedControls.text);
-		if (!parsedControls.controls && parsedView.text) emit({
+		const parsedHtml = parseHtmlBlock(parsedView.text);
+		if (!parsedControls.controls && parsedHtml.text) emit({
 			type: "assistant_text",
-			text: parsedView.text
+			text: parsedHtml.text
 		});
 		if (parsedView.view) emit({
 			type: "view",
 			spec: parsedView.view
+		});
+		if (parsedHtml.html) emit({
+			type: "html",
+			content: parsedHtml.html
 		});
 		if (parsedQuestion.question) emit({
 			type: "question",
@@ -460,7 +486,7 @@ function createChatEventBridge(emit, options = {}) {
 * buffered, every fragment held so far describes content the transcript now
 * owns. */
 function completesAssistantMessage(ev) {
-	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "view";
+	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "view" || ev.type === "html";
 }
 const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
 /** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
@@ -485,6 +511,7 @@ function createTaskStore(options = {}) {
 				events: [],
 				partials: /* @__PURE__ */ new Map(),
 				viewPartials: /* @__PURE__ */ new Map(),
+				htmlPartials: /* @__PURE__ */ new Map(),
 				done: false,
 				abort: new AbortController(),
 				subscribers: /* @__PURE__ */ new Set()
@@ -497,6 +524,7 @@ function createTaskStore(options = {}) {
 			if (completesAssistantMessage(ev)) {
 				task.partials.clear();
 				task.viewPartials.clear();
+				task.htmlPartials.clear();
 			}
 			task.events.push(ev);
 			notify(task, ev);
@@ -523,6 +551,18 @@ function createTaskStore(options = {}) {
 		pendingViewLines(task) {
 			return [...task.viewPartials.entries()].sort(([a], [b]) => a - b).flatMap(([, lines]) => lines);
 		},
+		pushHtmlDelta(task, ev) {
+			if (task.done || tasks.get(task.id) !== task) return;
+			task.htmlPartials.set(ev.index, (task.htmlPartials.get(ev.index) ?? "") + ev.delta);
+			notify(task, ev);
+		},
+		pendingHtmlDeltas(task) {
+			return [...task.htmlPartials.entries()].sort(([a], [b]) => a - b).map(([index, delta]) => ({
+				type: "html_delta",
+				index,
+				delta
+			}));
+		},
 		subscribe(task, listener) {
 			task.subscribers.add(listener);
 			return () => {
@@ -534,6 +574,7 @@ function createTaskStore(options = {}) {
 			task.done = true;
 			task.partials.clear();
 			task.viewPartials.clear();
+			task.htmlPartials.clear();
 			const ttl = completeOptions.ttlMs ?? defaultTtl;
 			task.cleanupTimer = setTimeout(() => {
 				tasks.delete(task.id);

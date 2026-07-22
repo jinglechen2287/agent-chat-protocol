@@ -31,6 +31,7 @@ import {
   type ControlsSpec,
 } from "../controls";
 import { parseViewBlock, validateViewComponent } from "../view";
+import { parseHtmlBlock } from "../html";
 import { toolCallDetails, toolTaskMetadata } from "./tool-details";
 import { createTextDeltaStream } from "./text-stream";
 
@@ -111,8 +112,11 @@ export function createChatEventBridge(
 
   const onAssistantTextDelta = (chunk: string): void => {
     if (terminal) return;
-    const { text, viewLines } = textStream.push(chunk);
+    const { text, viewLines, htmlLines } = textStream.push(chunk);
     if (text) emit({ type: "assistant_text_delta", index: messageIndex, delta: text });
+    if (htmlLines.length > 0) {
+      emit({ type: "html_delta", index: messageIndex, delta: htmlLines.join("") });
+    }
     for (const line of viewLines) {
       // Per-line validation only — graph rules run on the completed view,
       // which supersedes these fragments. A bad line is dropped, matching
@@ -129,18 +133,22 @@ export function createChatEventBridge(
   };
 
   const onAssistantText = (text: string): void => {
-    // The agent may end a message with structured question, controls, or
-    // view blocks. Controls are a complete UI response, so when one is valid
-    // suppress all surrounding prose and emit only the panel. A view is
-    // content like prose — its surrounding text stays.
+    // The agent may end a message with structured question, controls, view,
+    // or html blocks. Controls are a complete UI response, so when one is
+    // valid suppress all surrounding prose and emit only the panel. Views
+    // and html pages are content like prose — their surrounding text stays.
     const parsedQuestion = parseQuestionBlock(text);
     const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
     const parsedView = parseViewBlock(parsedControls.text);
-    if (!parsedControls.controls && parsedView.text) {
-      emit({ type: "assistant_text", text: parsedView.text });
+    const parsedHtml = parseHtmlBlock(parsedView.text);
+    if (!parsedControls.controls && parsedHtml.text) {
+      emit({ type: "assistant_text", text: parsedHtml.text });
     }
     if (parsedView.view) {
       emit({ type: "view", spec: parsedView.view });
+    }
+    if (parsedHtml.html) {
+      emit({ type: "html", content: parsedHtml.html });
     }
     if (parsedQuestion.question) {
       emit({ type: "question", ...parsedQuestion.question });

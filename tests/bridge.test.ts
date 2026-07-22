@@ -572,4 +572,87 @@ describe("createChatEventBridge", () => {
     createChatEventBridge(second.emit).fail("string failure");
     expect(second.events).toEqual([{ type: "error", message: "string failure" }]);
   });
+
+  describe("html blocks", () => {
+    const doc = "<!doctype html>\n<html><body>\n  <h1>Hi</h1>\n</body></html>";
+    const htmlBlock = ["```agent-html", doc, "```"].join("\n");
+
+    const htmlDeltas = (events: ChatStreamEvent[]): string =>
+      events.flatMap((ev) => (ev.type === "html_delta" ? [ev.delta] : [])).join("");
+
+    it("lifts an html block into text + html events, keeping surrounding prose", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.(`Here is the page.\n\n${htmlBlock}`);
+      expect(events.map((ev) => ev.type)).toEqual(["assistant_text", "html"]);
+      expect(events[0]).toMatchObject({ text: "Here is the page." });
+      expect(events[1]).toEqual({ type: "html", content: doc });
+    });
+
+    it("leaves an empty html block in the prose", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      const raw = "```agent-html\n  \n```";
+      bridge.callbacks.onAssistantText?.(raw);
+      expect(events).toEqual([{ type: "assistant_text", text: raw }]);
+    });
+
+    it("emits an html event alongside a question block", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.(
+        `${htmlBlock}\n\n\`\`\`agent-question\n{"question": "More?", "options": ["Yes", "No"]}\n\`\`\``,
+      );
+      expect(events.map((ev) => ev.type)).toEqual(["html", "question"]);
+    });
+
+    it("withholds html fence deltas from the text stream while emitting html_delta lines", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of [
+        "Page:\n",
+        "```agent-",
+        "html\n<!doctype html>\n<html><bo",
+        "dy>\n  <h1>H",
+        "i</h1>\n\n</body></html>\n",
+        "```",
+      ]) {
+        bridge.callbacks.onAssistantTextDelta?.(chunk);
+      }
+      const prose = events
+        .flatMap((ev) => (ev.type === "assistant_text_delta" ? [ev.delta] : []))
+        .join("");
+      expect(prose).toBe("Page:\n");
+      // Deltas preserve indentation and blank lines; each completed line
+      // arrives newline-terminated, and the closing fence is never included.
+      expect(htmlDeltas(events)).toBe(
+        "<!doctype html>\n<html><body>\n  <h1>Hi</h1>\n\n</body></html>\n",
+      );
+    });
+
+    it("stops emitting html deltas at the closing fence", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of ["```agent-html\n<p>x</p>\n```\nafter"]) {
+        bridge.callbacks.onAssistantTextDelta?.(chunk);
+      }
+      expect(htmlDeltas(events)).toBe("<p>x</p>\n");
+    });
+
+    it("streams content lines that open a nested fence", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantTextDelta?.("```agent-html\n<pre>\n```js\ncode\n</pre>\n```");
+      expect(htmlDeltas(events)).toBe("<pre>\n```js\ncode\n</pre>\n");
+    });
+
+    it("carries the message index on html deltas", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantText?.("First message.");
+      bridge.callbacks.onAssistantTextDelta?.("```agent-html\n<p>x</p>\n");
+      const deltas = events.filter((ev) => ev.type === "html_delta");
+      expect(deltas).toEqual([{ type: "html_delta", index: 1, delta: "<p>x</p>\n" }]);
+    });
+  });
 });

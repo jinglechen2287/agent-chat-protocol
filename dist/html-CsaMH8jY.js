@@ -4,7 +4,7 @@ import * as z from "zod";
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 5;
+const PROTOCOL_VERSION = 6;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -141,9 +141,9 @@ function valuesEqual(a, b) {
 /** Matches the first controls fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE$2 = /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE$3 = /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
 function parseControlsBlock(raw, validate = validateControls) {
-	const match = BLOCK_RE$2.exec(raw);
+	const match = BLOCK_RE$3.exec(raw);
 	if (!match) return {
 		text: raw,
 		controls: null
@@ -187,6 +187,7 @@ function parseControlsBlock(raw, validate = validateControls) {
 const QUESTION_BLOCK_NAME = "agent-question";
 const CONTROLS_BLOCK_NAME = "agent-controls";
 const VIEW_BLOCK_NAME = "agent-view";
+const HTML_BLOCK_NAME = "agent-html";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
@@ -614,7 +615,7 @@ function validateViewSpec(value) {
 }
 /** Matches the first agent-view fenced block; the info string must be exactly
 * the block name so ordinary ```json blocks are ignored. */
-const BLOCK_RE$1 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```");
+const BLOCK_RE$2 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```");
 /**
 * Extracts the first ```agent-view``` block: one JSON component per line.
 * Malformed or unknown lines are skipped; a block with no valid root (or one
@@ -622,7 +623,7 @@ const BLOCK_RE$1 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n
 * malformed controls block.
 */
 function parseViewBlock(raw) {
-	const match = BLOCK_RE$1.exec(raw);
+	const match = BLOCK_RE$2.exec(raw);
 	if (!match) return {
 		text: raw,
 		view: null
@@ -681,9 +682,9 @@ const MAX_OPTION_LENGTH = 100;
 /** Matches the first question fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE = /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE$1 = /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
 function parseQuestionBlock(raw) {
-	const match = BLOCK_RE.exec(raw);
+	const match = BLOCK_RE$1.exec(raw);
 	if (!match) return {
 		text: raw,
 		question: null
@@ -729,6 +730,97 @@ function parseBlockBody(body) {
 	};
 }
 //#endregion
-export { PROTOCOL_VERSION as _, validateViewComponent as a, LEGACY_CONTROLS_BLOCK_NAME as c, QUESTION_PROMPT as d, VIEW_BLOCK_NAME as f, valuesEqual as g, validateControls as h, parseViewBlock as i, LEGACY_QUESTION_BLOCK_NAME as l, parseControlsBlock as m, VIEW_CATALOG as n, validateViewSpec as o, initialControlValues as p, VIEW_PROMPT as r, CONTROLS_BLOCK_NAME as s, parseQuestionBlock as t, QUESTION_BLOCK_NAME as u, isTerminalEvent as v };
+//#region src/html.ts
+/**
+* The ```agent-html``` grammar: a freeform generated page, streamed raw and
+* rendered in a sandboxed frame — the escape hatch for layouts and
+* interactions the component catalog can't express.
+*
+* Unlike a view, the block body is not validated structure: it is an HTML
+* document the client morphs into the frame as it streams and re-mounts
+* whole once complete. The only vocabulary the protocol fixes is the
+* postMessage bridge between the frame and its host, defined here so both
+* sides (and the prompt that teaches the in-page `AgentBridge` API) cannot
+* drift.
+*
+* Degradation matches views: an empty or oversized block stays in the prose
+* as plain text.
+*/
+/** Byte ceiling for a block; larger ones degrade to prose. */
+const MAX_HTML_BYTES = 262144;
+/** Longest text a frame's `AgentBridge.send` may submit as the next user
+* message — mirrors the view catalog's Button message cap. */
+const HTML_SEND_MAX = 1e3;
+/**
+* Validates a frame-origin postMessage payload. The frame runs agent-authored
+* code, so the host treats its messages as untrusted input: unknown types,
+* non-finite heights, and over-long send texts are rejected.
+*/
+function parseHtmlFrameMessage(data) {
+	if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+	const { type } = data;
+	if (type === "agent-html:ready") return { type };
+	if (type === "agent-html:height") {
+		const { height } = data;
+		if (typeof height !== "number" || !Number.isFinite(height) || height < 0) return null;
+		return {
+			type,
+			height
+		};
+	}
+	if (type === "agent-html:send") {
+		const { text } = data;
+		if (typeof text !== "string" || text.length === 0 || text.length > 1e3) return null;
+		return {
+			type,
+			text
+		};
+	}
+	return null;
+}
+/** Matches the first agent-html fenced block. The closing fence must sit
+* alone on its own line (optional surrounding whitespace) so backticks
+* inside the document — a JS template literal or a ```js example line —
+* cannot end the block early. */
+const BLOCK_RE = /* @__PURE__ */ new RegExp("```agent-html[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)");
+/**
+* Extracts the first ```agent-html``` block. An empty or oversized block is
+* left in the prose as plain text, exactly like a rootless view block.
+*/
+function parseHtmlBlock(raw) {
+	const match = BLOCK_RE.exec(raw);
+	if (!match) return {
+		text: raw,
+		html: null
+	};
+	const body = (match[1] ?? "").replace(/\r\n/g, "\n");
+	if (new TextEncoder().encode(body).length > MAX_HTML_BYTES || body.trim().length === 0) return {
+		text: raw,
+		html: null
+	};
+	return {
+		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
+		html: body
+	};
+}
+/** The prompt section that teaches the html block and the in-frame bridge
+* API. Apps append it behind the user's request in experiment-style modes;
+* a test keeps it covering the load-bearing rules. */
+const HTML_PROMPT = [
+	"- This conversation is in experiment mode: the user has explicitly asked for bespoke generated pages. Default to answering with one — reach for it whenever the reply benefits from layout, styling, or interaction. Plain prose alone is right only when there is genuinely nothing to show (a yes/no, a pure opinion).",
+	"- Lead with a sentence or two of prose when context helps, then end the message with one fenced block containing a complete HTML document:",
+	"  ```agent-html",
+	"  <!doctype html>",
+	"  <html><head><style>/* all styles inline here */</style></head>",
+	"  <body>…<script>/* behavior last */<\/script></body></html>",
+	"  ```",
+	"- The client renders the document in a sandboxed frame *while it streams*, top to bottom. Put one <style> tag in <head> before any body content so partial pages are styled from the first paint; put <script> tags at the very end of <body> — they run once the document is complete, never against a half-built DOM.",
+	`- The frame exposes window.AgentBridge. Calling AgentBridge.send("text") submits that text (max ${HTML_SEND_MAX} chars) as the user's next chat message — wire buttons, forms, and selections to it for anything that should continue the conversation. There is no other host API; do not use fetch, XHR, or navigation.`,
+	"- The frame loads no external resources: no CDN scripts, stylesheets, or fonts — inline everything. Images may use https URLs.",
+	"- Design mobile-first (~390px wide) and theme-aware: the host defines CSS variables --background, --foreground, --muted, --accent, and --border on :root and updates them when the app's light/dark theme changes — build your palette from them (e.g. color-mix with a fixed hue) instead of hardcoding page-wide colors.",
+	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
+].join("\n");
+//#endregion
+export { isTerminalEvent as C, PROTOCOL_VERSION as S, VIEW_BLOCK_NAME as _, parseQuestionBlock as a, validateControls as b, parseViewBlock as c, CONTROLS_BLOCK_NAME as d, HTML_BLOCK_NAME as f, QUESTION_PROMPT as g, QUESTION_BLOCK_NAME as h, parseHtmlFrameMessage as i, validateViewComponent as l, LEGACY_QUESTION_BLOCK_NAME as m, HTML_SEND_MAX as n, VIEW_CATALOG as o, LEGACY_CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_PROMPT as s, HTML_PROMPT as t, validateViewSpec as u, initialControlValues as v, valuesEqual as x, parseControlsBlock as y };
 
-//# sourceMappingURL=question-DAw5htTL.js.map
+//# sourceMappingURL=html-CsaMH8jY.js.map

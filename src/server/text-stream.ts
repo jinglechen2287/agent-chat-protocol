@@ -20,6 +20,7 @@
 
 import {
   CONTROLS_BLOCK_NAME,
+  HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,
   LEGACY_QUESTION_BLOCK_NAME,
   QUESTION_BLOCK_NAME,
@@ -33,6 +34,7 @@ const AGENT_BLOCK_NAMES: ReadonlySet<string> = new Set([
   QUESTION_BLOCK_NAME,
   CONTROLS_BLOCK_NAME,
   VIEW_BLOCK_NAME,
+  HTML_BLOCK_NAME,
   LEGACY_QUESTION_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,
 ]);
@@ -44,6 +46,10 @@ export interface TextStreamResult {
   /** Raw completed lines from inside an agent-view block, in order. Empty
    * outside view blocks. The closing fence is never included. */
   viewLines: string[];
+  /** Completed lines from inside an agent-html block, newline-terminated and
+   * verbatim — indentation and blank lines are content there. Empty outside
+   * html blocks; the closing fence is never included. */
+  htmlLines: string[];
 }
 
 export interface TextDeltaStream {
@@ -56,10 +62,11 @@ export function createTextDeltaStream(): TextDeltaStream {
   let raw = "";
   let emitted = 0;
   let suppressed = false;
-  /** Inside an agent-view block: the scan position for completed lines, or
-   * null when suppression is not view-flavored (question/controls) or the
-   * view block has closed. */
-  let viewScan: number | null = null;
+  /** Inside a view or html block: the scan position for completed lines, or
+   * null when suppression is not line-streamed (question/controls) or the
+   * block has closed. */
+  let blockScan: number | null = null;
+  let blockKind: "view" | "html" | null = null;
 
   const lineStartFence = (from: number): number => {
     let at = raw.indexOf(FENCE, from);
@@ -83,28 +90,35 @@ export function createTextDeltaStream(): TextDeltaStream {
     return out;
   };
 
-  /** Completed lines inside the view block since the last push. A line that
-   * closes the block ends collection; later content stays suppressed. */
-  const collectViewLines = (): string[] => {
-    const lines: string[] = [];
-    while (viewScan !== null) {
-      const newline = raw.indexOf("\n", viewScan);
+  /** Completed lines inside the view or html block since the last push. A
+   * line that closes the block ends collection; later content stays
+   * suppressed. View lines are trimmed (each is one JSON object); html lines
+   * stay verbatim and newline-terminated — whitespace is content there. */
+  const collectBlockLines = (): { viewLines: string[]; htmlLines: string[] } => {
+    const viewLines: string[] = [];
+    const htmlLines: string[] = [];
+    while (blockScan !== null) {
+      const newline = raw.indexOf("\n", blockScan);
       if (newline === -1) break;
-      const line = raw.slice(viewScan, newline).trimEnd();
-      viewScan = newline + 1;
-      if (line.trim().startsWith(FENCE)) {
-        viewScan = null;
+      const line = raw.slice(blockScan, newline).replace(/\r$/, "");
+      blockScan = newline + 1;
+      // Only a bare ``` line closes the block — a content line like ```js
+      // (a fenced example inside the page) opens a nested fence instead.
+      if (line.trim() === FENCE) {
+        blockScan = null;
+        blockKind = null;
         break;
       }
-      if (line.trim()) lines.push(line);
+      if (blockKind === "html") htmlLines.push(`${line}\n`);
+      else if (line.trim()) viewLines.push(line.trimEnd());
     }
-    return lines;
+    return { viewLines, htmlLines };
   };
 
   return {
     push(chunk) {
       raw += chunk;
-      if (suppressed) return { text: "", viewLines: collectViewLines() };
+      if (suppressed) return { text: "", ...collectBlockLines() };
       let scan = emitted;
       for (;;) {
         const fence = lineStartFence(scan);
@@ -112,26 +126,30 @@ export function createTextDeltaStream(): TextDeltaStream {
         const infoEnd = raw.indexOf("\n", fence + FENCE.length);
         // The info string is still arriving, so the block's kind is unknown —
         // release everything before the fence and wait.
-        if (infoEnd === -1) return { text: take(fence), viewLines: [] };
+        if (infoEnd === -1) return { text: take(fence), viewLines: [], htmlLines: [] };
         const info = raw.slice(fence + FENCE.length, infoEnd).trim();
         if (AGENT_BLOCK_NAMES.has(info)) {
           const out = take(fence);
           suppressed = true;
-          if (info === VIEW_BLOCK_NAME) viewScan = infoEnd + 1;
-          return { text: out, viewLines: collectViewLines() };
+          if (info === VIEW_BLOCK_NAME || info === HTML_BLOCK_NAME) {
+            blockScan = infoEnd + 1;
+            blockKind = info === VIEW_BLOCK_NAME ? "view" : "html";
+          }
+          return { text: out, ...collectBlockLines() };
         }
         // An ordinary code block streams like any other prose; keep scanning
         // past it in case a generative-UI block follows.
         scan = infoEnd + 1;
       }
-      return { text: take(raw.length - heldTail()), viewLines: [] };
+      return { text: take(raw.length - heldTail()), viewLines: [], htmlLines: [] };
     },
 
     reset() {
       raw = "";
       emitted = 0;
       suppressed = false;
-      viewScan = null;
+      blockScan = null;
+      blockKind = null;
     },
   };
 }

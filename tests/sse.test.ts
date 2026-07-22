@@ -601,6 +601,25 @@ describe("consumeSseResponse", () => {
   });
 });
 
+describe("html events over SSE", () => {
+  it("round-trips html and html_delta through encode and map", () => {
+    const html = { type: "html", content: "<!doctype html>\n<p>x</p>" } as const;
+    const parsedHtml = parseSseBuffer(encodeChatEvent(html));
+    expect(mapSseToChatEvent(parsedHtml.events[0]!)).toEqual(html);
+
+    const delta = { type: "html_delta", index: 1, delta: "<p>x</p>\n" } as const;
+    const parsedDelta = parseSseBuffer(encodeChatEvent(delta));
+    expect(mapSseToChatEvent(parsedDelta.events[0]!)).toEqual(delta);
+  });
+
+  it("rejects malformed html payloads", () => {
+    expect(mapSseToChatEvent({ event: "html", data: {} })).toBeNull();
+    expect(mapSseToChatEvent({ event: "html", data: { content: 3 } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "html_delta", data: { index: -1, delta: "x" } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "html_delta", data: { index: 0 } })).toBeNull();
+  });
+});
+
 describe("isTerminalEvent", () => {
   it("treats done, aborted, and error as terminal", () => {
     expect(isTerminalEvent({ type: "done", exitCode: 0 })).toBe(true);

@@ -148,6 +148,18 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       if (!component) return null;
       return { type: "view_line", index: index as number, component };
     }
+    case "html": {
+      const content = get("content");
+      if (typeof content !== "string") return null;
+      return { type: "html", content };
+    }
+    case "html_delta": {
+      const index = get("index");
+      const delta = get("delta");
+      if (!Number.isSafeInteger(index) || (index as number) < 0) return null;
+      if (typeof delta !== "string") return null;
+      return { type: "html_delta", index: index as number, delta };
+    }
     case "context_usage": {
       const contextTokens = get("contextTokens");
       if (!Number.isSafeInteger(contextTokens) || (contextTokens as number) < 0) {

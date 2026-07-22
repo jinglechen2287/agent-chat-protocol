@@ -1,4 +1,4 @@
-import { _ as PROTOCOL_VERSION, a as validateViewComponent, c as LEGACY_CONTROLS_BLOCK_NAME, d as QUESTION_PROMPT, f as VIEW_BLOCK_NAME, g as valuesEqual, h as validateControls, i as parseViewBlock, l as LEGACY_QUESTION_BLOCK_NAME, m as parseControlsBlock, n as VIEW_CATALOG, o as validateViewSpec, p as initialControlValues, r as VIEW_PROMPT, s as CONTROLS_BLOCK_NAME, t as parseQuestionBlock, u as QUESTION_BLOCK_NAME, v as isTerminalEvent } from "./question-DAw5htTL.js";
+import { C as isTerminalEvent, S as PROTOCOL_VERSION, _ as VIEW_BLOCK_NAME, a as parseQuestionBlock, b as validateControls, c as parseViewBlock, d as CONTROLS_BLOCK_NAME, f as HTML_BLOCK_NAME, g as QUESTION_PROMPT, h as QUESTION_BLOCK_NAME, i as parseHtmlFrameMessage, l as validateViewComponent, m as LEGACY_QUESTION_BLOCK_NAME, n as HTML_SEND_MAX, o as VIEW_CATALOG, p as LEGACY_CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_PROMPT, t as HTML_PROMPT, u as validateViewSpec, v as initialControlValues, x as valuesEqual, y as parseControlsBlock } from "./html-CsaMH8jY.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -121,6 +121,25 @@ function mapSseToChatEvent(ev) {
 				type: "view_line",
 				index,
 				component
+			};
+		}
+		case "html": {
+			const content = get("content");
+			if (typeof content !== "string") return null;
+			return {
+				type: "html",
+				content
+			};
+		}
+		case "html_delta": {
+			const index = get("index");
+			const delta = get("delta");
+			if (!Number.isSafeInteger(index) || index < 0) return null;
+			if (typeof delta !== "string") return null;
+			return {
+				type: "html_delta",
+				index,
+				delta
 			};
 		}
 		case "context_usage": {
@@ -327,6 +346,6 @@ function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
-export { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
+export { CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

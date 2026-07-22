@@ -53,7 +53,23 @@ export {
 } from "./controls";
 
 export {
+  HTML_PROMPT,
+  HTML_SEND_MAX,
+  parseHtmlBlock,
+  parseHtmlFrameMessage,
+  type HtmlFrameToParent,
+  type HtmlHeightMessage,
+  type HtmlParentToFrame,
+  type HtmlReadyMessage,
+  type HtmlSendMessage,
+  type HtmlThemeMessage,
+  type HtmlUpdateMessage,
+  type ParsedHtmlText,
+} from "./html";
+
+export {
   CONTROLS_BLOCK_NAME,
+  HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,
   LEGACY_QUESTION_BLOCK_NAME,
   QUESTION_BLOCK_NAME,

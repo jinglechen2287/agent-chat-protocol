@@ -35,6 +35,20 @@ describe("view documentation", () => {
   });
 });
 
+describe("html documentation", () => {
+  it("documents the html rendering contract and its bridge", () => {
+    expect(readme).toContain("**`html`**");
+    expect(readme).toContain("sandboxed frame");
+    expect(readme).toContain("parseHtmlFrameMessage");
+    expect(readme).toContain("HTML_PROMPT");
+  });
+
+  it("states that html deltas are scratch the completed html supersedes", () => {
+    expect(readme).toContain("**`html_delta`**");
+    expect(readme).toContain("pendingHtmlDeltas");
+  });
+});
+
 describe("streamed view documentation", () => {
   it("states that view lines are scratch the completed view supersedes", () => {
     expect(readme).toContain("**`view_line`**");
@@ -51,7 +65,7 @@ describe("streamed text documentation", () => {
   });
 
   it("explains why fragments stay out of the replay buffer", () => {
-    expect(readme).toContain("is the one event kept **out** of that buffer");
+    expect(readme).toContain("are kept **out** of that buffer");
     expect(readme).toContain("pushPartial");
   });
 });

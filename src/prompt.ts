@@ -17,6 +17,7 @@
 export const QUESTION_BLOCK_NAME = "agent-question";
 export const CONTROLS_BLOCK_NAME = "agent-controls";
 export const VIEW_BLOCK_NAME = "agent-view";
+export const HTML_BLOCK_NAME = "agent-html";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 export const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
