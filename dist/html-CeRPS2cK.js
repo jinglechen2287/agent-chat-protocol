@@ -235,6 +235,40 @@ const PLAN_PROMPT = [
 	"when the plan is complete. Do not ask \"should I proceed?\" afterwards; the",
 	"client offers implementation to the user itself."
 ].join("\n");
+/** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
+* in prose and produces no plan. Claude enforces read-only outside plan mode
+* (whose built-in framing would push the turn to produce a plan): permission
+* mode `auto` with the user settings source dropped auto-approves read-only
+* shell commands and denies mutating ones, while a `--tools` whitelist
+* removes the editing tools entirely. Codex enforces it with a read-only
+* turn sandbox. No parse side exists — the reply is ordinary assistant
+* text — but the prompt still fences off the `proposed_plan` block because
+* chat turns share threads with plan turns and see that contract in
+* history. */
+const CHAT_PROMPT = [
+	"## Chat mode",
+	"",
+	"You are in chat mode: this turn answers, it does not change anything and",
+	"it does not produce a plan. Treat every request — however imperative — as",
+	"a request to talk the work through, not to carry it out.",
+	"",
+	"Allowed: reading and searching files, read-only shell commands, and any",
+	"other non-mutating research your environment permits. Read the code",
+	"before answering; do not guess at what you could have checked.",
+	"Not allowed: editing or writing files, applying patches, running",
+	"formatters or codegen, mutating through external or MCP tools (reading",
+	"through them is fine), or any command whose purpose is to carry out the",
+	"work rather than answer the question.",
+	"",
+	"You are running headless inside a chat client:",
+	"- The ExitPlanMode tool is NOT available here and MUST NOT be called.",
+	"- Do not write your answer to a file; the client cannot read files.",
+	"- Do not emit a proposed-plan block; step-by-step plans are plan mode's",
+	"  job. If the user wants one, say so in a sentence.",
+	"",
+	"Answer conversationally and no longer than the question needs. Quote the",
+	"specific files and lines you looked at so the user can follow you there."
+].join("\n");
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 const QUESTION_PROMPT = [
 	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
@@ -898,6 +932,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { valuesEqual as C, validateControls as S, isTerminalEvent as T, QUESTION_BLOCK_NAME as _, parseProposedPlan as a, initialControlValues as b, VIEW_PROMPT as c, validateViewSpec as d, CONTROLS_BLOCK_NAME as f, PLAN_PROMPT as g, LEGACY_QUESTION_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, LEGACY_CONTROLS_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, HTML_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_PROMPT as v, PROTOCOL_VERSION as w, parseControlsBlock as x, VIEW_BLOCK_NAME as y };
+export { validateControls as C, isTerminalEvent as E, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-DMkUQL-i.js.map
+//# sourceMappingURL=html-CeRPS2cK.js.map

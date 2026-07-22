@@ -1,4 +1,4 @@
-import { S as validateControls, _ as QUESTION_BLOCK_NAME, a as parseProposedPlan, f as CONTROLS_BLOCK_NAME, h as LEGACY_QUESTION_BLOCK_NAME, l as parseViewBlock, m as LEGACY_CONTROLS_BLOCK_NAME, o as parseQuestionBlock, p as HTML_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, x as parseControlsBlock, y as VIEW_BLOCK_NAME } from "../html-DMkUQL-i.js";
+import { C as validateControls, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-CeRPS2cK.js";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;

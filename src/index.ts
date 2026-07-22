@@ -74,6 +74,7 @@ export {
 } from "./html";
 
 export {
+  CHAT_PROMPT,
   CONTROLS_BLOCK_NAME,
   HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,

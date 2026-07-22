@@ -189,8 +189,19 @@ declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
  * Codex runs it under a read-only sandbox policy. The prompt is what aligns
  * both on one plan-delivery channel. */
 declare const PLAN_PROMPT: string;
+/** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
+ * in prose and produces no plan. Claude enforces read-only outside plan mode
+ * (whose built-in framing would push the turn to produce a plan): permission
+ * mode `auto` with the user settings source dropped auto-approves read-only
+ * shell commands and denies mutating ones, while a `--tools` whitelist
+ * removes the editing tools entirely. Codex enforces it with a read-only
+ * turn sandbox. No parse side exists — the reply is ordinary assistant
+ * text — but the prompt still fences off the `proposed_plan` block because
+ * chat turns share threads with plan turns and see that contract in
+ * history. */
+declare const CHAT_PROMPT: string;
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
 //#endregion
-export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
+export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CHAT_PROMPT, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, toSseEvent, validateControls, validateViewSpec, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

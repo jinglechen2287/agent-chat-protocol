@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProposedPlan, PLAN_PROMPT } from "../src/index";
+import { CHAT_PROMPT, parseProposedPlan, PLAN_PROMPT } from "../src/index";
 
 const wrap = (body: string): string =>
   "<proposed_plan>\n" + body + "\n</proposed_plan>";
@@ -96,5 +96,22 @@ describe("PLAN_PROMPT", () => {
     expect(PLAN_PROMPT).toContain("<proposed_plan>");
     expect(PLAN_PROMPT).toContain("</proposed_plan>");
     expect(PLAN_PROMPT).toContain("ExitPlanMode");
+  });
+});
+
+describe("CHAT_PROMPT", () => {
+  it("frames the read-only answering turn without the plan channel", () => {
+    expect(CHAT_PROMPT).toContain("Chat mode");
+    // A chat turn shares its thread with plan turns and sees their contract
+    // in history — the prompt must fence off both plan-mode channels without
+    // teaching the block itself.
+    expect(CHAT_PROMPT).not.toMatch(/<\/?proposed_plan\b[^>]*>/i);
+    expect(CHAT_PROMPT).toContain("proposed-plan");
+    expect(CHAT_PROMPT).toContain("ExitPlanMode");
+  });
+
+  it("forbids every mutation channel, including external tools", () => {
+    expect(CHAT_PROMPT).toMatch(/Not allowed:.*editing or writing files/s);
+    expect(CHAT_PROMPT).toMatch(/mutat\w+ through (external|MCP)/i);
   });
 });
