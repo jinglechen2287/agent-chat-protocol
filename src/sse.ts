@@ -18,7 +18,6 @@ import type {
   ToolCallDetail,
   ToolPlanItem,
   ToolTaskMetadata,
-  UserInputQuestion,
 } from "./events";
 import { validateControls } from "./controls";
 import { validateViewComponent, validateViewSpec } from "./view";
@@ -132,43 +131,6 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       }
       return null;
     }
-    case "user_input_request": {
-      const requestId = get("requestId");
-      const questions = userInputQuestions(get("questions"));
-      const autoResolutionMs = get("autoResolutionMs");
-      if (typeof requestId !== "string" || requestId.trim() === "" || !questions) return null;
-      if (
-        autoResolutionMs !== undefined
-        && (!Number.isSafeInteger(autoResolutionMs) || (autoResolutionMs as number) < 0)
-      ) return null;
-      return {
-        type: "user_input_request",
-        requestId,
-        questions,
-        ...(typeof autoResolutionMs === "number" ? { autoResolutionMs } : {}),
-      };
-    }
-    case "user_input_resolved": {
-      const requestId = get("requestId");
-      const resolution = get("resolution");
-      const answeredQuestionIds = stringArray(get("answeredQuestionIds"));
-      const rawAnswers = get("answers");
-      const answers = rawAnswers === undefined ? undefined : answerRecord(rawAnswers);
-      if (
-        typeof requestId !== "string"
-        || requestId.trim() === ""
-        || (resolution !== "answered" && resolution !== "auto")
-        || !answeredQuestionIds
-        || (rawAnswers !== undefined && !answers)
-      ) return null;
-      return {
-        type: "user_input_resolved",
-        requestId,
-        resolution,
-        answeredQuestionIds,
-        ...(answers ? { answers } : {}),
-      };
-    }
     case "plan": {
       const planMarkdown = get("planMarkdown");
       const title = get("title");
@@ -270,78 +232,6 @@ function optionalNonEmptyString(
   const value = record[key];
   if (value === undefined || value === null) return undefined;
   return typeof value === "string" && value.trim() !== "" ? value : null;
-}
-
-function stringArray(value: unknown): string[] | null {
-  return Array.isArray(value) && value.every((item) => typeof item === "string")
-    ? value
-    : null;
-}
-
-function answerRecord(value: unknown): Record<string, string[]> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const answers: Record<string, string[]> = {};
-  for (const [key, raw] of Object.entries(value)) {
-    const values = stringArray(raw);
-    if (!key.trim() || !values || values.length === 0 || values.some((item) => !item.trim())) {
-      return null;
-    }
-    Object.defineProperty(answers, key, {
-      value: values,
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
-  }
-  return answers;
-}
-
-function userInputQuestions(value: unknown): UserInputQuestion[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
-  const questions: UserInputQuestion[] = [];
-  const ids = new Set<string>();
-  for (const rawQuestion of value) {
-    if (!rawQuestion || typeof rawQuestion !== "object" || Array.isArray(rawQuestion)) return null;
-    const question = rawQuestion as Record<string, unknown>;
-    const id = optionalNonEmptyString(question, "id");
-    const header = optionalNonEmptyString(question, "header");
-    const prompt = optionalNonEmptyString(question, "question");
-    if (!id || !header || !prompt || ids.has(id)) return null;
-    if (!Array.isArray(question.options)) return null;
-    const options: UserInputQuestion["options"] = [];
-    for (const rawOption of question.options) {
-      if (!rawOption || typeof rawOption !== "object" || Array.isArray(rawOption)) return null;
-      const option = rawOption as Record<string, unknown>;
-      const label = optionalNonEmptyString(option, "label");
-      const rawDescription = option.description;
-      if (
-        rawDescription !== undefined
-        && rawDescription !== null
-        && typeof rawDescription !== "string"
-      ) return null;
-      const description = typeof rawDescription === "string" && rawDescription.trim()
-        ? rawDescription.trim()
-        : undefined;
-      if (!label) return null;
-      options.push({ label, ...(description ? { description } : {}) });
-    }
-    if (
-      typeof question.multiSelect !== "boolean"
-      || typeof question.allowOther !== "boolean"
-      || typeof question.secret !== "boolean"
-    ) return null;
-    ids.add(id);
-    questions.push({
-      id,
-      header,
-      question: prompt,
-      options,
-      multiSelect: question.multiSelect,
-      allowOther: question.allowOther,
-      secret: question.secret,
-    });
-  }
-  return questions;
 }
 
 function optionalNonNegativeInteger(

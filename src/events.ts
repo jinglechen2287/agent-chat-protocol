@@ -15,22 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 8;
-
-export interface UserInputOption {
-  label: string;
-  description?: string;
-}
-
-export interface UserInputQuestion {
-  id: string;
-  header: string;
-  question: string;
-  options: UserInputOption[];
-  multiSelect: boolean;
-  allowOther: boolean;
-  secret: boolean;
-}
+export const PROTOCOL_VERSION = 7;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -147,26 +132,6 @@ export type ChatStreamEvent =
    * answered — no special reply channel exists.
    */
   | { type: "question"; question: string; options: QuestionSpec["options"] }
-  /**
-   * A provider-native request that pauses the current turn. Clients MUST
-   * answer it through the host's dedicated reply channel, not as a new user
-   * message. Option descriptions are explanatory display text when present.
-   */
-  | {
-      type: "user_input_request";
-      requestId: string;
-      questions: UserInputQuestion[];
-      autoResolutionMs?: number;
-    }
-  /** Replaces the matching native request's pending state. Secret values are
-   * omitted from `answers`; `answeredQuestionIds` still records completion. */
-  | {
-      type: "user_input_resolved";
-      requestId: string;
-      resolution: "answered" | "auto";
-      answeredQuestionIds: string[];
-      answers?: Record<string, string[]>;
-    }
   /**
    * A proposed implementation plan (a `<proposed_plan>` block body) from a
    * plan-mode turn. Clients MUST render `planMarkdown` as sanitized

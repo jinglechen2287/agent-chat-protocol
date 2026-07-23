@@ -1,4 +1,4 @@
-import { C as ControlsSpec, a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail } from "../events-DgXoh6wQ.js";
+import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-qYGUQ2KB.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -26,7 +26,7 @@ interface ChatEventBridgeOptions {
 }
 interface ChatEventBridge {
   /** Wire these into the runner's run options. */
-  callbacks: Required<Omit<AgentCallbacks, "onUserInputRequest">>;
+  callbacks: Required<AgentCallbacks>;
   /** Call with the runner's result to emit the terminal `done` event. */
   finish(result: {
     exitCode: number;

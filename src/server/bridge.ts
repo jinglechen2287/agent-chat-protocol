@@ -62,7 +62,7 @@ export interface ChatEventBridgeOptions {
 
 export interface ChatEventBridge {
   /** Wire these into the runner's run options. */
-  callbacks: Required<Omit<AgentCallbacks, "onUserInputRequest">>;
+  callbacks: Required<AgentCallbacks>;
   /** Call with the runner's result to emit the terminal `done` event. */
   finish(result: { exitCode: number }): void;
   /** Call with the runner's rejection to emit the terminal event: AbortError

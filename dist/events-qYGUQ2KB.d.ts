@@ -483,20 +483,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 8;
-interface UserInputOption {
-  label: string;
-  description?: string;
-}
-interface UserInputQuestion {
-  id: string;
-  header: string;
-  question: string;
-  options: UserInputOption[];
-  multiSelect: boolean;
-  allowOther: boolean;
-  secret: boolean;
-}
+declare const PROTOCOL_VERSION = 7;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -610,26 +597,6 @@ type ChatStreamEvent =
   type: "question";
   question: string;
   options: QuestionSpec["options"];
-} |
-/**
- * A provider-native request that pauses the current turn. Clients MUST
- * answer it through the host's dedicated reply channel, not as a new user
- * message. Option descriptions are explanatory display text when present.
- */
-{
-  type: "user_input_request";
-  requestId: string;
-  questions: UserInputQuestion[];
-  autoResolutionMs?: number;
-} |
-/** Replaces the matching native request's pending state. Secret values are
- * omitted from `answers`; `answeredQuestionIds` still records completion. */
-{
-  type: "user_input_resolved";
-  requestId: string;
-  resolution: "answered" | "auto";
-  answeredQuestionIds: string[];
-  answers?: Record<string, string[]>;
 } |
 /**
  * A proposed implementation plan (a `<proposed_plan>` block body) from a
@@ -785,5 +752,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { valuesEqual as A, ControlsSpec as C, initialControlValues as D, SliderControl as E, QuestionSpec as M, parseQuestionBlock as N, parseControlsBlock as O, ControlValues as S, SelectControl as T, ViewSpec as _, ChatStreamEvent as a, ColorControl as b, ToolPlanItem as c, UserInputQuestion as d, isTerminalEvent as f, ViewComponent as g, VIEW_PROMPT as h, BackgroundAgentStatus as i, ParsedQuestionText as j, validateControls as k, ToolTaskMetadata as l, VIEW_CATALOG as m, BackgroundAgent as n, PROTOCOL_VERSION as o, ParsedViewText as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, UserInputOption as u, parseViewBlock as v, ParsedControlsText as w, Control as x, validateViewSpec as y };
-//# sourceMappingURL=events-DgXoh6wQ.d.ts.map
+export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
+//# sourceMappingURL=events-qYGUQ2KB.d.ts.map

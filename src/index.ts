@@ -18,8 +18,6 @@ export {
   type ToolCallDetail,
   type ToolPlanItem,
   type ToolTaskMetadata,
-  type UserInputOption,
-  type UserInputQuestion,
 } from "./events";
 
 export {
