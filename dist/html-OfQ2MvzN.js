@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z$1 from "zod";
 //#region src/events.ts
 /**
 * Version of this event contract. Servers include it on `session_started` so
@@ -291,38 +291,38 @@ const QUESTION_PROMPT = [
 const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 /** Client-local state variables: `$region`, `$granularity`. */
 const BIND_RE = /^\$[a-zA-Z][a-zA-Z0-9_]*$/;
-const id = z.string().regex(ID_RE).max(40);
-const ref = z.string().regex(ID_RE).max(40);
-const children = z.array(ref).max(40);
-const label = z.string().min(1).max(80);
-const shortText = z.string().max(500);
-const longText = z.string().max(2e4);
-const cell = z.union([
-	z.string().max(500),
-	z.number(),
-	z.boolean(),
-	z.null()
+const id = z$1.string().regex(ID_RE).max(40);
+const ref = z$1.string().regex(ID_RE).max(40);
+const children = z$1.array(ref).max(40);
+const label = z$1.string().min(1).max(80);
+const shortText = z$1.string().max(500);
+const longText = z$1.string().max(2e4);
+const cell = z$1.union([
+	z$1.string().max(500),
+	z$1.number(),
+	z$1.boolean(),
+	z$1.null()
 ]);
 function component(type, shape) {
-	return z.object({
+	return z$1.object({
 		id,
-		type: z.literal(type),
+		type: z$1.literal(type),
 		...shape
 	});
 }
 const button = component("Button", {
 	label,
-	variant: z.enum([
+	variant: z$1.enum([
 		"primary",
 		"secondary",
 		"ghost"
 	]).optional(),
 	/** Template sent as the next user turn; `{$var}` interpolates input state. */
-	message: z.string().min(1).max(1e3).optional(),
+	message: z$1.string().min(1).max(1e3).optional(),
 	/** External link opened in a new tab. Web-only schemes: z.url() alone
 	* admits javascript:/data:, and a click on those would execute
 	* agent-authored code in the app origin. */
-	href: z.string().url().max(2e3).regex(/^https?:\/\//i).optional()
+	href: z$1.string().url().max(2e3).regex(/^https?:\/\//i).optional()
 }).refine((b) => b.message === void 0 !== (b.href === void 0), { message: "Button requires exactly one of message or href" });
 /**
 * Every component the agent may emit. `prompt` is the exact line VIEW_PROMPT
@@ -339,15 +339,15 @@ const VIEW_CATALOG = {
 	},
 	Grid: {
 		schema: component("Grid", {
-			columns: z.number().int().min(2).max(4).optional(),
+			columns: z$1.number().int().min(2).max(4).optional(),
 			children
 		}),
 		prompt: "Grid {columns? 2-4, children[]} — side-by-side cards/stats; collapses on phones"
 	},
 	Stack: {
 		schema: component("Stack", {
-			direction: z.enum(["row", "column"]).optional(),
-			gap: z.enum([
+			direction: z$1.enum(["row", "column"]).optional(),
+			gap: z$1.enum([
 				"s",
 				"m",
 				"l"
@@ -369,7 +369,7 @@ const VIEW_CATALOG = {
 	},
 	Heading: {
 		schema: component("Heading", {
-			level: z.number().int().min(1).max(4),
+			level: z$1.number().int().min(1).max(4),
 			text: label
 		}),
 		prompt: "Heading {level 1-4, text}"
@@ -377,7 +377,7 @@ const VIEW_CATALOG = {
 	Text: {
 		schema: component("Text", {
 			value: longText,
-			variant: z.enum([
+			variant: z$1.enum([
 				"body",
 				"caption",
 				"muted"
@@ -392,7 +392,7 @@ const VIEW_CATALOG = {
 	Badge: {
 		schema: component("Badge", {
 			label,
-			variant: z.enum([
+			variant: z$1.enum([
 				"neutral",
 				"info",
 				"success",
@@ -404,7 +404,7 @@ const VIEW_CATALOG = {
 	},
 	Callout: {
 		schema: component("Callout", {
-			variant: z.enum([
+			variant: z$1.enum([
 				"info",
 				"success",
 				"warn",
@@ -418,41 +418,41 @@ const VIEW_CATALOG = {
 	Stat: {
 		schema: component("Stat", {
 			label,
-			value: z.string().min(1).max(40),
-			delta: z.string().max(40).optional(),
-			trend: z.enum([
+			value: z$1.string().min(1).max(40),
+			delta: z$1.string().max(40).optional(),
+			trend: z$1.enum([
 				"up",
 				"down",
 				"flat"
 			]).optional(),
-			spark: z.array(z.number()).max(60).optional()
+			spark: z$1.array(z$1.number()).max(60).optional()
 		}),
 		prompt: "Stat {label, value, delta?, trend?: up|down|flat, spark?: number[]} — KPI tile"
 	},
 	Table: {
 		schema: component("Table", {
-			columns: z.array(z.object({
-				key: z.string().min(1).max(40),
+			columns: z$1.array(z$1.object({
+				key: z$1.string().min(1).max(40),
 				label,
-				align: z.enum([
+				align: z$1.enum([
 					"left",
 					"center",
 					"right"
 				]).optional(),
-				format: z.enum([
+				format: z$1.enum([
 					"number",
 					"percent",
 					"date"
 				]).optional()
 			})).min(1).max(12),
-			rows: z.array(z.record(z.string(), cell)).max(200),
-			sortable: z.boolean().optional()
+			rows: z$1.array(z$1.record(z$1.string(), cell)).max(200),
+			sortable: z$1.boolean().optional()
 		}),
 		prompt: "Table {columns: {key,label,align?,format?: number|percent|date}[], rows, sortable?} — aggregate first, ≤200 rows"
 	},
 	Chart: {
 		schema: component("Chart", {
-			kind: z.enum([
+			kind: z$1.enum([
 				"line",
 				"bar",
 				"area",
@@ -460,11 +460,11 @@ const VIEW_CATALOG = {
 				"scatter",
 				"heatmap"
 			]),
-			series: z.array(z.object({
+			series: z$1.array(z$1.object({
 				label,
-				points: z.array(z.object({
-					x: z.union([z.string().max(40), z.number()]),
-					y: z.number()
+				points: z$1.array(z$1.object({
+					x: z$1.union([z$1.string().max(40), z$1.number()]),
+					y: z$1.number()
 				})).max(300)
 			})).min(1).max(8),
 			xLabel: label.optional(),
@@ -475,36 +475,36 @@ const VIEW_CATALOG = {
 	Progress: {
 		schema: component("Progress", {
 			label: label.optional(),
-			value: z.number(),
-			max: z.number().positive().optional()
+			value: z$1.number(),
+			max: z$1.number().positive().optional()
 		}),
 		prompt: "Progress {label?, value, max?} — completion bar"
 	},
 	Code: {
 		schema: component("Code", {
 			value: longText,
-			language: z.string().max(24).optional(),
-			filename: z.string().max(200).optional(),
-			highlight: z.array(z.tuple([z.number().int().positive(), z.number().int().positive()])).max(20).optional()
+			language: z$1.string().max(24).optional(),
+			filename: z$1.string().max(200).optional(),
+			highlight: z$1.array(z$1.tuple([z$1.number().int().positive(), z$1.number().int().positive()])).max(20).optional()
 		}),
 		prompt: "Code {value, language?, filename?, highlight?: [from,to][]} — syntax-highlighted source"
 	},
 	Diff: {
 		schema: component("Diff", {
 			value: longText,
-			filename: z.string().max(200).optional()
+			filename: z$1.string().max(200).optional()
 		}),
 		prompt: "Diff {value (unified diff), filename?} — colored add/remove rendering"
 	},
 	Diagram: {
-		schema: component("Diagram", { source: z.string().min(1).max(1e4) }),
+		schema: component("Diagram", { source: z$1.string().min(1).max(1e4) }),
 		prompt: "Diagram {source} — Mermaid: flowcharts, sequence, architecture sketches"
 	},
 	Timeline: {
-		schema: component("Timeline", { items: z.array(z.object({
+		schema: component("Timeline", { items: z$1.array(z$1.object({
 			label,
 			detail: shortText.optional(),
-			status: z.enum([
+			status: z$1.enum([
 				"done",
 				"active",
 				"pending",
@@ -514,7 +514,7 @@ const VIEW_CATALOG = {
 		prompt: "Timeline {items: {label, detail?, status: done|active|pending|failed}[]} — ordered narrative"
 	},
 	Tabs: {
-		schema: component("Tabs", { items: z.array(z.object({
+		schema: component("Tabs", { items: z$1.array(z$1.object({
 			label,
 			children
 		})).min(2).max(8) }),
@@ -524,13 +524,13 @@ const VIEW_CATALOG = {
 		schema: component("Details", {
 			summary: label,
 			children,
-			open: z.boolean().optional()
+			open: z$1.boolean().optional()
 		}),
 		prompt: "Details {summary, children[], open?} — collapsible section for secondary depth"
 	},
 	Image: {
 		schema: component("Image", {
-			src: z.string().url().max(2e3),
+			src: z$1.string().url().max(2e3),
 			alt: shortText,
 			caption: shortText.optional()
 		}),
@@ -538,7 +538,7 @@ const VIEW_CATALOG = {
 	},
 	Input: {
 		schema: component("Input", {
-			bind: z.string().regex(BIND_RE),
+			bind: z$1.string().regex(BIND_RE),
 			label,
 			placeholder: shortText.optional(),
 			value: shortText.optional()
@@ -547,38 +547,38 @@ const VIEW_CATALOG = {
 	},
 	Select: {
 		schema: component("Select", {
-			bind: z.string().regex(BIND_RE),
+			bind: z$1.string().regex(BIND_RE),
 			label,
-			options: z.array(z.string().min(1).max(80)).min(2).max(24),
-			value: z.string().max(80)
+			options: z$1.array(z$1.string().min(1).max(80)).min(2).max(24),
+			value: z$1.string().max(80)
 		}),
 		prompt: "Select {bind: $var, label, options[], value}"
 	},
 	Slider: {
 		schema: component("Slider", {
-			bind: z.string().regex(BIND_RE),
+			bind: z$1.string().regex(BIND_RE),
 			label,
-			min: z.number(),
-			max: z.number(),
-			step: z.number().positive().optional(),
-			value: z.number()
+			min: z$1.number(),
+			max: z$1.number(),
+			step: z$1.number().positive().optional(),
+			value: z$1.number()
 		}),
 		prompt: "Slider {bind: $var, label, min, max, step?, value}"
 	},
 	Checkbox: {
 		schema: component("Checkbox", {
-			bind: z.string().regex(BIND_RE),
+			bind: z$1.string().regex(BIND_RE),
 			label,
-			checked: z.boolean().optional()
+			checked: z$1.boolean().optional()
 		}),
 		prompt: "Checkbox {bind: $var, label, checked?}"
 	},
 	DateRange: {
 		schema: component("DateRange", {
-			bind: z.string().regex(BIND_RE),
+			bind: z$1.string().regex(BIND_RE),
 			label,
-			start: z.string().max(20).optional(),
-			end: z.string().max(20).optional()
+			start: z$1.string().max(20).optional(),
+			end: z$1.string().max(20).optional()
 		}),
 		prompt: "DateRange {bind: $var, label, start?, end?} — ISO dates"
 	},
@@ -925,4 +925,4 @@ const HTML_PROMPT = [
 //#endregion
 export { validateControls as C, isTerminalEvent as E, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-Byo1ppmR.js.map
+//# sourceMappingURL=html-OfQ2MvzN.js.map

@@ -1,4 +1,4 @@
-import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-qYGUQ2KB.js";
+import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-BCkdUoME.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -128,14 +128,24 @@ declare const CHAT_TITLE_MODELS: {
 };
 type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;
 type ChatTitleSource = "model" | "fallback";
+interface ChatTitleMessage {
+  role: "user" | "assistant";
+  text: string;
+}
 interface ChatTitleInput {
   provider: ChatTitleProvider;
   prompt: string;
-  /** Existing generated title. The model should preserve it unless the main
-   * task has materially changed. Omit for a chat's first user request. */
+  /** Existing generated or manually chosen title. */
   currentTitle?: string;
-  /** Earlier user requests, oldest first. Callers should pass only the most
-   * recent few messages needed to identify topic drift. */
+  /** Durable summary of the conversation's umbrella objective. */
+  overarchingTask?: string;
+  /** Unconfirmed unrelated task from the preceding user request. */
+  pivotCandidate?: string;
+  /** The conversation's first user request, used as a historical anchor. */
+  firstPrompt?: string;
+  /** Recent semantic conversation context, oldest first. */
+  recentMessages?: readonly ChatTitleMessage[];
+  /** @deprecated Prefer `recentMessages`, which can include assistant context. */
   previousPrompts?: readonly string[];
   attachmentNames?: readonly string[];
   signal?: AbortSignal;
@@ -157,6 +167,8 @@ type ChatTitleRunner = (request: ChatTitleRunRequest) => Promise<ChatTitleRunRes
 interface ChatTitleResult {
   title: string;
   source: ChatTitleSource;
+  overarchingTask?: string;
+  pivotCandidate?: string;
 }
 interface ChatTitleGeneratorOptions {
   run: ChatTitleRunner;
@@ -167,5 +179,5 @@ declare function normalizeChatTitle(raw: string): string | undefined;
 declare function fallbackChatTitle(prompt: string, attachmentNames?: readonly string[]): string;
 declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
 //#endregion
-export { CHAT_TITLE_MODELS, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, toolCallDetails, toolTaskMetadata };
+export { CHAT_TITLE_MODELS, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, toolCallDetails, toolTaskMetadata };
 //# sourceMappingURL=index.d.ts.map

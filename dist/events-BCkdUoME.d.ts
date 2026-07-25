@@ -1,4 +1,4 @@
-import * as z from "zod";
+import * as z$1 from "zod";
 //#region src/question.d.ts
 /**
  * The structured clarifying-question block an agent can end a message with:
@@ -114,161 +114,161 @@ declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, val
  */
 declare const VIEW_CATALOG: {
   readonly Section: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Section">;
-      title: z.ZodOptional<z.ZodString>;
-      subtitle: z.ZodOptional<z.ZodString>;
-      children: z.ZodArray<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Section">;
+      title: z$1.ZodOptional<z$1.ZodString>;
+      subtitle: z$1.ZodOptional<z$1.ZodString>;
+      children: z$1.ZodArray<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Section {title?, subtitle?, children[]} — top-level report region with a heading";
   };
   readonly Grid: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Grid">;
-      columns: z.ZodOptional<z.ZodNumber>;
-      children: z.ZodArray<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Grid">;
+      columns: z$1.ZodOptional<z$1.ZodNumber>;
+      children: z$1.ZodArray<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Grid {columns? 2-4, children[]} — side-by-side cards/stats; collapses on phones";
   };
   readonly Stack: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Stack">;
-      direction: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Stack">;
+      direction: z$1.ZodOptional<z$1.ZodEnum<{
         row: "row";
         column: "column";
       }>>;
-      gap: z.ZodOptional<z.ZodEnum<{
+      gap: z$1.ZodOptional<z$1.ZodEnum<{
         s: "s";
         m: "m";
         l: "l";
       }>>;
-      children: z.ZodArray<z.ZodString>;
-    }, z.core.$strip>;
+      children: z$1.ZodArray<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Stack {direction?, gap?, children[]} — plain vertical (default) or horizontal group";
   };
   readonly Card: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Card">;
-      title: z.ZodOptional<z.ZodString>;
-      children: z.ZodArray<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Card">;
+      title: z$1.ZodOptional<z$1.ZodString>;
+      children: z$1.ZodArray<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Card {title?, children[]} — bordered grouping inside a Grid or Section";
   };
   readonly Divider: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Divider">;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Divider">;
+    }, z$1.core.$strip>;
     readonly prompt: "Divider {} — horizontal rule";
   };
   readonly Heading: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Heading">;
-      level: z.ZodNumber;
-      text: z.ZodString;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Heading">;
+      level: z$1.ZodNumber;
+      text: z$1.ZodString;
+    }, z$1.core.$strip>;
     readonly prompt: "Heading {level 1-4, text}";
   };
   readonly Text: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Text">;
-      value: z.ZodString;
-      variant: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Text">;
+      value: z$1.ZodString;
+      variant: z$1.ZodOptional<z$1.ZodEnum<{
         body: "body";
         caption: "caption";
         muted: "muted";
       }>>;
-    }, z.core.$strip>;
+    }, z$1.core.$strip>;
     readonly prompt: "Text {value, variant?: body|caption|muted} — one plain paragraph";
   };
   readonly Markdown: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Markdown">;
-      value: z.ZodString;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Markdown">;
+      value: z$1.ZodString;
+    }, z$1.core.$strip>;
     readonly prompt: "Markdown {value} — rich prose: links, lists, inline code";
   };
   readonly Badge: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Badge">;
-      label: z.ZodString;
-      variant: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Badge">;
+      label: z$1.ZodString;
+      variant: z$1.ZodOptional<z$1.ZodEnum<{
         error: "error";
         success: "success";
         neutral: "neutral";
         info: "info";
         warn: "warn";
       }>>;
-    }, z.core.$strip>;
+    }, z$1.core.$strip>;
     readonly prompt: "Badge {label, variant?: neutral|info|success|warn|error} — small status chip";
   };
   readonly Callout: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Callout">;
-      variant: z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Callout">;
+      variant: z$1.ZodEnum<{
         error: "error";
         success: "success";
         info: "info";
         warn: "warn";
       }>;
-      title: z.ZodOptional<z.ZodString>;
-      children: z.ZodArray<z.ZodString>;
-    }, z.core.$strip>;
+      title: z$1.ZodOptional<z$1.ZodString>;
+      children: z$1.ZodArray<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Callout {variant: info|success|warn|error, title?, children[]} — highlighted finding";
   };
   readonly Stat: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Stat">;
-      label: z.ZodString;
-      value: z.ZodString;
-      delta: z.ZodOptional<z.ZodString>;
-      trend: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Stat">;
+      label: z$1.ZodString;
+      value: z$1.ZodString;
+      delta: z$1.ZodOptional<z$1.ZodString>;
+      trend: z$1.ZodOptional<z$1.ZodEnum<{
         up: "up";
         down: "down";
         flat: "flat";
       }>>;
-      spark: z.ZodOptional<z.ZodArray<z.ZodNumber>>;
-    }, z.core.$strip>;
+      spark: z$1.ZodOptional<z$1.ZodArray<z$1.ZodNumber>>;
+    }, z$1.core.$strip>;
     readonly prompt: "Stat {label, value, delta?, trend?: up|down|flat, spark?: number[]} — KPI tile";
   };
   readonly Table: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Table">;
-      columns: z.ZodArray<z.ZodObject<{
-        key: z.ZodString;
-        label: z.ZodString;
-        align: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Table">;
+      columns: z$1.ZodArray<z$1.ZodObject<{
+        key: z$1.ZodString;
+        label: z$1.ZodString;
+        align: z$1.ZodOptional<z$1.ZodEnum<{
           left: "left";
           center: "center";
           right: "right";
         }>>;
-        format: z.ZodOptional<z.ZodEnum<{
+        format: z$1.ZodOptional<z$1.ZodEnum<{
           number: "number";
           date: "date";
           percent: "percent";
         }>>;
-      }, z.core.$strip>>;
-      rows: z.ZodArray<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean, z.ZodNull]>>>;
-      sortable: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strip>;
+      }, z$1.core.$strip>>;
+      rows: z$1.ZodArray<z$1.ZodRecord<z$1.ZodString, z$1.ZodUnion<readonly [z$1.ZodString, z$1.ZodNumber, z$1.ZodBoolean, z$1.ZodNull]>>>;
+      sortable: z$1.ZodOptional<z$1.ZodBoolean>;
+    }, z$1.core.$strip>;
     readonly prompt: "Table {columns: {key,label,align?,format?: number|percent|date}[], rows, sortable?} — aggregate first, ≤200 rows";
   };
   readonly Chart: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Chart">;
-      kind: z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Chart">;
+      kind: z$1.ZodEnum<{
         line: "line";
         bar: "bar";
         area: "area";
@@ -276,177 +276,177 @@ declare const VIEW_CATALOG: {
         scatter: "scatter";
         heatmap: "heatmap";
       }>;
-      series: z.ZodArray<z.ZodObject<{
-        label: z.ZodString;
-        points: z.ZodArray<z.ZodObject<{
-          x: z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>;
-          y: z.ZodNumber;
-        }, z.core.$strip>>;
-      }, z.core.$strip>>;
-      xLabel: z.ZodOptional<z.ZodString>;
-      yLabel: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+      series: z$1.ZodArray<z$1.ZodObject<{
+        label: z$1.ZodString;
+        points: z$1.ZodArray<z$1.ZodObject<{
+          x: z$1.ZodUnion<readonly [z$1.ZodString, z$1.ZodNumber]>;
+          y: z$1.ZodNumber;
+        }, z$1.core.$strip>>;
+      }, z$1.core.$strip>>;
+      xLabel: z$1.ZodOptional<z$1.ZodString>;
+      yLabel: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Chart {kind: line|bar|area|pie|scatter|heatmap, series: {label, points:{x,y}[]}[], xLabel?, yLabel?} — downsample to ≤300 points";
   };
   readonly Progress: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Progress">;
-      label: z.ZodOptional<z.ZodString>;
-      value: z.ZodNumber;
-      max: z.ZodOptional<z.ZodNumber>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Progress">;
+      label: z$1.ZodOptional<z$1.ZodString>;
+      value: z$1.ZodNumber;
+      max: z$1.ZodOptional<z$1.ZodNumber>;
+    }, z$1.core.$strip>;
     readonly prompt: "Progress {label?, value, max?} — completion bar";
   };
   readonly Code: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Code">;
-      value: z.ZodString;
-      language: z.ZodOptional<z.ZodString>;
-      filename: z.ZodOptional<z.ZodString>;
-      highlight: z.ZodOptional<z.ZodArray<z.ZodTuple<[z.ZodNumber, z.ZodNumber], null>>>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Code">;
+      value: z$1.ZodString;
+      language: z$1.ZodOptional<z$1.ZodString>;
+      filename: z$1.ZodOptional<z$1.ZodString>;
+      highlight: z$1.ZodOptional<z$1.ZodArray<z$1.ZodTuple<[z$1.ZodNumber, z$1.ZodNumber], null>>>;
+    }, z$1.core.$strip>;
     readonly prompt: "Code {value, language?, filename?, highlight?: [from,to][]} — syntax-highlighted source";
   };
   readonly Diff: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Diff">;
-      value: z.ZodString;
-      filename: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Diff">;
+      value: z$1.ZodString;
+      filename: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Diff {value (unified diff), filename?} — colored add/remove rendering";
   };
   readonly Diagram: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Diagram">;
-      source: z.ZodString;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Diagram">;
+      source: z$1.ZodString;
+    }, z$1.core.$strip>;
     readonly prompt: "Diagram {source} — Mermaid: flowcharts, sequence, architecture sketches";
   };
   readonly Timeline: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Timeline">;
-      items: z.ZodArray<z.ZodObject<{
-        label: z.ZodString;
-        detail: z.ZodOptional<z.ZodString>;
-        status: z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Timeline">;
+      items: z$1.ZodArray<z$1.ZodObject<{
+        label: z$1.ZodString;
+        detail: z$1.ZodOptional<z$1.ZodString>;
+        status: z$1.ZodEnum<{
           done: "done";
           active: "active";
           pending: "pending";
           failed: "failed";
         }>;
-      }, z.core.$strip>>;
-    }, z.core.$strip>;
+      }, z$1.core.$strip>>;
+    }, z$1.core.$strip>;
     readonly prompt: "Timeline {items: {label, detail?, status: done|active|pending|failed}[]} — ordered narrative";
   };
   readonly Tabs: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Tabs">;
-      items: z.ZodArray<z.ZodObject<{
-        label: z.ZodString;
-        children: z.ZodArray<z.ZodString>;
-      }, z.core.$strip>>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Tabs">;
+      items: z$1.ZodArray<z$1.ZodObject<{
+        label: z$1.ZodString;
+        children: z$1.ZodArray<z$1.ZodString>;
+      }, z$1.core.$strip>>;
+    }, z$1.core.$strip>;
     readonly prompt: "Tabs {items: {label, children[]}[]} — switch between sub-sections locally";
   };
   readonly Details: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Details">;
-      summary: z.ZodString;
-      children: z.ZodArray<z.ZodString>;
-      open: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Details">;
+      summary: z$1.ZodString;
+      children: z$1.ZodArray<z$1.ZodString>;
+      open: z$1.ZodOptional<z$1.ZodBoolean>;
+    }, z$1.core.$strip>;
     readonly prompt: "Details {summary, children[], open?} — collapsible section for secondary depth";
   };
   readonly Image: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Image">;
-      src: z.ZodString;
-      alt: z.ZodString;
-      caption: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Image">;
+      src: z$1.ZodString;
+      alt: z$1.ZodString;
+      caption: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Image {src, alt, caption?}";
   };
   readonly Input: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Input">;
-      bind: z.ZodString;
-      label: z.ZodString;
-      placeholder: z.ZodOptional<z.ZodString>;
-      value: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Input">;
+      bind: z$1.ZodString;
+      label: z$1.ZodString;
+      placeholder: z$1.ZodOptional<z$1.ZodString>;
+      value: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Input {bind: $var, label, placeholder?, value?} — free text";
   };
   readonly Select: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Select">;
-      bind: z.ZodString;
-      label: z.ZodString;
-      options: z.ZodArray<z.ZodString>;
-      value: z.ZodString;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Select">;
+      bind: z$1.ZodString;
+      label: z$1.ZodString;
+      options: z$1.ZodArray<z$1.ZodString>;
+      value: z$1.ZodString;
+    }, z$1.core.$strip>;
     readonly prompt: "Select {bind: $var, label, options[], value}";
   };
   readonly Slider: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Slider">;
-      bind: z.ZodString;
-      label: z.ZodString;
-      min: z.ZodNumber;
-      max: z.ZodNumber;
-      step: z.ZodOptional<z.ZodNumber>;
-      value: z.ZodNumber;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Slider">;
+      bind: z$1.ZodString;
+      label: z$1.ZodString;
+      min: z$1.ZodNumber;
+      max: z$1.ZodNumber;
+      step: z$1.ZodOptional<z$1.ZodNumber>;
+      value: z$1.ZodNumber;
+    }, z$1.core.$strip>;
     readonly prompt: "Slider {bind: $var, label, min, max, step?, value}";
   };
   readonly Checkbox: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Checkbox">;
-      bind: z.ZodString;
-      label: z.ZodString;
-      checked: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Checkbox">;
+      bind: z$1.ZodString;
+      label: z$1.ZodString;
+      checked: z$1.ZodOptional<z$1.ZodBoolean>;
+    }, z$1.core.$strip>;
     readonly prompt: "Checkbox {bind: $var, label, checked?}";
   };
   readonly DateRange: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"DateRange">;
-      bind: z.ZodString;
-      label: z.ZodString;
-      start: z.ZodOptional<z.ZodString>;
-      end: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"DateRange">;
+      bind: z$1.ZodString;
+      label: z$1.ZodString;
+      start: z$1.ZodOptional<z$1.ZodString>;
+      end: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "DateRange {bind: $var, label, start?, end?} — ISO dates";
   };
   readonly Button: {
-    readonly schema: z.ZodObject<{
-      id: z.ZodString;
-      type: z.ZodLiteral<"Button">;
-      label: z.ZodString;
-      variant: z.ZodOptional<z.ZodEnum<{
+    readonly schema: z$1.ZodObject<{
+      id: z$1.ZodString;
+      type: z$1.ZodLiteral<"Button">;
+      label: z$1.ZodString;
+      variant: z$1.ZodOptional<z$1.ZodEnum<{
         primary: "primary";
         secondary: "secondary";
         ghost: "ghost";
       }>>;
-      message: z.ZodOptional<z.ZodString>;
-      href: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>;
+      message: z$1.ZodOptional<z$1.ZodString>;
+      href: z$1.ZodOptional<z$1.ZodString>;
+    }, z$1.core.$strip>;
     readonly prompt: "Button {label, variant?: primary|secondary|ghost, message? | href?} — message templates send \"{$var}\"-interpolated text as the next user turn; href opens a link. Exactly one of the two.";
   };
 };
-type ViewComponent = { [K in keyof typeof VIEW_CATALOG]: z.infer<(typeof VIEW_CATALOG)[K]["schema"]>; }[keyof typeof VIEW_CATALOG];
+type ViewComponent = { [K in keyof typeof VIEW_CATALOG]: z$1.infer<(typeof VIEW_CATALOG)[K]["schema"]>; }[keyof typeof VIEW_CATALOG];
 interface ViewSpec {
   /** Reachable components in traversal order; `components[0].id === "root"`. */
   components: ViewComponent[];
@@ -753,4 +753,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-qYGUQ2KB.d.ts.map
+//# sourceMappingURL=events-BCkdUoME.d.ts.map

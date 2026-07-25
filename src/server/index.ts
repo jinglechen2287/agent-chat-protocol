@@ -29,6 +29,7 @@ export {
   normalizeChatTitle,
   type ChatTitleGeneratorOptions,
   type ChatTitleInput,
+  type ChatTitleMessage,
   type ChatTitleProvider,
   type ChatTitleResult,
   type ChatTitleRunner,

@@ -212,24 +212,40 @@ const result = await generateTitle({
   provider: "codex",
   prompt: latestUserMessage,
   currentTitle,
-  previousPrompts: previousUserMessages.slice(-2),
+  overarchingTask,
+  pivotCandidate,
+  firstPrompt,
+  recentMessages: recentConversationMessages,
   attachmentNames: ["checkout.png"],
   signal,
 });
 
 if (result.source === "model") {
-  persistTitle(result.title);
-  emit({ type: "thread_title", title: result.title });
+  persistTitleState({
+    title: result.title,
+    overarchingTask: result.overarchingTask,
+    pivotCandidate: result.pivotCandidate,
+  });
+  if (result.title !== currentTitle) {
+    emit({ type: "thread_title", title: result.title });
+  }
 }
 ```
 
-Apps can call the helper on every user turn. When `currentTitle` is supplied,
-the prompt asks the model to return it exactly unless the main task has
-materially changed; `previousPrompts` provides a small amount of topic context.
-Generation failure, timeout, an empty response, or a non-zero exit returns the
-current title (or the first-line/image-name fallback for a new chat) with
-`source: "fallback"`. Apps should keep the persisted title in that case and
-emit no title event. Cancellation is propagated to the caller.
+Apps can call the helper on every user turn. The prompt treats
+`overarchingTask` as the conversation's umbrella objective: subtasks and
+follow-ups keep the exact current title, explicit replacements retitle
+immediately, and an ambiguous unrelated request becomes `pivotCandidate` until
+a second related request confirms the shift. `firstPrompt` and role-tagged
+`recentMessages` anchor the rolling summary in real conversation context;
+`previousPrompts` remains as a deprecated user-only compatibility input.
+
+The model returns a validated structured decision. A successful result carries
+the normalized title and overarching task, plus a candidate when one remains
+unconfirmed. Generation failure, timeout, malformed output, or a non-zero exit
+returns the current title (or the first-line/image-name fallback for a new chat)
+with `source: "fallback"`. Apps should keep all persisted title state in that
+case and emit no title event. Cancellation is propagated to the caller.
 
 ## Design constraints
 
