@@ -50,5 +50,9 @@ export {
   type ChatTitleMessage,
 } from "../title-text";
 
-/** Emit-side event helper, client-safe on the package root as well. */
-export { threadTitleEvent } from "../events";
+/** Emit-side event helpers, client-safe on the package root as well. */
+export {
+  threadTitleEvent,
+  threadTitleSnapshotEvent,
+  type ThreadTitleEvent,
+} from "../events";

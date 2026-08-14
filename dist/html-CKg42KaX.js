@@ -99,24 +99,40 @@ function toChatTitleMessages(messages, limit = 12) {
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 8;
+const PROTOCOL_VERSION = 9;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
 	return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
 }
 /**
-* Builds the `thread_title` snapshot for a title state, keeping the
-* absence-means-cleared spread rule in one place: an empty or missing task
-* field is left off the event rather than sent as an empty string. Accepts a
-* `ChatTitleResult` directly.
+* Builds a sparse `thread_title` event: a non-empty string is stated, an
+* explicit `null` clears, and an empty or missing field is left off the event
+* — no statement, the client keeps what it has. Right for a server that
+* persists title state itself and only announces renames. A server whose
+* client owns the state needs {@link threadTitleSnapshotEvent} instead: a
+* sparse event would strand a dropped field on the client forever.
 */
 function threadTitleEvent(state) {
 	return {
 		type: "thread_title",
 		title: state.title,
-		...state.overarchingTask ? { overarchingTask: state.overarchingTask } : {},
-		...state.pivotCandidate ? { pivotCandidate: state.pivotCandidate } : {}
+		...state.overarchingTask || state.overarchingTask === null ? { overarchingTask: state.overarchingTask } : {},
+		...state.pivotCandidate || state.pivotCandidate === null ? { pivotCandidate: state.pivotCandidate } : {}
+	};
+}
+/**
+* Builds the complete `thread_title` snapshot a server MUST emit when its
+* client owns the title state: both task fields are always present, a dropped
+* or empty one stated as an explicit `null` so the client clears it. Accepts
+* a `ChatTitleResult` directly.
+*/
+function threadTitleSnapshotEvent(state) {
+	return {
+		type: "thread_title",
+		title: state.title,
+		overarchingTask: state.overarchingTask || null,
+		pivotCandidate: state.pivotCandidate || null
 	};
 }
 //#endregion
@@ -1051,6 +1067,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { CHAT_TITLE_TASK_MAX_LENGTH as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, toChatTitleMessages as F, truncateChatTitle as I, normalizeChatTitle as M, normalizeTaskSummary as N, CHAT_TITLE_MAX_LENGTH as O, stripCodeFence as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, fallbackChatTitle as j, CHAT_TITLE_RECENT_MESSAGE_LIMIT as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
+export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-CBvgKwSx.js.map
+//# sourceMappingURL=html-CKg42KaX.js.map

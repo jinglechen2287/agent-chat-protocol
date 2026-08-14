@@ -26,7 +26,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 8` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 9` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `html` | `content` | A freeform generated page (an ` ```agent-html ` block body), rendered in a sandboxed frame. |
 | `html_delta` | `index`, `delta` | Best-effort newline-terminated fragments of the page an `html` event will deliver; never persisted. |
 | `context_usage` | `contextTokens`, `contextWindow?`, `model?` | |
-| `thread_title` | `title`, `overarchingTask?`, `pivotCandidate?` | A complete snapshot of the chat's title state; absent task fields mean cleared. |
+| `thread_title` | `title`, `overarchingTask?`, `pivotCandidate?` | The chat's title state. Task fields are tri-state: a string stores, `null` clears, absent says nothing. |
 | `background_agent_updated` | `agent: BackgroundAgent` | |
 | `stderr` | `chunk` | |
 | `done` | `exitCode` | ✓ |
@@ -67,7 +67,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`html`** — a freeform generated page: the body of an ` ```agent-html ` block, the escape hatch for layouts and interactions the view catalog can't express. Clients MUST render it in a sandboxed frame (never inline in the app document) wired to the postMessage bridge in `html.ts`: the host sends `agent-html:update`/`agent-html:theme` frames in, and validates `agent-html:ready`/`agent-html:height`/`agent-html:send` frames out with `parseHtmlFrameMessage` — a frame runs agent-authored code, so its messages are untrusted input. An `agent-html:send` text is sent verbatim as the next user turn, the freeform twin of a view Button's `message` template. The event is a transcript message alongside `assistant_text`; surrounding prose is kept. `HTML_PROMPT` teaches the emit side (style-first streaming order, scripts last, the `AgentBridge.send` API) so prompt and bridge cannot drift. An empty or oversized block degrades to prose, exactly like a rootless view block.
 - **`html_delta`** — a newline-terminated run of completed lines from an html block still being written, indexed like `assistant_text_delta`. Clients MAY append deltas to a scratch document and render it as a growing page (morphing, not re-executing — scripts wait for the completed event), and MUST discard the scratch when the same message's `html` (or `assistant_text`) arrives. Deltas stay out of the replay buffer; the store accumulates them (`pushHtmlDelta` / `pendingHtmlDeltas`) and a late subscriber catches up after replay, exactly like text partials.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.
-- **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event. It is a snapshot, not a patch: a client that persists title state MUST replace all of it, treating an absent `overarchingTask` or `pivotCandidate` as cleared, and MUST return the task fields on the next turn's title request — without that round trip every generation bootstraps from scratch and the title can never follow a topic change. Who holds that state decides how often a server emits: one whose client owns the chat (browser-side history) MUST emit on every model answer, including a `keep` that only refreshes the task summary, while one that persists the state itself MAY emit only on a rename and omit the task fields. Clients MUST apply a repeated `title` idempotently either way.
+- **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event. Each task field is a tri-state statement: a string stores that value, an explicit `null` clears the stored one, and an absent field says nothing — the client keeps what it has. A client that persists title state MUST apply each statement and return the stored fields on the next turn's title request — without that round trip every generation bootstraps from scratch and the title can never follow a topic change. Who holds that state decides how a server emits: one whose client owns the chat (browser-side history) MUST emit a complete snapshot on every model answer — both task fields present, a dropped one as `null` (`threadTitleSnapshotEvent` builds this) — including a `keep` that only refreshes the task summary, while one that persists the state itself MAY emit only on a rename and leave the task fields absent. Clients MUST apply a repeated `title` idempotently either way.
 - **`background_agent_updated`** — upsert the complete snapshot by `agent.id`, replacing the prior snapshot for that agent. Do not append progress heartbeats as transcript messages. Status is normalized to `pending`, `running`, `completed`, `failed`, or `interrupted`; provider-specific IDs, spawn correlation, progress, summary, errors, and timestamps remain available on the snapshot.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
@@ -211,7 +211,10 @@ its runner so this package never starts a process or triggers billable work by
 itself.
 
 ```ts
-import { createChatTitleGenerator, threadTitleEvent } from "agent-chat-protocol/server";
+import {
+  createChatTitleGenerator,
+  threadTitleSnapshotEvent,
+} from "agent-chat-protocol/server";
 
 const generateTitle = createChatTitleGenerator({
   run: (request) => runAgent({
@@ -235,10 +238,11 @@ const result = await generateTitle({
 
 if (result.source === "model") {
   // This app keeps no chat state of its own, so the client is told the whole
-  // snapshot on every model answer — a `keep` decision still refreshes the
-  // task summary the next request has to send back. An app with its own store
-  // would call persistTitleState() here and emit only on a rename.
-  emit(threadTitleEvent(result));
+  // snapshot on every model answer — a dropped task field goes out as an
+  // explicit `null`, and a `keep` decision still refreshes the task summary
+  // the next request has to send back. An app with its own store would call
+  // persistTitleState() here and emit only on a rename (threadTitleEvent).
+  emit(threadTitleSnapshotEvent(result));
 }
 ```
 

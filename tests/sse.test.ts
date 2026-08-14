@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   PROTOCOL_VERSION,
   isTerminalEvent,
+  threadTitleEvent,
+  threadTitleSnapshotEvent,
   type ChatStreamEvent,
 } from "../src/index";
 import {
@@ -512,6 +514,19 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
+  it("passes an explicit null through as a clear statement", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "thread_title",
+        data: { title: "Fix login redirect", overarchingTask: null },
+      }),
+    ).toEqual({
+      type: "thread_title",
+      title: "Fix login redirect",
+      overarchingTask: null,
+    });
+  });
+
   it("salvages the rename when a thread_title's title state is unusable", () => {
     expect(
       mapSseToChatEvent({
@@ -525,6 +540,23 @@ describe("mapSseToChatEvent", () => {
         data: { title: "Fix login redirect", pivotCandidate: 7 },
       }),
     ).toEqual({ type: "thread_title", title: "Fix login redirect" });
+  });
+
+  it("threadTitleEvent leaves an empty field off and keeps a null clear", () => {
+    expect(
+      threadTitleEvent({ title: "T", overarchingTask: "", pivotCandidate: null }),
+    ).toEqual({ type: "thread_title", title: "T", pivotCandidate: null });
+  });
+
+  it("threadTitleSnapshotEvent states every field, folding a dropped one to null", () => {
+    expect(
+      threadTitleSnapshotEvent({ title: "T", overarchingTask: "Keep the build green" }),
+    ).toEqual({
+      type: "thread_title",
+      title: "T",
+      overarchingTask: "Keep the build green",
+      pivotCandidate: null,
+    });
   });
 
   it("rejects context_usage without a numeric contextTokens", () => {
@@ -661,6 +693,12 @@ describe("encode/decode round trip", () => {
       title: "Fix login redirect",
       overarchingTask: "Repair the post-login redirect for expired sessions.",
       pivotCandidate: "Rewrite the signup form.",
+    },
+    {
+      type: "thread_title",
+      title: "Fix login redirect",
+      overarchingTask: "Repair the post-login redirect for expired sessions.",
+      pivotCandidate: null,
     },
     {
       type: "background_agent_updated",

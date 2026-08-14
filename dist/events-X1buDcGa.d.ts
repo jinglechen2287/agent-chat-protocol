@@ -538,7 +538,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 8;
+declare const PROTOCOL_VERSION = 9;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -762,36 +762,32 @@ type ChatStreamEvent =
  * and emitted when an asynchronous title generator answers. Clients MUST
  * update the chat/thread title without adding a transcript message.
  *
- * The event is a complete snapshot, not a patch: a client that persists the
- * title state MUST replace all of it, treating an absent `overarchingTask`
- * or `pivotCandidate` as cleared. The task fields are opaque to it — it
+ * Each task field is a tri-state statement: a string stores that value, an
+ * explicit `null` clears the stored one, and an absent field says nothing —
+ * the client keeps whatever it has. The fields are opaque to the client: it
  * stores them and returns them on the next turn's title request, which is
  * what lets the generator track an umbrella objective across a conversation
  * instead of renaming from the latest message alone.
  *
- * Who keeps that state decides how often a server emits. A server whose
- * client owns the chat (browser-held history) MUST emit on every model
- * answer, including one that keeps the title and only refreshes the task
- * summary — withholding it strands the client a turn behind and every later
- * generation bootstraps from scratch. A server that persists the state
- * itself MAY emit only when the title changes and omit the task fields
- * entirely. Either way clients MUST apply a repeated `title` idempotently.
- *
- * The two regimes are indistinguishable on the wire — a bare
- * `{type, title}` means "cleared" from the first kind of server and "state
- * unchanged, held server-side" from the second — so which reading applies
- * is part of a server's contract with its client, not something a client
- * can sniff per event. A client that persists title state and echoes it
- * back MUST NOT be pointed at a rename-only server, and a server migrating
- * from one regime to the other changes what its old bytes mean.
+ * Who keeps that state decides how a server emits. A server whose client
+ * owns the chat (browser-held history) MUST emit a complete snapshot on
+ * every model answer — both task fields present, a dropped one stated as
+ * `null` ({@link threadTitleSnapshotEvent} builds this) — including an
+ * answer that keeps the title and only refreshes the task summary;
+ * withholding it strands the client a turn behind. A server that persists
+ * the state itself MAY emit only when the title changes and leave the task
+ * fields absent. Either way clients MUST apply a repeated `title`
+ * idempotently.
  */
 {
   type: "thread_title";
   title: string;
-  /** Durable summary of the conversation's umbrella objective. */
-  overarchingTask?: string;
-  /** Unrelated task seen once, pending confirmation before it retitles. */
-  pivotCandidate?: string;
+  /** Durable summary of the conversation's umbrella objective: a string
+   * stores it, `null` clears it, absent leaves the stored value alone. */
+  overarchingTask?: string | null;
+  /** Unrelated task seen once, pending confirmation before it retitles;
+   * same tri-state semantics. */
+  pivotCandidate?: string | null;
 } |
 /**
  * A full background-agent lifecycle snapshot. Non-terminal and mutable:
@@ -832,19 +828,35 @@ type ChatStreamEvent =
 /** True for the three events that end a turn's stream: `done`, `aborted`,
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
+/** The `thread_title` member of {@link ChatStreamEvent}, named for hosts that
+ * build, store, or apply title state. */
+type ThreadTitleEvent = Extract<ChatStreamEvent, {
+  type: "thread_title";
+}>;
 /**
- * Builds the `thread_title` snapshot for a title state, keeping the
- * absence-means-cleared spread rule in one place: an empty or missing task
- * field is left off the event rather than sent as an empty string. Accepts a
- * `ChatTitleResult` directly.
+ * Builds a sparse `thread_title` event: a non-empty string is stated, an
+ * explicit `null` clears, and an empty or missing field is left off the event
+ * — no statement, the client keeps what it has. Right for a server that
+ * persists title state itself and only announces renames. A server whose
+ * client owns the state needs {@link threadTitleSnapshotEvent} instead: a
+ * sparse event would strand a dropped field on the client forever.
  */
 declare function threadTitleEvent(state: {
   title: string;
-  overarchingTask?: string | undefined;
-  pivotCandidate?: string | undefined;
-}): Extract<ChatStreamEvent, {
-  type: "thread_title";
-}>;
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+}): ThreadTitleEvent;
+/**
+ * Builds the complete `thread_title` snapshot a server MUST emit when its
+ * client owns the title state: both task fields are always present, a dropped
+ * or empty one stated as an explicit `null` so the client clears it. Accepts
+ * a `ChatTitleResult` directly.
+ */
+declare function threadTitleSnapshotEvent(state: {
+  title: string;
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+}): ThreadTitleEvent;
 //#endregion
-export { ParsedQuestionText as A, toChatTitleMessages as B, ParsedControlsText as C, parseControlsBlock as D, initialControlValues as E, CHAT_TITLE_TASK_MAX_LENGTH as F, ChatTitleMessage as I, fallbackChatTitle as L, parseQuestionBlock as M, CHAT_TITLE_MAX_LENGTH as N, validateControls as O, CHAT_TITLE_RECENT_MESSAGE_LIMIT as P, normalizeChatTitle as R, ControlsSpec as S, SliderControl as T, truncateChatTitle as V, parseViewBlock as _, ChatStreamEvent as a, Control as b, ToolPlanItem as c, threadTitleEvent as d, ParsedViewText as f, ViewSpec as g, ViewComponent as h, BackgroundAgentStatus as i, QuestionSpec as j, valuesEqual as k, ToolTaskMetadata as l, VIEW_PROMPT as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_CATALOG as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, validateViewSpec as v, SelectControl as w, ControlValues as x, ColorControl as y, normalizeTaskSummary as z };
-//# sourceMappingURL=events-BshRYGbI.d.ts.map
+export { validateControls as A, normalizeChatTitle as B, ControlValues as C, SliderControl as D, SelectControl as E, CHAT_TITLE_MAX_LENGTH as F, toChatTitleMessages as H, CHAT_TITLE_RECENT_MESSAGE_LIMIT as I, CHAT_TITLE_TASK_MAX_LENGTH as L, ParsedQuestionText as M, QuestionSpec as N, initialControlValues as O, parseQuestionBlock as P, ChatTitleMessage as R, Control as S, ParsedControlsText as T, truncateChatTitle as U, normalizeTaskSummary as V, ViewComponent as _, ChatStreamEvent as a, validateViewSpec as b, ToolCallDetail as c, isTerminalEvent as d, threadTitleEvent as f, VIEW_PROMPT as g, VIEW_CATALOG as h, BackgroundAgentStatus as i, valuesEqual as j, parseControlsBlock as k, ToolPlanItem as l, ParsedViewText as m, BackgroundAgent as n, PROTOCOL_VERSION as o, threadTitleSnapshotEvent as p, BackgroundAgentProgress as r, ThreadTitleEvent as s, AbortReason as t, ToolTaskMetadata as u, ViewSpec as v, ControlsSpec as w, ColorControl as x, parseViewBlock as y, fallbackChatTitle as z };
+//# sourceMappingURL=events-X1buDcGa.d.ts.map

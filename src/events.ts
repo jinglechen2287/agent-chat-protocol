@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -220,36 +220,32 @@ export type ChatStreamEvent =
    * and emitted when an asynchronous title generator answers. Clients MUST
    * update the chat/thread title without adding a transcript message.
    *
-   * The event is a complete snapshot, not a patch: a client that persists the
-   * title state MUST replace all of it, treating an absent `overarchingTask`
-   * or `pivotCandidate` as cleared. The task fields are opaque to it — it
+   * Each task field is a tri-state statement: a string stores that value, an
+   * explicit `null` clears the stored one, and an absent field says nothing —
+   * the client keeps whatever it has. The fields are opaque to the client: it
    * stores them and returns them on the next turn's title request, which is
    * what lets the generator track an umbrella objective across a conversation
    * instead of renaming from the latest message alone.
    *
-   * Who keeps that state decides how often a server emits. A server whose
-   * client owns the chat (browser-held history) MUST emit on every model
-   * answer, including one that keeps the title and only refreshes the task
-   * summary — withholding it strands the client a turn behind and every later
-   * generation bootstraps from scratch. A server that persists the state
-   * itself MAY emit only when the title changes and omit the task fields
-   * entirely. Either way clients MUST apply a repeated `title` idempotently.
-   *
-   * The two regimes are indistinguishable on the wire — a bare
-   * `{type, title}` means "cleared" from the first kind of server and "state
-   * unchanged, held server-side" from the second — so which reading applies
-   * is part of a server's contract with its client, not something a client
-   * can sniff per event. A client that persists title state and echoes it
-   * back MUST NOT be pointed at a rename-only server, and a server migrating
-   * from one regime to the other changes what its old bytes mean.
+   * Who keeps that state decides how a server emits. A server whose client
+   * owns the chat (browser-held history) MUST emit a complete snapshot on
+   * every model answer — both task fields present, a dropped one stated as
+   * `null` ({@link threadTitleSnapshotEvent} builds this) — including an
+   * answer that keeps the title and only refreshes the task summary;
+   * withholding it strands the client a turn behind. A server that persists
+   * the state itself MAY emit only when the title changes and leave the task
+   * fields absent. Either way clients MUST apply a repeated `title`
+   * idempotently.
    */
   | {
       type: "thread_title";
       title: string;
-      /** Durable summary of the conversation's umbrella objective. */
-      overarchingTask?: string;
-      /** Unrelated task seen once, pending confirmation before it retitles. */
-      pivotCandidate?: string;
+      /** Durable summary of the conversation's umbrella objective: a string
+       * stores it, `null` clears it, absent leaves the stored value alone. */
+      overarchingTask?: string | null;
+      /** Unrelated task seen once, pending confirmation before it retitles;
+       * same tri-state semantics. */
+      pivotCandidate?: string | null;
     }
   /**
    * A full background-agent lifecycle snapshot. Non-terminal and mutable:
@@ -279,21 +275,50 @@ export function isTerminalEvent(ev: ChatStreamEvent): boolean {
   return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
 }
 
+/** The `thread_title` member of {@link ChatStreamEvent}, named for hosts that
+ * build, store, or apply title state. */
+export type ThreadTitleEvent = Extract<ChatStreamEvent, { type: "thread_title" }>;
+
 /**
- * Builds the `thread_title` snapshot for a title state, keeping the
- * absence-means-cleared spread rule in one place: an empty or missing task
- * field is left off the event rather than sent as an empty string. Accepts a
- * `ChatTitleResult` directly.
+ * Builds a sparse `thread_title` event: a non-empty string is stated, an
+ * explicit `null` clears, and an empty or missing field is left off the event
+ * — no statement, the client keeps what it has. Right for a server that
+ * persists title state itself and only announces renames. A server whose
+ * client owns the state needs {@link threadTitleSnapshotEvent} instead: a
+ * sparse event would strand a dropped field on the client forever.
  */
 export function threadTitleEvent(state: {
   title: string;
-  overarchingTask?: string | undefined;
-  pivotCandidate?: string | undefined;
-}): Extract<ChatStreamEvent, { type: "thread_title" }> {
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+}): ThreadTitleEvent {
   return {
     type: "thread_title",
     title: state.title,
-    ...(state.overarchingTask ? { overarchingTask: state.overarchingTask } : {}),
-    ...(state.pivotCandidate ? { pivotCandidate: state.pivotCandidate } : {}),
+    ...(state.overarchingTask || state.overarchingTask === null
+      ? { overarchingTask: state.overarchingTask }
+      : {}),
+    ...(state.pivotCandidate || state.pivotCandidate === null
+      ? { pivotCandidate: state.pivotCandidate }
+      : {}),
+  };
+}
+
+/**
+ * Builds the complete `thread_title` snapshot a server MUST emit when its
+ * client owns the title state: both task fields are always present, a dropped
+ * or empty one stated as an explicit `null` so the client clears it. Accepts
+ * a `ChatTitleResult` directly.
+ */
+export function threadTitleSnapshotEvent(state: {
+  title: string;
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+}): ThreadTitleEvent {
+  return {
+    type: "thread_title",
+    title: state.title,
+    overarchingTask: state.overarchingTask || null,
+    pivotCandidate: state.pivotCandidate || null,
   };
 }

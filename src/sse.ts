@@ -197,13 +197,13 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     case "thread_title": {
       const title = get("title");
       if (typeof title !== "string" || title.trim() === "") return null;
-      // An unusable optional field folds to absent — which already means
-      // "cleared", the safe degraded reading — rather than vetoing the
-      // rename the event exists to deliver.
+      // `null` passes through as an explicit clear; an unusable value folds
+      // to absent — no statement, the reading that leaves client state alone
+      // — rather than vetoing the rename the event exists to deliver.
       return threadTitleEvent({
         title,
-        overarchingTask: optionalNonEmptyStringValue(get("overarchingTask")) ?? undefined,
-        pivotCandidate: optionalNonEmptyStringValue(get("pivotCandidate")) ?? undefined,
+        overarchingTask: titleStatementValue(get("overarchingTask")),
+        pivotCandidate: titleStatementValue(get("pivotCandidate")),
       });
     }
     case "background_agent_updated": {
@@ -239,6 +239,14 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     default:
       return null;
   }
+}
+
+/** Tri-state title statement: `null` stays an explicit clear, a non-empty
+ * string stays a statement, anything else folds to `undefined` — absent, no
+ * statement. */
+function titleStatementValue(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
 /** `undefined` when the field is absent, `null` when present but unusable. */
