@@ -776,6 +776,14 @@ type ChatStreamEvent =
  * generation bootstraps from scratch. A server that persists the state
  * itself MAY emit only when the title changes and omit the task fields
  * entirely. Either way clients MUST apply a repeated `title` idempotently.
+ *
+ * The two regimes are indistinguishable on the wire — a bare
+ * `{type, title}` means "cleared" from the first kind of server and "state
+ * unchanged, held server-side" from the second — so which reading applies
+ * is part of a server's contract with its client, not something a client
+ * can sniff per event. A client that persists title state and echoes it
+ * back MUST NOT be pointed at a rename-only server, and a server migrating
+ * from one regime to the other changes what its old bytes mean.
  */
 {
   type: "thread_title";
@@ -824,6 +832,19 @@ type ChatStreamEvent =
 /** True for the three events that end a turn's stream: `done`, `aborted`,
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
+/**
+ * Builds the `thread_title` snapshot for a title state, keeping the
+ * absence-means-cleared spread rule in one place: an empty or missing task
+ * field is left off the event rather than sent as an empty string. Accepts a
+ * `ChatTitleResult` directly.
+ */
+declare function threadTitleEvent(state: {
+  title: string;
+  overarchingTask?: string | undefined;
+  pivotCandidate?: string | undefined;
+}): Extract<ChatStreamEvent, {
+  type: "thread_title";
+}>;
 //#endregion
-export { QuestionSpec as A, truncateChatTitle as B, SelectControl as C, validateControls as D, parseControlsBlock as E, ChatTitleMessage as F, fallbackChatTitle as I, normalizeChatTitle as L, CHAT_TITLE_MAX_LENGTH as M, CHAT_TITLE_RECENT_MESSAGE_LIMIT as N, valuesEqual as O, CHAT_TITLE_TASK_MAX_LENGTH as P, normalizeTaskSummary as R, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y, toChatTitleMessages as z };
-//# sourceMappingURL=events-D2gtAoy9.d.ts.map
+export { ParsedQuestionText as A, toChatTitleMessages as B, ParsedControlsText as C, parseControlsBlock as D, initialControlValues as E, CHAT_TITLE_TASK_MAX_LENGTH as F, ChatTitleMessage as I, fallbackChatTitle as L, parseQuestionBlock as M, CHAT_TITLE_MAX_LENGTH as N, validateControls as O, CHAT_TITLE_RECENT_MESSAGE_LIMIT as P, normalizeChatTitle as R, ControlsSpec as S, SliderControl as T, truncateChatTitle as V, parseViewBlock as _, ChatStreamEvent as a, Control as b, ToolPlanItem as c, threadTitleEvent as d, ParsedViewText as f, ViewSpec as g, ViewComponent as h, BackgroundAgentStatus as i, QuestionSpec as j, valuesEqual as k, ToolTaskMetadata as l, VIEW_PROMPT as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_CATALOG as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, validateViewSpec as v, SelectControl as w, ControlValues as x, ColorControl as y, normalizeTaskSummary as z };
+//# sourceMappingURL=events-BshRYGbI.d.ts.map

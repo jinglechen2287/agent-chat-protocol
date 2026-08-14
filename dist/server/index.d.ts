@@ -1,4 +1,4 @@
-import { B as truncateChatTitle, F as ChatTitleMessage, I as fallbackChatTitle, L as normalizeChatTitle, M as CHAT_TITLE_MAX_LENGTH, N as CHAT_TITLE_RECENT_MESSAGE_LIMIT, P as CHAT_TITLE_TASK_MAX_LENGTH, R as normalizeTaskSummary, a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec, z as toChatTitleMessages } from "../events-D2gtAoy9.js";
+import { B as toChatTitleMessages, F as CHAT_TITLE_TASK_MAX_LENGTH, I as ChatTitleMessage, L as fallbackChatTitle, N as CHAT_TITLE_MAX_LENGTH, P as CHAT_TITLE_RECENT_MESSAGE_LIMIT, R as normalizeChatTitle, S as ControlsSpec, V as truncateChatTitle, a as ChatStreamEvent, d as threadTitleEvent, l as ToolTaskMetadata, s as ToolCallDetail, z as normalizeTaskSummary } from "../events-BshRYGbI.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -173,5 +173,5 @@ interface ChatTitleGeneratorOptions {
 }
 declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
 //#endregion
-export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
+export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 //# sourceMappingURL=index.d.ts.map

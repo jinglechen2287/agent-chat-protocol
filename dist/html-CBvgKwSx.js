@@ -105,6 +105,20 @@ const PROTOCOL_VERSION = 8;
 function isTerminalEvent(ev) {
 	return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
 }
+/**
+* Builds the `thread_title` snapshot for a title state, keeping the
+* absence-means-cleared spread rule in one place: an empty or missing task
+* field is left off the event rather than sent as an empty string. Accepts a
+* `ChatTitleResult` directly.
+*/
+function threadTitleEvent(state) {
+	return {
+		type: "thread_title",
+		title: state.title,
+		...state.overarchingTask ? { overarchingTask: state.overarchingTask } : {},
+		...state.pivotCandidate ? { pivotCandidate: state.pivotCandidate } : {}
+	};
+}
 //#endregion
 //#region src/controls.ts
 /** Defensive ceilings — the agent is asked for less; a runaway block should
@@ -1037,6 +1051,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { fallbackChatTitle as A, validateControls as C, CHAT_TITLE_MAX_LENGTH as D, isTerminalEvent as E, truncateChatTitle as F, normalizeTaskSummary as M, stripCodeFence as N, CHAT_TITLE_RECENT_MESSAGE_LIMIT as O, toChatTitleMessages as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, normalizeChatTitle as j, CHAT_TITLE_TASK_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
+export { CHAT_TITLE_TASK_MAX_LENGTH as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, toChatTitleMessages as F, truncateChatTitle as I, normalizeChatTitle as M, normalizeTaskSummary as N, CHAT_TITLE_MAX_LENGTH as O, stripCodeFence as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, fallbackChatTitle as j, CHAT_TITLE_RECENT_MESSAGE_LIMIT as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-yvOGKY5T.js.map
+//# sourceMappingURL=html-CBvgKwSx.js.map

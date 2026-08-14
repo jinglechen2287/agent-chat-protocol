@@ -1,4 +1,4 @@
-import { A as fallbackChatTitle, C as validateControls, D as CHAT_TITLE_MAX_LENGTH, F as truncateChatTitle, M as normalizeTaskSummary, N as stripCodeFence, O as CHAT_TITLE_RECENT_MESSAGE_LIMIT, P as toChatTitleMessages, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, j as normalizeChatTitle, k as CHAT_TITLE_TASK_MAX_LENGTH, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-yvOGKY5T.js";
+import { A as CHAT_TITLE_TASK_MAX_LENGTH, C as validateControls, D as threadTitleEvent, F as toChatTitleMessages, I as truncateChatTitle, M as normalizeChatTitle, N as normalizeTaskSummary, O as CHAT_TITLE_MAX_LENGTH, P as stripCodeFence, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, j as fallbackChatTitle, k as CHAT_TITLE_RECENT_MESSAGE_LIMIT, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-CBvgKwSx.js";
 import * as z from "zod";
 //#region src/server/tool-details.ts
 function text(value) {
@@ -818,6 +818,6 @@ function createChatTitleGenerator(options) {
 	};
 }
 //#endregion
-export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
+export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 
 //# sourceMappingURL=index.js.map

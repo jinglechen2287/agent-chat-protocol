@@ -22,6 +22,7 @@ export {
 export {
   PROTOCOL_VERSION,
   isTerminalEvent,
+  threadTitleEvent,
   type AbortReason,
   type BackgroundAgent,
   type BackgroundAgentProgress,

@@ -12,21 +12,6 @@ import {
   type ChatTitleMessage,
 } from "../title-text.js";
 
-/** Re-exported so a server-side host reaches the whole title API through one
- * entry; they are client-safe and also live on the package root. */
-export {
-  CHAT_TITLE_MAX_LENGTH,
-  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
-  CHAT_TITLE_TASK_MAX_LENGTH,
-  fallbackChatTitle,
-  normalizeChatTitle,
-  normalizeTaskSummary,
-  toChatTitleMessages,
-  truncateChatTitle,
-  type ChatTitleMessage,
-} from "../title-text.js";
-
-
 export const CHAT_TITLE_MODELS = {
   claude: "haiku",
   codex: "gpt-5.6-luna",

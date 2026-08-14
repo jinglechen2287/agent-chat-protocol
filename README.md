@@ -211,7 +211,7 @@ its runner so this package never starts a process or triggers billable work by
 itself.
 
 ```ts
-import { createChatTitleGenerator } from "agent-chat-protocol/server";
+import { createChatTitleGenerator, threadTitleEvent } from "agent-chat-protocol/server";
 
 const generateTitle = createChatTitleGenerator({
   run: (request) => runAgent({
@@ -238,12 +238,7 @@ if (result.source === "model") {
   // snapshot on every model answer — a `keep` decision still refreshes the
   // task summary the next request has to send back. An app with its own store
   // would call persistTitleState() here and emit only on a rename.
-  emit({
-    type: "thread_title",
-    title: result.title,
-    ...(result.overarchingTask ? { overarchingTask: result.overarchingTask } : {}),
-    ...(result.pivotCandidate ? { pivotCandidate: result.pivotCandidate } : {}),
-  });
+  emit(threadTitleEvent(result));
 }
 ```
 

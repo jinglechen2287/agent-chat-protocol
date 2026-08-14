@@ -512,19 +512,19 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
-  it("rejects a thread_title whose title state is present but unusable", () => {
+  it("salvages the rename when a thread_title's title state is unusable", () => {
     expect(
       mapSseToChatEvent({
         event: "thread_title",
         data: { title: "Fix login redirect", overarchingTask: "   " },
       }),
-    ).toBeNull();
+    ).toEqual({ type: "thread_title", title: "Fix login redirect" });
     expect(
       mapSseToChatEvent({
         event: "thread_title",
         data: { title: "Fix login redirect", pivotCandidate: 7 },
       }),
-    ).toBeNull();
+    ).toEqual({ type: "thread_title", title: "Fix login redirect" });
   });
 
   it("rejects context_usage without a numeric contextTokens", () => {

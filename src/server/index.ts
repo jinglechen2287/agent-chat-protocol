@@ -23,19 +23,10 @@ export {
 export { toolCallDetails, toolTaskMetadata } from "./tool-details";
 
 export {
-  CHAT_TITLE_MAX_LENGTH,
   CHAT_TITLE_MODELS,
-  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
-  CHAT_TITLE_TASK_MAX_LENGTH,
   createChatTitleGenerator,
-  fallbackChatTitle,
-  normalizeChatTitle,
-  normalizeTaskSummary,
-  toChatTitleMessages,
-  truncateChatTitle,
   type ChatTitleGeneratorOptions,
   type ChatTitleInput,
-  type ChatTitleMessage,
   type ChatTitleProvider,
   type ChatTitleResult,
   type ChatTitleRunner,
@@ -43,3 +34,21 @@ export {
   type ChatTitleRunResult,
   type ChatTitleSource,
 } from "./title";
+
+/** The client-safe title text rules, re-exported so a server-side host
+ * reaches the whole title API through one entry; they also live on the
+ * package root. */
+export {
+  CHAT_TITLE_MAX_LENGTH,
+  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  CHAT_TITLE_TASK_MAX_LENGTH,
+  fallbackChatTitle,
+  normalizeChatTitle,
+  normalizeTaskSummary,
+  toChatTitleMessages,
+  truncateChatTitle,
+  type ChatTitleMessage,
+} from "../title-text";
+
+/** Emit-side event helper, client-safe on the package root as well. */
+export { threadTitleEvent } from "../events";

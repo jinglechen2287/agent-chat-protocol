@@ -1,4 +1,4 @@
-import { A as fallbackChatTitle, C as validateControls, D as CHAT_TITLE_MAX_LENGTH, E as isTerminalEvent, F as truncateChatTitle, M as normalizeTaskSummary, O as CHAT_TITLE_RECENT_MESSAGE_LIMIT, P as toChatTitleMessages, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, j as normalizeChatTitle, k as CHAT_TITLE_TASK_MAX_LENGTH, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-yvOGKY5T.js";
+import { A as CHAT_TITLE_TASK_MAX_LENGTH, C as validateControls, D as threadTitleEvent, E as isTerminalEvent, F as toChatTitleMessages, I as truncateChatTitle, M as normalizeChatTitle, N as normalizeTaskSummary, O as CHAT_TITLE_MAX_LENGTH, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, j as fallbackChatTitle, k as CHAT_TITLE_RECENT_MESSAGE_LIMIT, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-CBvgKwSx.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -168,15 +168,11 @@ function mapSseToChatEvent(ev) {
 		case "thread_title": {
 			const title = get("title");
 			if (typeof title !== "string" || title.trim() === "") return null;
-			const overarchingTask = optionalNonEmptyStringValue(get("overarchingTask"));
-			const pivotCandidate = optionalNonEmptyStringValue(get("pivotCandidate"));
-			if (overarchingTask === null || pivotCandidate === null) return null;
-			return {
-				type: "thread_title",
+			return threadTitleEvent({
 				title,
-				...overarchingTask !== void 0 ? { overarchingTask } : {},
-				...pivotCandidate !== void 0 ? { pivotCandidate } : {}
-			};
+				overarchingTask: optionalNonEmptyStringValue(get("overarchingTask")) ?? void 0,
+				pivotCandidate: optionalNonEmptyStringValue(get("pivotCandidate")) ?? void 0
+			});
 		}
 		case "background_agent_updated": {
 			const agent = backgroundAgent(get("agent"));
@@ -366,6 +362,6 @@ function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
-export { CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
+export { CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

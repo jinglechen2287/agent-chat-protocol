@@ -234,6 +234,14 @@ export type ChatStreamEvent =
    * generation bootstraps from scratch. A server that persists the state
    * itself MAY emit only when the title changes and omit the task fields
    * entirely. Either way clients MUST apply a repeated `title` idempotently.
+   *
+   * The two regimes are indistinguishable on the wire — a bare
+   * `{type, title}` means "cleared" from the first kind of server and "state
+   * unchanged, held server-side" from the second — so which reading applies
+   * is part of a server's contract with its client, not something a client
+   * can sniff per event. A client that persists title state and echoes it
+   * back MUST NOT be pointed at a rename-only server, and a server migrating
+   * from one regime to the other changes what its old bytes mean.
    */
   | {
       type: "thread_title";
@@ -269,4 +277,23 @@ export type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 export function isTerminalEvent(ev: ChatStreamEvent): boolean {
   return ev.type === "done" || ev.type === "aborted" || ev.type === "error";
+}
+
+/**
+ * Builds the `thread_title` snapshot for a title state, keeping the
+ * absence-means-cleared spread rule in one place: an empty or missing task
+ * field is left off the event rather than sent as an empty string. Accepts a
+ * `ChatTitleResult` directly.
+ */
+export function threadTitleEvent(state: {
+  title: string;
+  overarchingTask?: string | undefined;
+  pivotCandidate?: string | undefined;
+}): Extract<ChatStreamEvent, { type: "thread_title" }> {
+  return {
+    type: "thread_title",
+    title: state.title,
+    ...(state.overarchingTask ? { overarchingTask: state.overarchingTask } : {}),
+    ...(state.pivotCandidate ? { pivotCandidate: state.pivotCandidate } : {}),
+  };
 }

@@ -19,6 +19,7 @@ import type {
   ToolPlanItem,
   ToolTaskMetadata,
 } from "./events";
+import { threadTitleEvent } from "./events";
 import { validateControls } from "./controls";
 import { validateViewComponent, validateViewSpec } from "./view";
 
@@ -196,15 +197,14 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     case "thread_title": {
       const title = get("title");
       if (typeof title !== "string" || title.trim() === "") return null;
-      const overarchingTask = optionalNonEmptyStringValue(get("overarchingTask"));
-      const pivotCandidate = optionalNonEmptyStringValue(get("pivotCandidate"));
-      if (overarchingTask === null || pivotCandidate === null) return null;
-      return {
-        type: "thread_title",
+      // An unusable optional field folds to absent — which already means
+      // "cleared", the safe degraded reading — rather than vetoing the
+      // rename the event exists to deliver.
+      return threadTitleEvent({
         title,
-        ...(overarchingTask !== undefined ? { overarchingTask } : {}),
-        ...(pivotCandidate !== undefined ? { pivotCandidate } : {}),
-      };
+        overarchingTask: optionalNonEmptyStringValue(get("overarchingTask")) ?? undefined,
+        pivotCandidate: optionalNonEmptyStringValue(get("pivotCandidate")) ?? undefined,
+      });
     }
     case "background_agent_updated": {
       const agent = backgroundAgent(get("agent"));
