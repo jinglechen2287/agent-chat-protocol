@@ -707,17 +707,20 @@ type ChatStreamEvent =
  * and emitted when an asynchronous title generator answers. Clients MUST
  * update the chat/thread title without adding a transcript message.
  *
- * The event is a complete snapshot, not a patch: clients that persist the
+ * The event is a complete snapshot, not a patch: a client that persists the
  * title state MUST replace all of it, treating an absent `overarchingTask`
- * or `pivotCandidate` as cleared. Because a generator can refresh the task
- * summary while keeping the title, servers emit the snapshot whenever the
- * generator answers — an unchanged `title` is expected and idempotent.
+ * or `pivotCandidate` as cleared. The task fields are opaque to it — it
+ * stores them and returns them on the next turn's title request, which is
+ * what lets the generator track an umbrella objective across a conversation
+ * instead of renaming from the latest message alone.
  *
- * The task fields are opaque to the client: it stores them and returns them
- * on the next turn's title request, which is what lets the generator track
- * an umbrella objective across a conversation rather than renaming from the
- * latest message alone. A client that does not round-trip them leaves every
- * generation to bootstrap from scratch.
+ * Who keeps that state decides how often a server emits. A server whose
+ * client owns the chat (browser-held history) MUST emit on every model
+ * answer, including one that keeps the title and only refreshes the task
+ * summary — withholding it strands the client a turn behind and every later
+ * generation bootstraps from scratch. A server that persists the state
+ * itself MAY emit only when the title changes and omit the task fields
+ * entirely. Either way clients MUST apply a repeated `title` idempotently.
  */
 {
   type: "thread_title";
@@ -768,4 +771,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-BfaQZMnt.d.ts.map
+//# sourceMappingURL=events-B7TyyJ84.d.ts.map
