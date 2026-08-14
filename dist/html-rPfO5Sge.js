@@ -71,20 +71,12 @@ function fallbackChatTitle(prompt, attachmentNames = []) {
 	if (firstLine) return truncateChatTitle(firstLine);
 	return attachmentNames[0] ? truncateChatTitle(`Image: ${attachmentNames[0]}`) : "New thread";
 }
-/**
-* Projects a host's transcript onto the `recentMessages` title context: the
-* last `limit` messages that carry text, oldest first, with every non-user
-* role folded into `assistant`.
-*
-* Hosts model a transcript differently (questions, plans, tool activity), but
-* the title model only cares who was speaking, so the fold belongs here rather
-* than in each host. Callers pick the text for their own message kinds — a
-* plan message contributes its markdown, say — and pass `{role, text}` pairs.
-*/
-function toChatTitleMessages(messages, limit = 12) {
+function toChatTitleMessages(messages, limit = 12, project) {
 	const recent = [];
 	for (let index = messages.length - 1; index >= 0 && recent.length < limit; index -= 1) {
-		const message = messages[index];
+		const raw = messages[index];
+		if (raw === void 0 || raw === null) continue;
+		const message = project ? project(raw) : raw;
 		if (!message || message.text.trim() === "") continue;
 		recent.push({
 			role: message.role === "user" ? "user" : "assistant",
@@ -1069,4 +1061,4 @@ const HTML_PROMPT = [
 //#endregion
 export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-CKg42KaX.js.map
+//# sourceMappingURL=html-rPfO5Sge.js.map

@@ -46,13 +46,22 @@ declare function fallbackChatTitle(prompt: string, attachmentNames?: readonly st
  *
  * Hosts model a transcript differently (questions, plans, tool activity), but
  * the title model only cares who was speaking, so the fold belongs here rather
- * than in each host. Callers pick the text for their own message kinds — a
- * plan message contributes its markdown, say — and pass `{role, text}` pairs.
+ * than in each host. Callers with pre-shaped `{role, text}` pairs pass them
+ * directly; callers with their own message kinds pass a `project` picker that
+ * returns the `{role, text}` a message contributes — a plan its markdown, say
+ * — or `null` for one that carries no topic signal. Declined rows don't count
+ * against the window and the walk stops as soon as it fills, so an
+ * arbitrarily long run of tool rows neither starves the window nor costs
+ * allocations.
  */
 declare function toChatTitleMessages(messages: readonly {
   role: string;
   text: string;
 }[], limit?: number): ChatTitleMessage[];
+declare function toChatTitleMessages<T>(messages: readonly T[], limit: number | undefined, project: (message: T) => {
+  role: string;
+  text: string;
+} | null): ChatTitleMessage[];
 //#endregion
 //#region src/question.d.ts
 /**
@@ -859,4 +868,4 @@ declare function threadTitleSnapshotEvent(state: {
 }): ThreadTitleEvent;
 //#endregion
 export { validateControls as A, normalizeChatTitle as B, ControlValues as C, SliderControl as D, SelectControl as E, CHAT_TITLE_MAX_LENGTH as F, toChatTitleMessages as H, CHAT_TITLE_RECENT_MESSAGE_LIMIT as I, CHAT_TITLE_TASK_MAX_LENGTH as L, ParsedQuestionText as M, QuestionSpec as N, initialControlValues as O, parseQuestionBlock as P, ChatTitleMessage as R, Control as S, ParsedControlsText as T, truncateChatTitle as U, normalizeTaskSummary as V, ViewComponent as _, ChatStreamEvent as a, validateViewSpec as b, ToolCallDetail as c, isTerminalEvent as d, threadTitleEvent as f, VIEW_PROMPT as g, VIEW_CATALOG as h, BackgroundAgentStatus as i, valuesEqual as j, parseControlsBlock as k, ToolPlanItem as l, ParsedViewText as m, BackgroundAgent as n, PROTOCOL_VERSION as o, threadTitleSnapshotEvent as p, BackgroundAgentProgress as r, ThreadTitleEvent as s, AbortReason as t, ToolTaskMetadata as u, ViewSpec as v, ControlsSpec as w, ColorControl as x, parseViewBlock as y, fallbackChatTitle as z };
-//# sourceMappingURL=events-X1buDcGa.d.ts.map
+//# sourceMappingURL=events-BjVJeoLV.d.ts.map

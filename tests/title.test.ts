@@ -751,6 +751,25 @@ describe("toChatTitleMessages", () => {
     );
   });
 
+  // Declined rows must not count against the window: a busy agent turn can
+  // end with dozens of tool rows, and the walk has to reach past all of them
+  // to the conversation underneath.
+  it("walks past an arbitrarily long run of rows the picker declines", () => {
+    const messages = [
+      { kind: "user", body: "round the button" },
+      ...Array.from({ length: 100 }, () => ({ kind: "tool", body: "Read" })),
+      { kind: "assistant", body: "Rounded it" },
+    ];
+    expect(
+      toChatTitleMessages(messages, 4, (message) =>
+        message.kind === "tool" ? null : { role: message.kind, text: message.body },
+      ),
+    ).toEqual([
+      { role: "user", text: "round the button" },
+      { role: "assistant", text: "Rounded it" },
+    ]);
+  });
+
   // A blank message carries no topic signal and would only burn budget.
   it("skips messages with no usable text", () => {
     expect(

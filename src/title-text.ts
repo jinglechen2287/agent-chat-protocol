@@ -113,16 +113,36 @@ export function fallbackChatTitle(
  *
  * Hosts model a transcript differently (questions, plans, tool activity), but
  * the title model only cares who was speaking, so the fold belongs here rather
- * than in each host. Callers pick the text for their own message kinds — a
- * plan message contributes its markdown, say — and pass `{role, text}` pairs.
+ * than in each host. Callers with pre-shaped `{role, text}` pairs pass them
+ * directly; callers with their own message kinds pass a `project` picker that
+ * returns the `{role, text}` a message contributes — a plan its markdown, say
+ * — or `null` for one that carries no topic signal. Declined rows don't count
+ * against the window and the walk stops as soon as it fills, so an
+ * arbitrarily long run of tool rows neither starves the window nor costs
+ * allocations.
  */
 export function toChatTitleMessages(
   messages: readonly { role: string; text: string }[],
+  limit?: number,
+): ChatTitleMessage[];
+export function toChatTitleMessages<T>(
+  messages: readonly T[],
+  limit: number | undefined,
+  project: (message: T) => { role: string; text: string } | null,
+): ChatTitleMessage[];
+export function toChatTitleMessages<T>(
+  messages: readonly T[],
   limit: number = CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  project?: (message: T) => { role: string; text: string } | null,
 ): ChatTitleMessage[] {
   const recent: ChatTitleMessage[] = [];
   for (let index = messages.length - 1; index >= 0 && recent.length < limit; index -= 1) {
-    const message = messages[index];
+    const raw = messages[index];
+    if (raw === undefined || raw === null) continue;
+    // Safe cast: the no-picker overload only admits {role, text} elements.
+    const message = project
+      ? project(raw)
+      : (raw as unknown as { role: string; text: string });
     if (!message || message.text.trim() === "") continue;
     recent.push({
       role: message.role === "user" ? "user" : "assistant",
