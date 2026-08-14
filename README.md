@@ -110,7 +110,7 @@ await consumeSseResponse(await fetch("/chat", init), (ev) => render(ev));
 
 or run the primitives yourself (`parseSseBuffer` for framing, `mapSseToChatEvent` for validation) if you manage the reader loop.
 
-Wire notes: the SSE `event:` name is the union's `type`; the `data:` payload is the rest of the variant — except `controls`, whose spec **is** the payload (not wrapped in `{spec}`).
+Wire notes: the SSE `event:` name is the union's `type`; the `data:` payload is the rest of the variant — except `controls` and `view`, whose specs **are** the payload (not wrapped in `{spec}`).
 
 ## Generative UI
 
@@ -155,7 +155,14 @@ const store = createTaskStore();
 
 async function runTurn(turnId: string, prompt: string, sessionId?: string) {
   const task = store.create(turnId);
-  const bridge = createChatEventBridge((ev) => store.push(task, ev), {
+  // Fragments go to the accumulators, not the replay buffer (see
+  // "Reconnect / replay" above); everything else is buffered by push.
+  const bridge = createChatEventBridge((ev) => {
+    if (ev.type === "assistant_text_delta") store.pushPartial(task, ev);
+    else if (ev.type === "view_line") store.pushViewLine(task, ev);
+    else if (ev.type === "html_delta") store.pushHtmlDelta(task, ev);
+    else store.push(task, ev);
+  }, {
     ...(sessionId ? {} : { presetSessionId: crypto.randomUUID() }),
   });
   try {
@@ -174,10 +181,16 @@ async function runTurn(turnId: string, prompt: string, sessionId?: string) {
   }
 }
 
-// Streaming a (re)attached client: replay then subscribe — push is
-// synchronous, so done in one tick there is no gap.
+// Streaming a (re)attached client: replay the buffer, hand over the
+// accumulated fragments, then subscribe — push is synchronous, so done in
+// one tick there is no gap.
 function stream(task, write: (chunk: string) => void) {
-  for (const ev of task.events) write(encodeChatEvent(ev));
+  for (const ev of [
+    ...task.events,
+    ...store.pendingPartials(task),
+    ...store.pendingViewLines(task),
+    ...store.pendingHtmlDeltas(task),
+  ]) write(encodeChatEvent(ev));
   if (task.done) return;
   const unsub = store.subscribe(task, (ev) => {
     write(encodeChatEvent(ev));
@@ -250,7 +263,7 @@ case and emit no title event. Cancellation is propagated to the caller.
 ## Design constraints
 
 - **Types + functions, not a framework.** No view layer ships here; rendering is Layer 3, per app.
-- **Zero runtime dependencies.** `agent-cli-runner` is a (type-only) peer of the server entry.
+- **One runtime dependency: `zod`**, used for spec validation in both entries. `agent-cli-runner` is a (type-only) peer of the server entry.
 - **Provider-neutral wire contract.** Stream events carry no Claude- or Codex-specific shape. The optional server title helper deliberately centralizes the shared CLI model policy behind an injected runner.
 - **Strict ESM**, built with tsdown; `dist/` committed for `github:` installs.
 

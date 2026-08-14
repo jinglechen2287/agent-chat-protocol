@@ -1,4 +1,4 @@
-import { A as QuestionSpec, C as SelectControl, D as validateControls, E as parseControlsBlock, O as valuesEqual, S as ParsedControlsText, T as initialControlValues, _ as validateViewSpec, a as ChatStreamEvent, b as ControlValues, c as ToolPlanItem, d as ParsedViewText, f as VIEW_CATALOG, g as parseViewBlock, h as ViewSpec, i as BackgroundAgentStatus, j as parseQuestionBlock, k as ParsedQuestionText, l as ToolTaskMetadata, m as ViewComponent, n as BackgroundAgent, o as PROTOCOL_VERSION, p as VIEW_PROMPT, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as ColorControl, w as SliderControl, x as ControlsSpec, y as Control } from "./events-BCkdUoME.js";
+import { A as QuestionSpec, C as SelectControl, D as validateControls, E as parseControlsBlock, O as valuesEqual, S as ParsedControlsText, T as initialControlValues, _ as validateViewSpec, a as ChatStreamEvent, b as ControlValues, c as ToolPlanItem, d as ParsedViewText, f as VIEW_CATALOG, g as parseViewBlock, h as ViewSpec, i as BackgroundAgentStatus, j as parseQuestionBlock, k as ParsedQuestionText, l as ToolTaskMetadata, m as ViewComponent, n as BackgroundAgent, o as PROTOCOL_VERSION, p as VIEW_PROMPT, r as BackgroundAgentProgress, s as ToolCallDetail, t as AbortReason, u as isTerminalEvent, v as ColorControl, w as SliderControl, x as ControlsSpec, y as Control } from "./events-qYGUQ2KB.js";
 //#region src/sse.d.ts
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
@@ -22,8 +22,8 @@ declare function parseSseBuffer(buffer: string): SseParseResult;
  */
 declare function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null;
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
- * the SSE event name; the rest becomes the data payload. The `controls` spec
- * is sent directly as the payload (not wrapped in `{spec}`). */
+ * the SSE event name; the rest becomes the data payload. The `controls` and
+ * `view` specs are sent directly as the payload (not wrapped in `{spec}`). */
 declare function toSseEvent(ev: ChatStreamEvent): SseEvent;
 /** Formats one SSE frame as wire text: `event: <name>\ndata: <json>\n\n`. */
 declare function formatSseEvent(ev: SseEvent): string;

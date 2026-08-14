@@ -462,6 +462,46 @@ describe("createChatEventBridge", () => {
     });
   });
 
+  it("lets a TaskUpdate rename supersede the cached TaskCreate subject", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onToolUse?.({
+      callId: "create-1",
+      name: "TaskCreate",
+      summary: "Old name",
+      input: { subject: "Old name" },
+    });
+    bridge.callbacks.onToolResult?.({
+      callId: "create-1",
+      content: "Task #7 created successfully: Old name",
+    });
+    bridge.callbacks.onToolUse?.({
+      callId: "update-1",
+      name: "TaskUpdate",
+      summary: "Task #7 · renamed",
+      input: { taskId: "7", subject: "New name" },
+    });
+
+    expect(events.at(-1)).toMatchObject({
+      type: "tool_use",
+      name: "TaskUpdate",
+      task: { id: "7", subject: "New name" },
+    });
+
+    // The rename refreshes the cache: a later subject-less update shows it.
+    bridge.callbacks.onToolUse?.({
+      callId: "update-2",
+      name: "TaskUpdate",
+      summary: "Task #7 · completed",
+      input: { taskId: "7", status: "completed" },
+    });
+    expect(events.at(-1)).toMatchObject({
+      type: "tool_use",
+      name: "TaskUpdate",
+      task: { id: "7", subject: "New name", status: "completed" },
+    });
+  });
+
   it("flushes TaskCreate without an id before the terminal event when no result arrives", () => {
     const { events, emit } = collect();
     const bridge = createChatEventBridge(emit);
@@ -593,6 +633,48 @@ describe("createChatEventBridge", () => {
     bridge.fail(new Error("late failure"));
     bridge.finish({ exitCode: 1 });
     expect(events).toEqual([{ type: "done", exitCode: 0 }]);
+  });
+
+  // The terminal event is the last thing on the stream; runner callbacks that
+  // straggle in after finish/fail must not emit behind it.
+  describe("ignores late runner callbacks after the terminal event", () => {
+    const fireAll = (bridge: ReturnType<typeof createChatEventBridge>): void => {
+      bridge.callbacks.onSessionId?.("late-session");
+      bridge.callbacks.onAssistantText?.("late text");
+      bridge.callbacks.onToolUse?.({ name: "Bash", input: { command: "late" } });
+      bridge.callbacks.onToolResult?.({ callId: "late-1", content: "late" });
+      bridge.callbacks.onStderr?.("late warning\n");
+      bridge.callbacks.onUsage?.({
+        contextTokens: 1,
+        inputTokens: 1,
+        cachedInputTokens: 0,
+        outputTokens: 1,
+      });
+      bridge.callbacks.onBackgroundAgentUpdate?.({
+        id: "agent-thread",
+        provider: "codex",
+        description: "late",
+        status: "running",
+        startedAt: 1_000,
+        updatedAt: 2_000,
+      });
+    };
+
+    it("after finish()", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.finish({ exitCode: 0 });
+      fireAll(bridge);
+      expect(events).toEqual([{ type: "done", exitCode: 0 }]);
+    });
+
+    it("after fail()", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.fail(new Error("boom"));
+      fireAll(bridge);
+      expect(events).toEqual([{ type: "error", message: "boom" }]);
+    });
   });
 
   it("fail maps anything else to an error event", () => {

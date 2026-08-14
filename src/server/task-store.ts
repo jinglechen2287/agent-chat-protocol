@@ -54,6 +54,7 @@ function completesAssistantMessage(ev: ChatStreamEvent): boolean {
   return ev.type === "assistant_text"
     || ev.type === "question"
     || ev.type === "controls"
+    || ev.type === "plan"
     || ev.type === "view"
     || ev.type === "html";
 }
@@ -193,7 +194,9 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
     },
 
     complete(task, completeOptions = {}) {
-      if (task.done) return;
+      // A stale handle (task deleted or replaced) must not schedule a TTL
+      // timer — it would reap a live replacement task under the same id.
+      if (task.done || tasks.get(task.id) !== task) return;
       task.done = true;
       // The buffered terminal event and the persisted transcript are now
       // authoritative; nothing should replay half-written content over them.

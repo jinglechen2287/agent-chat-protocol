@@ -66,6 +66,44 @@ describe("parseSseBuffer", () => {
     const result = parseSseBuffer("data:  padded \n\n");
     expect(result.events).toEqual([{ event: "message", data: " padded " }]);
   });
+
+  it("accepts mixed line endings: LF field lines closed by a CRLF blank line", () => {
+    const result = parseSseBuffer(
+      'event: assistant_text\ndata: {"text":"hi"}\n\r\nevent: done\ndata: {"exitCode":0}\n\r\n',
+    );
+    expect(result.events).toEqual([
+      { event: "assistant_text", data: { text: "hi" } },
+      { event: "done", data: { exitCode: 0 } },
+    ]);
+    expect(result.remainder).toBe("");
+  });
+
+  it("accepts CRLF field lines closed by a lone-CR blank line", () => {
+    const result = parseSseBuffer('event: a\r\ndata: {"x":1}\r\n\rdata: 2\n\n');
+    expect(result.events).toEqual([
+      { event: "a", data: { x: 1 } },
+      { event: "message", data: 2 },
+    ]);
+    expect(result.remainder).toBe("");
+  });
+
+  it("holds back a trailing CR so a CRLF boundary split across chunks parses once complete", () => {
+    // The stream's frame boundary is \n\r\n; the chunk cut lands between the
+    // \r and the \n, so the first parse must not treat the bare \r as a
+    // complete terminator.
+    const first = parseSseBuffer('event: a\ndata: {"x":1}\n\r');
+    expect(first.events).toEqual([]);
+    expect(first.remainder).toBe('event: a\ndata: {"x":1}\n\r');
+
+    const second = parseSseBuffer(
+      first.remainder + '\nevent: b\ndata: {"y":2}\n\r\n',
+    );
+    expect(second.events).toEqual([
+      { event: "a", data: { x: 1 } },
+      { event: "b", data: { y: 2 } },
+    ]);
+    expect(second.remainder).toBe("");
+  });
 });
 
 describe("mapSseToChatEvent", () => {
@@ -209,6 +247,21 @@ describe("mapSseToChatEvent", () => {
         data: { question: "Which?", options: ["A", "B"] },
       }),
     ).toEqual({ type: "question", question: "Which?", options: ["A", "B"] });
+  });
+
+  it("rejects a question with fewer than two options", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "question",
+        data: { question: "Which?", options: [] },
+      }),
+    ).toBeNull();
+    expect(
+      mapSseToChatEvent({
+        event: "question",
+        data: { question: "Which?", options: ["only"] },
+      }),
+    ).toBeNull();
   });
 
   it("maps plan", () => {

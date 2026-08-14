@@ -90,6 +90,21 @@ describe("createTaskStore", () => {
     expect(store.get("t1")).toBe(replacement);
   });
 
+  it("ignores complete through a stale handle after delete and recreate", () => {
+    const store = createTaskStore({ completeTtlMs: 1000 });
+    const stale = store.create("t1");
+    store.delete("t1");
+    const replacement = store.create("t1");
+    // Completing the old run's handle must not mark it done or schedule a
+    // TTL timer that would reap the live replacement task under the same id.
+    store.complete(stale);
+    expect(stale.done).toBe(false);
+    vi.advanceTimersByTime(2000);
+    expect(store.get("t1")).toBe(replacement);
+    store.push(replacement, textEvent("current"));
+    expect(replacement.events).toEqual([textEvent("current")]);
+  });
+
   it("ignores pushes after completion", () => {
     const store = createTaskStore();
     const task = store.create("t1");
@@ -139,6 +154,16 @@ describe("createTaskStore", () => {
       store.push(task, textEvent("Hello"));
       store.pushPartial(task, deltaEvent(1, "next"));
       expect(store.pendingPartials(task)).toEqual([deltaEvent(1, "next")]);
+    });
+
+    // A plan-only message streams its raw <proposed_plan> text as fragments;
+    // the buffered plan event owns that content, so the fragments must go.
+    it("drops a message's fragments once its plan is buffered", () => {
+      const store = createTaskStore();
+      const task = store.create("t1");
+      store.pushPartial(task, deltaEvent(0, "<proposed_plan>\n# T"));
+      store.push(task, { type: "plan", planMarkdown: "# T\nBody.", title: "T" });
+      expect(store.pendingPartials(task)).toEqual([]);
     });
 
     it("ignores fragments after completion or through a stale handle", () => {

@@ -53,6 +53,81 @@ describe("parseProposedPlan", () => {
     expect(parsed.plan?.title).toBeNull();
   });
 
+  it("skips heading-like comment lines inside fenced code blocks", () => {
+    const body = [
+      "Intro paragraph.",
+      "",
+      "```sh",
+      "# install deps",
+      "npm i",
+      "```",
+      "",
+      "# Real Title",
+      "",
+      "Body.",
+    ].join("\n");
+    const parsed = parseProposedPlan(wrap(body));
+    expect(parsed.plan?.title).toBe("Real Title");
+  });
+
+  it("reports a null title when the only heading-like lines sit inside fences", () => {
+    const body = ["~~~", "# just a comment", "~~~", "", "Prose only."].join("\n");
+    const parsed = parseProposedPlan(wrap(body));
+    expect(parsed.plan).not.toBeNull();
+    expect(parsed.plan?.title).toBeNull();
+  });
+
+  it("does not open a fence for a backtick marker with backticks in its info string", () => {
+    const body = ["``` `inline code` ```", "# Real Title"].join("\n");
+    const parsed = parseProposedPlan(wrap(body));
+    expect(parsed.plan?.title).toBe("Real Title");
+  });
+
+  it("strips a closing ATX sequence but preserves hashes that are part of the title", () => {
+    expect(parseProposedPlan(wrap("# Title ###")).plan?.title).toBe("Title");
+    expect(parseProposedPlan(wrap("# Title#")).plan?.title).toBe("Title#");
+    expect(parseProposedPlan(wrap("# Title ### b")).plan?.title).toBe("Title ### b");
+  });
+
+  it("skips empty ATX headings instead of returning their hash runs", () => {
+    expect(parseProposedPlan(wrap("### ###")).plan?.title).toBeNull();
+    expect(parseProposedPlan(wrap("# #")).plan?.title).toBeNull();
+    expect(parseProposedPlan(wrap(["##", "", "# Later"].join("\n"))).plan?.title).toBe("Later");
+  });
+
+  it("treats tab-indented markers and headings as ordinary text", () => {
+    const body = ["Intro.", "\t# tab heading", "\t```", "# Real Title"].join("\n");
+    expect(parseProposedPlan(wrap(body)).plan?.title).toBe("Real Title");
+  });
+
+  it("does not let a matching marker followed by text close an open fence", () => {
+    const body = [
+      "```",
+      "``` not a closing fence",
+      "# still fenced",
+      "```",
+      "",
+      "# After the fence",
+    ].join("\n");
+    const parsed = parseProposedPlan(wrap(body));
+    expect(parsed.plan?.title).toBe("After the fence");
+  });
+
+  it("does not let a shorter or mismatched marker close an open fence", () => {
+    const body = [
+      "````",
+      "```",
+      "# still fenced",
+      "~~~",
+      "# also still fenced",
+      "````",
+      "",
+      "## After the fence",
+    ].join("\n");
+    const parsed = parseProposedPlan(wrap(body));
+    expect(parsed.plan?.title).toBe("After the fence");
+  });
+
   it("tolerates whitespace around the tag lines and CRLF", () => {
     const raw = "  <proposed_plan>  \r\n# T\r\nBody.\r\n  </proposed_plan>  ";
     const parsed = parseProposedPlan(raw);

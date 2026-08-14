@@ -1,4 +1,7 @@
-import { z } from "zod";
+// Namespace import: zod's entry re-exports `z` as a named binding in a way
+// bun/vitest ESM-CJS interop resolves to undefined; the star form is stable
+// under both.
+import * as z from "zod";
 
 export const CHAT_TITLE_MODELS = {
   claude: "haiku",
@@ -69,26 +72,28 @@ const DEFAULT_MAX_INPUT_CHARS = 4_000;
 const MAX_TITLE_LENGTH = 60;
 const MAX_TASK_LENGTH = 400;
 
+// Non-strict objects: zod strips unknown keys by default, so a harmless
+// extra key (e.g. "reason") does not reject an otherwise valid decision.
 const ModelDecision = z.discriminatedUnion("decision", [
   z.object({
     decision: z.literal("initialize"),
     title: z.string(),
     overarchingTask: z.string(),
-  }).strict(),
+  }),
   z.object({
     decision: z.literal("keep"),
     overarchingTask: z.string(),
-  }).strict(),
+  }),
   z.object({
     decision: z.literal("candidate"),
     overarchingTask: z.string(),
     pivotCandidate: z.string(),
-  }).strict(),
+  }),
   z.object({
     decision: z.literal("retitle"),
     title: z.string(),
     overarchingTask: z.string(),
-  }).strict(),
+  }),
 ]);
 
 function truncateTitle(title: string): string {
@@ -97,9 +102,21 @@ function truncateTitle(title: string): string {
     : `${title.slice(0, MAX_TITLE_LENGTH - 1)}…`;
 }
 
+/**
+ * Strip a wrapping markdown code fence, tolerating any info string
+ * (```json, ```JSON, ```javascript), CRLF line endings, and a missing
+ * newline before the closing fence.
+ */
+function stripCodeFence(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^```[^\n]*\r?\n?/, "")
+    .replace(/\r?\n?```$/, "")
+    .trim();
+}
+
 export function normalizeChatTitle(raw: string): string | undefined {
-  let title = raw.trim();
-  title = title.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "").trim();
+  let title = stripCodeFence(raw);
   title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
   title = title.replace(/^title\s*:\s*/i, "").trim();
   const quotePairs: ReadonlyArray<readonly [string, string]> = [
@@ -133,6 +150,28 @@ function escapePromptData(raw: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Inverse of escapePromptData for model output that echoes escaped context;
+// decode &amp; last so a double-escaped "&amp;lt;" round-trips to "&lt;"
+// instead of collapsing to "<".
+function decodePromptData(raw: string): string {
+  return raw
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+// Escaping never shrinks a string, so the first `budget` escaped chars come
+// from at most the first `budget` input chars — escape only that slice
+// (O(budget) instead of O(input)). A trailing bare "&" run can only be a cut
+// entity, because a raw "&" always escapes to "&amp;", so strip it after the
+// final slice.
+function escapeBounded(raw: string, budget: number): string {
+  if (budget <= 0) return "";
+  return escapePromptData(raw.slice(0, budget))
+    .slice(0, budget)
+    .replace(/&[a-z]{0,3}$/, "");
+}
+
 export function fallbackChatTitle(
   prompt: string,
   attachmentNames: readonly string[] = [],
@@ -149,17 +188,24 @@ function titlePrompt(
   maxInputChars: number,
 ): string {
   const attachmentNames = input.attachmentNames ?? [];
-  const recentMessages = input.recentMessages
-    ?? (input.previousPrompts ?? []).map((text) => ({ role: "user" as const, text }));
-  let remaining = Math.max(0, maxInputChars);
+  const recentMessages = input.recentMessages?.length
+    ? input.recentMessages
+    : (input.previousPrompts ?? []).map((text) => ({ role: "user" as const, text }));
+  // Reserve at least 40% of the budget for <latest_request>; the context
+  // sections share the rest, and any slack they leave flows back to it.
+  const promptReserve = Math.min(
+    Math.max(0, maxInputChars),
+    Math.max(1, Math.floor(maxInputChars * 0.4)),
+  );
+  let remaining = Math.max(0, maxInputChars) - promptReserve;
   const take = (value: string | undefined, share: number, hardLimit?: number): string => {
-    if (!value || remaining === 0) return "(none)";
+    if (!value || remaining <= 0) return "(none)";
     const budget = Math.min(
       remaining,
       hardLimit ?? Number.POSITIVE_INFINITY,
       Math.max(1, Math.floor(maxInputChars * share)),
     );
-    const bounded = escapePromptData(value).slice(0, budget);
+    const bounded = escapeBounded(value, budget);
     remaining -= bounded.length;
     return bounded || "(none)";
   };
@@ -175,10 +221,15 @@ function titlePrompt(
     const message = recentMessages[index];
     if (!message) continue;
     const separatorLength = recentParts.length ? 1 : 0;
-    const available = recentRemaining - separatorLength;
-    if (available <= 0) break;
-    const part = `[${message.role}]\n${escapePromptData(message.text)}`.slice(0, available);
-    if (!part) continue;
+    // XML-style role markers cannot be forged from message text because its
+    // "<" and ">" are escaped.
+    const open = `<${message.role}>`;
+    const close = `</${message.role}>`;
+    const textBudget = recentRemaining - separatorLength - open.length - close.length - 2;
+    if (textBudget <= 0) break;
+    const text = escapeBounded(message.text, textBudget);
+    if (!text) continue;
+    const part = `${open}\n${text}\n${close}`;
     recentParts.unshift(part);
     recentRemaining -= part.length + separatorLength;
   }
@@ -189,7 +240,7 @@ function titlePrompt(
     .map((name) => `- ${name}`)
     .join("\n");
   const attachments = take(attachmentText, 0.1);
-  const boundedPrompt = escapePromptData(input.prompt).slice(0, remaining) || "(none)";
+  const boundedPrompt = escapeBounded(input.prompt, promptReserve + remaining) || "(none)";
   return [
     "Maintain a concise 2–6 word chat title for the conversation's overarching task.",
     "The overarching task is the umbrella objective, not the latest local activity.",
@@ -198,7 +249,9 @@ function titlePrompt(
     "Use decision=candidate for an unrelated task that does not explicitly replace the umbrella task.",
     "Use decision=retitle immediately for an explicit abandonment or replacement, or when the latest request clearly continues the saved pivot candidate.",
     "When the latest request returns to the umbrella task, use keep; this clears any pivot candidate.",
+    "When a pivot candidate is pending and the latest request is neutral housekeeping that neither returns to the umbrella task nor continues the candidate, respond decision=candidate restating the same pivotCandidate.",
     "Use decision=initialize only when no overarching task exists. Prefer an accurate current title when bootstrapping an existing conversation.",
+    "When current_title is (none) or empty, respond with decision=initialize so a title can be minted.",
     "Return exactly one JSON object matching one of these shapes, without markdown:",
     '{"decision":"initialize","title":"2–6 words","overarchingTask":"one concise sentence"}',
     '{"decision":"keep","overarchingTask":"one concise sentence"}',
@@ -233,58 +286,81 @@ function titlePrompt(
 
 function parseModelResult(raw: string, input: ChatTitleInput): ChatTitleResult | undefined {
   let parsed: unknown;
+  const json = stripCodeFence(raw);
   try {
-    const json = raw.trim()
-      .replace(/^```(?:json)?[ \t]*\r?\n/i, "")
-      .replace(/\r?\n```$/, "")
-      .trim();
     parsed = JSON.parse(json);
   } catch {
-    return undefined;
+    // Salvage a JSON object embedded in surrounding prose.
+    const start = json.indexOf("{");
+    const end = json.lastIndexOf("}");
+    if (start === -1 || end <= start) return undefined;
+    try {
+      parsed = JSON.parse(json.slice(start, end + 1));
+    } catch {
+      return undefined;
+    }
   }
   const decision = ModelDecision.safeParse(parsed);
   if (!decision.success) return undefined;
+  const data = decision.data;
 
-  const currentTitle = input.currentTitle
-    ? normalizeChatTitle(input.currentTitle)
+  const nextTask = normalizeTaskSummary(decodePromptData(data.overarchingTask));
+  if (!nextTask) return undefined;
+
+  // Caller-set titles are preserved verbatim apart from outer whitespace;
+  // normalization is reserved for model-minted titles. A title that
+  // normalizes to nothing counts as absent.
+  const trimmedTitle = input.currentTitle?.trim();
+  const currentTitle = trimmedTitle && normalizeChatTitle(trimmedTitle)
+    ? trimmedTitle
     : undefined;
   const currentTask = input.overarchingTask
     ? normalizeTaskSummary(input.overarchingTask)
     : undefined;
-  const nextTask = normalizeTaskSummary(decision.data.overarchingTask);
-  if (!nextTask) return undefined;
+  const mintedTitle = (): string | undefined =>
+    data.decision === "initialize" || data.decision === "retitle"
+      ? normalizeChatTitle(decodePromptData(data.title))
+      : undefined;
 
   if (!currentTask) {
-    if (decision.data.decision !== "initialize") return undefined;
-    const title = normalizeChatTitle(decision.data.title);
+    // Bootstrap: no stored task yet — adopt the task from any decision, and
+    // never rename an existing title while doing so.
+    const title = currentTitle ?? mintedTitle();
     return title
       ? { title, overarchingTask: nextTask, source: "model" }
       : undefined;
   }
 
-  if (decision.data.decision === "keep") {
+  if (data.decision === "initialize") {
+    // Only valid as a repair transition when no usable title is stored.
+    if (currentTitle) return undefined;
+    const title = mintedTitle();
+    return title
+      ? { title, overarchingTask: nextTask, source: "model" }
+      : undefined;
+  }
+  if (data.decision === "keep") {
     return currentTitle
       ? { title: currentTitle, overarchingTask: nextTask, source: "model" }
       : undefined;
   }
-  if (decision.data.decision === "candidate") {
-    const pivotCandidate = normalizeTaskSummary(decision.data.pivotCandidate);
+  if (data.decision === "candidate") {
+    const pivotCandidate = normalizeTaskSummary(decodePromptData(data.pivotCandidate));
+    // Pin the stored umbrella task until the pivot is confirmed; only keep
+    // decisions refresh the rolling task summary.
     return currentTitle && pivotCandidate
       ? {
           title: currentTitle,
-          overarchingTask: nextTask,
+          overarchingTask: currentTask,
           pivotCandidate,
           source: "model",
         }
       : undefined;
   }
-  if (decision.data.decision === "retitle") {
-    const title = normalizeChatTitle(decision.data.title);
-    return title
-      ? { title, overarchingTask: nextTask, source: "model" }
-      : undefined;
-  }
-  return undefined;
+  const title = mintedTitle();
+  return title
+    ? { title, overarchingTask: nextTask, source: "model" }
+    : undefined;
 }
 
 export function createChatTitleGenerator(
@@ -292,11 +368,15 @@ export function createChatTitleGenerator(
 ): (input: ChatTitleInput) => Promise<ChatTitleResult> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxInputChars = options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS;
+  // Computed lazily: only the failure branches need the heuristic fallback.
+  const fallbackFor = (input: ChatTitleInput): ChatTitleResult => ({
+    // A failed generation must not rewrite the stored title, so it is kept
+    // verbatim; the heuristic only fills in when no usable title exists.
+    title: input.currentTitle?.trim()
+      || fallbackChatTitle(input.prompt, input.attachmentNames ?? []),
+    source: "fallback",
+  });
   return async (input) => {
-    const attachmentNames = input.attachmentNames ?? [];
-    const fallback = input.currentTitle
-      ? normalizeChatTitle(input.currentTitle) ?? fallbackChatTitle(input.prompt, attachmentNames)
-      : fallbackChatTitle(input.prompt, attachmentNames);
     try {
       const result = await options.run({
         provider: input.provider,
@@ -308,12 +388,10 @@ export function createChatTitleGenerator(
         ...(input.signal ? { signal: input.signal } : {}),
       });
       const generated = result.exitCode === 0 ? parseModelResult(result.text, input) : undefined;
-      return generated
-        ? generated
-        : { title: fallback, source: "fallback" };
+      return generated ?? fallbackFor(input);
     } catch (error) {
       if (input.signal?.aborted) throw error;
-      return { title: fallback, source: "fallback" };
+      return fallbackFor(input);
     }
   };
 }

@@ -42,9 +42,16 @@ export interface SseParseResult {
 export function parseSseBuffer(buffer: string): SseParseResult {
   const events: SseEvent[] = [];
   // SSE line endings may be LF, CRLF, or CR (per spec, and proxies rewrite
-  // them); accept all three for framing and within blocks.
-  const parts = buffer.split(/\r\n\r\n|\n\n|\r\r/);
-  const remainder = parts.pop() ?? "";
+  // them); each line's terminator is independent, so a frame boundary is any
+  // two consecutive terminators, mixed or not. A trailing bare CR may be the
+  // first half of a CRLF split across chunks — hold it back so it can't close
+  // a frame prematurely.
+  const holdCr = buffer.endsWith("\r");
+  const splittable = holdCr ? buffer.slice(0, -1) : buffer;
+  // `\r(?!\n)` keeps a CRLF pair atomic — without the lookahead, backtracking
+  // could split one CRLF into two terminators and cut a frame mid-line.
+  const parts = splittable.split(/(?:\r\n|\r(?!\n)|\n){2}/);
+  const remainder = (parts.pop() ?? "") + (holdCr ? "\r" : "");
   for (const block of parts) {
     let event = "message";
     const dataLines: string[] = [];
@@ -122,9 +129,11 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     case "question": {
       const question = get("question");
       const options = get("options");
+      // QuestionSpec requires at least two options; mirror that invariant.
       if (
         typeof question === "string" &&
         Array.isArray(options) &&
+        options.length >= 2 &&
         options.every((o) => typeof o === "string")
       ) {
         return { type: "question", question, options };
@@ -356,8 +365,8 @@ function toolTaskMetadata(value: unknown): ToolTaskMetadata | undefined {
 }
 
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
- * the SSE event name; the rest becomes the data payload. The `controls` spec
- * is sent directly as the payload (not wrapped in `{spec}`). */
+ * the SSE event name; the rest becomes the data payload. The `controls` and
+ * `view` specs are sent directly as the payload (not wrapped in `{spec}`). */
 export function toSseEvent(ev: ChatStreamEvent): SseEvent {
   if (ev.type === "controls") return { event: "controls", data: ev.spec };
   if (ev.type === "view") return { event: "view", data: ev.spec };

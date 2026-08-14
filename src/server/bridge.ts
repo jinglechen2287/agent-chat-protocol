@@ -100,6 +100,7 @@ export function createChatEventBridge(
   if (options.presetSessionId) announceSession(options.presetSessionId);
 
   const onSessionId = (id: string): void => {
+    if (terminal) return;
     announceSession(id);
   };
 
@@ -134,6 +135,7 @@ export function createChatEventBridge(
   };
 
   const onAssistantText = (text: string): void => {
+    if (terminal) return;
     // The agent may end a message with structured plan, question, controls,
     // view, or html blocks. Controls are a complete UI response, so when one
     // is valid suppress all surrounding prose and emit only the panel. Views
@@ -185,6 +187,9 @@ export function createChatEventBridge(
 
   const withKnownTaskSubject = (info: ToolUseInfo): ToolUseInfo => {
     if (info.name !== "TaskUpdate" || !info.input) return info;
+    // An update carrying its own subject is a rename — let it through (and
+    // emitToolUse re-caches it); only fill in the cache for subject-less ones.
+    if (typeof info.input.subject === "string" && info.input.subject.trim()) return info;
     const taskId = typeof info.input.taskId === "string" ? info.input.taskId.trim() : "";
     const subject = taskSubjects.get(taskId);
     return subject
@@ -193,6 +198,7 @@ export function createChatEventBridge(
   };
 
   const onToolUse = (info: ToolUseInfo): void => {
+    if (terminal) return;
     if (info.name === "TaskCreate" && info.callId) {
       pendingTaskCreates.set(info.callId, info);
       return;
@@ -217,6 +223,7 @@ export function createChatEventBridge(
   };
 
   const onToolResult = (result: ToolResultInfo): void => {
+    if (terminal) return;
     const pending = pendingTaskCreates.get(result.callId);
     if (!pending) return;
     pendingTaskCreates.delete(result.callId);
@@ -232,10 +239,12 @@ export function createChatEventBridge(
   };
 
   const onStderr = (chunk: string): void => {
+    if (terminal) return;
     emit({ type: "stderr", chunk });
   };
 
   const onUsage = (usage: TokenUsage): void => {
+    if (terminal) return;
     emit({
       type: "context_usage",
       contextTokens: usage.contextTokens,
@@ -245,6 +254,7 @@ export function createChatEventBridge(
   };
 
   const onBackgroundAgentUpdate = (agent: BackgroundAgentInfo): void => {
+    if (terminal) return;
     emit({ type: "background_agent_updated", agent });
   };
 

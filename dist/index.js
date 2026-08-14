@@ -1,4 +1,4 @@
-import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-OfQ2MvzN.js";
+import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-BBeQFOJc.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -7,8 +7,9 @@ import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T
 */
 function parseSseBuffer(buffer) {
 	const events = [];
-	const parts = buffer.split(/\r\n\r\n|\n\n|\r\r/);
-	const remainder = parts.pop() ?? "";
+	const holdCr = buffer.endsWith("\r");
+	const parts = (holdCr ? buffer.slice(0, -1) : buffer).split(/(?:\r\n|\r(?!\n)|\n){2}/);
+	const remainder = (parts.pop() ?? "") + (holdCr ? "\r" : "");
 	for (const block of parts) {
 		let event = "message";
 		const dataLines = [];
@@ -89,7 +90,7 @@ function mapSseToChatEvent(ev) {
 		case "question": {
 			const question = get("question");
 			const options = get("options");
-			if (typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string")) return {
+			if (typeof question === "string" && Array.isArray(options) && options.length >= 2 && options.every((o) => typeof o === "string")) return {
 				type: "question",
 				question,
 				options
@@ -306,8 +307,8 @@ function toolTaskMetadata(value) {
 	return Object.keys(task).length > 0 ? task : void 0;
 }
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
-* the SSE event name; the rest becomes the data payload. The `controls` spec
-* is sent directly as the payload (not wrapped in `{spec}`). */
+* the SSE event name; the rest becomes the data payload. The `controls` and
+* `view` specs are sent directly as the payload (not wrapped in `{spec}`). */
 function toSseEvent(ev) {
 	if (ev.type === "controls") return {
 		event: "controls",

@@ -43,10 +43,43 @@ const MAX_PLAN_LENGTH = 100_000;
 const BLOCK_RE =
   /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/;
 
-/** The first ATX heading in the plan markdown, used as the card title. */
+/** The first ATX heading in the plan markdown, used as the card title.
+ * Scans line by line so `# comment` lines inside fenced code blocks are never
+ * mistaken for headings; per CommonMark, only a closing marker of the same
+ * character and at least the opening's length ends a fence. */
 function planTitle(planMarkdown: string): string | null {
-  const heading = /^[^\S\r\n]{0,3}#{1,6}[^\S\r\n]+(.+)$/m.exec(planMarkdown)?.[1]?.trim();
-  return heading && heading.length > 0 ? heading : null;
+  let fence: { char: string; length: number } | null = null;
+  for (const line of planMarkdown.split(/\r\n|\n|\r/)) {
+    // Up to three spaces of indentation (never tabs), per CommonMark.
+    const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+    if (marker) {
+      const rest = line.slice(line.indexOf(marker) + marker.length);
+      if (!fence) {
+        // A backtick opener may not carry backticks in its info string.
+        if (marker[0] === "~" || !rest.includes("`")) {
+          fence = { char: marker[0]!, length: marker.length };
+        }
+      } else if (
+        marker[0] === fence.char &&
+        marker.length >= fence.length &&
+        // A closing fence allows only spaces or tabs after the marker.
+        /^[ \t]*$/.test(rest)
+      ) {
+        fence = null;
+      }
+      continue;
+    }
+    if (fence) continue;
+    // Empty ATX headings (`##`, `### ###`, `# #`) carry no text and are
+    // skipped; the card title is the first heading with content.
+    const heading = /^ {0,3}#{1,6}(?:[ \t]+(.*))?$/.exec(line)?.[1]
+      // A trailing #-run alone or preceded by whitespace is an ATX closing
+      // sequence, not part of the title.
+      ?.replace(/(?:^[ \t]*|[ \t]+)#+[ \t]*$/, "")
+      .trim();
+    if (heading && heading.length > 0) return heading;
+  }
+  return null;
 }
 
 export function parseProposedPlan(raw: string): ParsedPlanText {

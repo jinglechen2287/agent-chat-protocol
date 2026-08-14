@@ -1,5 +1,5 @@
-import { C as validateControls, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-OfQ2MvzN.js";
-import { z } from "zod";
+import { C as validateControls, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-BBeQFOJc.js";
+import * as z from "zod";
 //#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
@@ -301,6 +301,7 @@ function createChatEventBridge(emit, options = {}) {
 	};
 	if (options.presetSessionId) announceSession(options.presetSessionId);
 	const onSessionId = (id) => {
+		if (terminal) return;
 		announceSession(id);
 	};
 	const controlsValidator = options.controlsValidator ?? validateControls;
@@ -335,6 +336,7 @@ function createChatEventBridge(emit, options = {}) {
 		}
 	};
 	const onAssistantText = (text) => {
+		if (terminal) return;
 		const parsedPlan = parseProposedPlan(text);
 		const parsedQuestion = parseQuestionBlock(parsedPlan.text);
 		const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
@@ -382,6 +384,7 @@ function createChatEventBridge(emit, options = {}) {
 	};
 	const withKnownTaskSubject = (info) => {
 		if (info.name !== "TaskUpdate" || !info.input) return info;
+		if (typeof info.input.subject === "string" && info.input.subject.trim()) return info;
 		const taskId = typeof info.input.taskId === "string" ? info.input.taskId.trim() : "";
 		const subject = taskSubjects.get(taskId);
 		return subject ? {
@@ -393,6 +396,7 @@ function createChatEventBridge(emit, options = {}) {
 		} : info;
 	};
 	const onToolUse = (info) => {
+		if (terminal) return;
 		if (info.name === "TaskCreate" && info.callId) {
 			pendingTaskCreates.set(info.callId, info);
 			return;
@@ -414,6 +418,7 @@ function createChatEventBridge(emit, options = {}) {
 		return resultText(result.content)?.match(/Task #([^\s:]+) created successfully/)?.[1];
 	};
 	const onToolResult = (result) => {
+		if (terminal) return;
 		const pending = pendingTaskCreates.get(result.callId);
 		if (!pending) return;
 		pendingTaskCreates.delete(result.callId);
@@ -431,12 +436,14 @@ function createChatEventBridge(emit, options = {}) {
 		pendingTaskCreates.clear();
 	};
 	const onStderr = (chunk) => {
+		if (terminal) return;
 		emit({
 			type: "stderr",
 			chunk
 		});
 	};
 	const onUsage = (usage) => {
+		if (terminal) return;
 		emit({
 			type: "context_usage",
 			contextTokens: usage.contextTokens,
@@ -445,6 +452,7 @@ function createChatEventBridge(emit, options = {}) {
 		});
 	};
 	const onBackgroundAgentUpdate = (agent) => {
+		if (terminal) return;
 		emit({
 			type: "background_agent_updated",
 			agent
@@ -492,7 +500,7 @@ function createChatEventBridge(emit, options = {}) {
 * buffered, every fragment held so far describes content the transcript now
 * owns. */
 function completesAssistantMessage(ev) {
-	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "view" || ev.type === "html";
+	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "plan" || ev.type === "view" || ev.type === "html";
 }
 const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
 /** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
@@ -576,7 +584,7 @@ function createTaskStore(options = {}) {
 			};
 		},
 		complete(task, completeOptions = {}) {
-			if (task.done) return;
+			if (task.done || tasks.get(task.id) !== task) return;
 			task.done = true;
 			task.partials.clear();
 			task.viewPartials.clear();
@@ -618,28 +626,35 @@ const ModelDecision = z.discriminatedUnion("decision", [
 		decision: z.literal("initialize"),
 		title: z.string(),
 		overarchingTask: z.string()
-	}).strict(),
+	}),
 	z.object({
 		decision: z.literal("keep"),
 		overarchingTask: z.string()
-	}).strict(),
+	}),
 	z.object({
 		decision: z.literal("candidate"),
 		overarchingTask: z.string(),
 		pivotCandidate: z.string()
-	}).strict(),
+	}),
 	z.object({
 		decision: z.literal("retitle"),
 		title: z.string(),
 		overarchingTask: z.string()
-	}).strict()
+	})
 ]);
 function truncateTitle(title) {
 	return title.length <= MAX_TITLE_LENGTH ? title : `${title.slice(0, MAX_TITLE_LENGTH - 1)}…`;
 }
+/**
+* Strip a wrapping markdown code fence, tolerating any info string
+* (```json, ```JSON, ```javascript), CRLF line endings, and a missing
+* newline before the closing fence.
+*/
+function stripCodeFence(raw) {
+	return raw.trim().replace(/^```[^\n]*\r?\n?/, "").replace(/\r?\n?```$/, "").trim();
+}
 function normalizeChatTitle(raw) {
-	let title = raw.trim();
-	title = title.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "").trim();
+	let title = stripCodeFence(raw);
 	title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
 	title = title.replace(/^title\s*:\s*/i, "").trim();
 	for (const [open, close] of [
@@ -662,6 +677,13 @@ function normalizeTaskSummary(raw) {
 function escapePromptData(raw) {
 	return raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
+function decodePromptData(raw) {
+	return raw.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+function escapeBounded(raw, budget) {
+	if (budget <= 0) return "";
+	return escapePromptData(raw.slice(0, budget)).slice(0, budget).replace(/&[a-z]{0,3}$/, "");
+}
 function fallbackChatTitle(prompt, attachmentNames = []) {
 	const firstLine = prompt.split("\n").map((line) => line.trim()).find(Boolean);
 	if (firstLine) return truncateTitle(firstLine);
@@ -669,15 +691,15 @@ function fallbackChatTitle(prompt, attachmentNames = []) {
 }
 function titlePrompt(input, maxInputChars) {
 	const attachmentNames = input.attachmentNames ?? [];
-	const recentMessages = input.recentMessages ?? (input.previousPrompts ?? []).map((text) => ({
+	const recentMessages = input.recentMessages?.length ? input.recentMessages : (input.previousPrompts ?? []).map((text) => ({
 		role: "user",
 		text
 	}));
-	let remaining = Math.max(0, maxInputChars);
+	const promptReserve = Math.min(Math.max(0, maxInputChars), Math.max(1, Math.floor(maxInputChars * .4)));
+	let remaining = Math.max(0, maxInputChars) - promptReserve;
 	const take = (value, share, hardLimit) => {
-		if (!value || remaining === 0) return "(none)";
-		const budget = Math.min(remaining, hardLimit ?? Number.POSITIVE_INFINITY, Math.max(1, Math.floor(maxInputChars * share)));
-		const bounded = escapePromptData(value).slice(0, budget);
+		if (!value || remaining <= 0) return "(none)";
+		const bounded = escapeBounded(value, Math.min(remaining, hardLimit ?? Number.POSITIVE_INFINITY, Math.max(1, Math.floor(maxInputChars * share))));
 		remaining -= bounded.length;
 		return bounded || "(none)";
 	};
@@ -692,10 +714,13 @@ function titlePrompt(input, maxInputChars) {
 		const message = recentMessages[index];
 		if (!message) continue;
 		const separatorLength = recentParts.length ? 1 : 0;
-		const available = recentRemaining - separatorLength;
-		if (available <= 0) break;
-		const part = `[${message.role}]\n${escapePromptData(message.text)}`.slice(0, available);
-		if (!part) continue;
+		const open = `<${message.role}>`;
+		const close = `</${message.role}>`;
+		const textBudget = recentRemaining - separatorLength - open.length - close.length - 2;
+		if (textBudget <= 0) break;
+		const text = escapeBounded(message.text, textBudget);
+		if (!text) continue;
+		const part = `${open}\n${text}\n${close}`;
 		recentParts.unshift(part);
 		recentRemaining -= part.length + separatorLength;
 	}
@@ -710,7 +735,9 @@ function titlePrompt(input, maxInputChars) {
 		"Use decision=candidate for an unrelated task that does not explicitly replace the umbrella task.",
 		"Use decision=retitle immediately for an explicit abandonment or replacement, or when the latest request clearly continues the saved pivot candidate.",
 		"When the latest request returns to the umbrella task, use keep; this clears any pivot candidate.",
+		"When a pivot candidate is pending and the latest request is neutral housekeeping that neither returns to the umbrella task nor continues the candidate, respond decision=candidate restating the same pivotCandidate.",
 		"Use decision=initialize only when no overarching task exists. Prefer an accurate current title when bootstrapping an existing conversation.",
+		"When current_title is (none) or empty, respond with decision=initialize so a title can be minted.",
 		"Return exactly one JSON object matching one of these shapes, without markdown:",
 		"{\"decision\":\"initialize\",\"title\":\"2–6 words\",\"overarchingTask\":\"one concise sentence\"}",
 		"{\"decision\":\"keep\",\"overarchingTask\":\"one concise sentence\"}",
@@ -732,7 +759,7 @@ function titlePrompt(input, maxInputChars) {
 		boundedFirst,
 		"</first_request>",
 		"<latest_request>",
-		escapePromptData(input.prompt).slice(0, remaining) || "(none)",
+		escapeBounded(input.prompt, promptReserve + remaining) || "(none)",
 		"</latest_request>",
 		"<recent_conversation>",
 		boundedRecent,
@@ -744,56 +771,74 @@ function titlePrompt(input, maxInputChars) {
 }
 function parseModelResult(raw, input) {
 	let parsed;
+	const json = stripCodeFence(raw);
 	try {
-		const json = raw.trim().replace(/^```(?:json)?[ \t]*\r?\n/i, "").replace(/\r?\n```$/, "").trim();
 		parsed = JSON.parse(json);
 	} catch {
-		return;
+		const start = json.indexOf("{");
+		const end = json.lastIndexOf("}");
+		if (start === -1 || end <= start) return void 0;
+		try {
+			parsed = JSON.parse(json.slice(start, end + 1));
+		} catch {
+			return;
+		}
 	}
 	const decision = ModelDecision.safeParse(parsed);
 	if (!decision.success) return void 0;
-	const currentTitle = input.currentTitle ? normalizeChatTitle(input.currentTitle) : void 0;
-	const currentTask = input.overarchingTask ? normalizeTaskSummary(input.overarchingTask) : void 0;
-	const nextTask = normalizeTaskSummary(decision.data.overarchingTask);
+	const data = decision.data;
+	const nextTask = normalizeTaskSummary(decodePromptData(data.overarchingTask));
 	if (!nextTask) return void 0;
+	const trimmedTitle = input.currentTitle?.trim();
+	const currentTitle = trimmedTitle && normalizeChatTitle(trimmedTitle) ? trimmedTitle : void 0;
+	const currentTask = input.overarchingTask ? normalizeTaskSummary(input.overarchingTask) : void 0;
+	const mintedTitle = () => data.decision === "initialize" || data.decision === "retitle" ? normalizeChatTitle(decodePromptData(data.title)) : void 0;
 	if (!currentTask) {
-		if (decision.data.decision !== "initialize") return void 0;
-		const title = normalizeChatTitle(decision.data.title);
+		const title = currentTitle ?? mintedTitle();
 		return title ? {
 			title,
 			overarchingTask: nextTask,
 			source: "model"
 		} : void 0;
 	}
-	if (decision.data.decision === "keep") return currentTitle ? {
+	if (data.decision === "initialize") {
+		if (currentTitle) return void 0;
+		const title = mintedTitle();
+		return title ? {
+			title,
+			overarchingTask: nextTask,
+			source: "model"
+		} : void 0;
+	}
+	if (data.decision === "keep") return currentTitle ? {
 		title: currentTitle,
 		overarchingTask: nextTask,
 		source: "model"
 	} : void 0;
-	if (decision.data.decision === "candidate") {
-		const pivotCandidate = normalizeTaskSummary(decision.data.pivotCandidate);
+	if (data.decision === "candidate") {
+		const pivotCandidate = normalizeTaskSummary(decodePromptData(data.pivotCandidate));
 		return currentTitle && pivotCandidate ? {
 			title: currentTitle,
-			overarchingTask: nextTask,
+			overarchingTask: currentTask,
 			pivotCandidate,
 			source: "model"
 		} : void 0;
 	}
-	if (decision.data.decision === "retitle") {
-		const title = normalizeChatTitle(decision.data.title);
-		return title ? {
-			title,
-			overarchingTask: nextTask,
-			source: "model"
-		} : void 0;
-	}
+	const title = mintedTitle();
+	return title ? {
+		title,
+		overarchingTask: nextTask,
+		source: "model"
+	} : void 0;
 }
 function createChatTitleGenerator(options) {
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	const maxInputChars = options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS;
+	const fallbackFor = (input) => ({
+		title: input.currentTitle?.trim() || fallbackChatTitle(input.prompt, input.attachmentNames ?? []),
+		source: "fallback"
+	});
 	return async (input) => {
-		const attachmentNames = input.attachmentNames ?? [];
-		const fallback = input.currentTitle ? normalizeChatTitle(input.currentTitle) ?? fallbackChatTitle(input.prompt, attachmentNames) : fallbackChatTitle(input.prompt, attachmentNames);
 		try {
 			const result = await options.run({
 				provider: input.provider,
@@ -804,17 +849,10 @@ function createChatTitleGenerator(options) {
 				timeoutMs,
 				...input.signal ? { signal: input.signal } : {}
 			});
-			const generated = result.exitCode === 0 ? parseModelResult(result.text, input) : void 0;
-			return generated ? generated : {
-				title: fallback,
-				source: "fallback"
-			};
+			return (result.exitCode === 0 ? parseModelResult(result.text, input) : void 0) ?? fallbackFor(input);
 		} catch (error) {
 			if (input.signal?.aborted) throw error;
-			return {
-				title: fallback,
-				source: "fallback"
-			};
+			return fallbackFor(input);
 		}
 	};
 }
