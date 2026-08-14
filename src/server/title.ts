@@ -2,6 +2,30 @@
 // bun/vitest ESM-CJS interop resolves to undefined; the star form is stable
 // under both.
 import * as z from "zod";
+import {
+  CHAT_TITLE_MAX_LENGTH,
+  CHAT_TITLE_TASK_MAX_LENGTH,
+  fallbackChatTitle,
+  normalizeChatTitle,
+  normalizeTaskSummary,
+  stripCodeFence,
+  type ChatTitleMessage,
+} from "../title-text.js";
+
+/** Re-exported so a server-side host reaches the whole title API through one
+ * entry; they are client-safe and also live on the package root. */
+export {
+  CHAT_TITLE_MAX_LENGTH,
+  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  CHAT_TITLE_TASK_MAX_LENGTH,
+  fallbackChatTitle,
+  normalizeChatTitle,
+  normalizeTaskSummary,
+  toChatTitleMessages,
+  truncateChatTitle,
+  type ChatTitleMessage,
+} from "../title-text.js";
+
 
 export const CHAT_TITLE_MODELS = {
   claude: "haiku",
@@ -10,11 +34,6 @@ export const CHAT_TITLE_MODELS = {
 
 export type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;
 export type ChatTitleSource = "model" | "fallback";
-
-export interface ChatTitleMessage {
-  role: "user" | "assistant";
-  text: string;
-}
 
 export interface ChatTitleInput {
   provider: ChatTitleProvider;
@@ -69,12 +88,6 @@ export interface ChatTitleGeneratorOptions {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_INPUT_CHARS = 4_000;
-/** Widest a chat title gets, in UTF-16 units. */
-export const CHAT_TITLE_MAX_LENGTH = 60;
-/** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
-export const CHAT_TITLE_TASK_MAX_LENGTH = 400;
-/** Recent messages a host sends as title context unless it says otherwise. */
-export const CHAT_TITLE_RECENT_MESSAGE_LIMIT = 12;
 
 // Non-strict objects: zod strips unknown keys by default, so a harmless
 // extra key (e.g. "reason") does not reject an otherwise valid decision.
@@ -99,100 +112,6 @@ const ModelDecision = z.discriminatedUnion("decision", [
     overarchingTask: z.string(),
   }),
 ]);
-
-/**
- * Cuts to `max` UTF-16 units without splitting a surrogate pair: half an
- * emoji renders as a replacement glyph wherever the value is shown, and
- * survives into whatever the host persists.
- */
-function truncateAt(value: string, max: number): string {
-  if (value.length <= max) return value;
-  const cut = max - 1;
-  const lead = value.charCodeAt(cut - 1);
-  const trail = value.charCodeAt(cut);
-  const splitsPair =
-    lead >= 0xd800 && lead <= 0xdbff && trail >= 0xdc00 && trail <= 0xdfff;
-  return `${value.slice(0, splitsPair ? cut - 1 : cut).trimEnd()}…`;
-}
-
-/** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
- * deriving its own offline title (the first line of a message, say) lands on
- * the same width as a generated one instead of re-deriving the bound. */
-export function truncateChatTitle(title: string): string {
-  return truncateAt(title, CHAT_TITLE_MAX_LENGTH);
-}
-
-/**
- * Strip a wrapping markdown code fence, tolerating any info string
- * (```json, ```JSON, ```javascript), CRLF line endings, and a missing
- * newline before the closing fence.
- */
-function stripCodeFence(raw: string): string {
-  return raw
-    .trim()
-    .replace(/^```[^\n]*\r?\n?/, "")
-    .replace(/\r?\n?```$/, "")
-    .trim();
-}
-
-export function normalizeChatTitle(raw: string): string | undefined {
-  let title = stripCodeFence(raw);
-  title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
-  title = title.replace(/^title\s*:\s*/i, "").trim();
-  const quotePairs: ReadonlyArray<readonly [string, string]> = [
-    ['"', '"'],
-    ["'", "'"],
-    ["`", "`"],
-    ["“", "”"],
-  ];
-  for (const [open, close] of quotePairs) {
-    if (title.startsWith(open) && title.endsWith(close)) {
-      title = title.slice(open.length, -close.length).trim();
-      break;
-    }
-  }
-  title = title.replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
-  return title ? truncateChatTitle(title) : undefined;
-}
-
-/**
- * Bounds a task summary to {@link CHAT_TITLE_TASK_MAX_LENGTH}, collapsing
- * whitespace and reporting an empty one as absent. Exported because a host
- * that stores the generator's task state has to bound it the same way on the
- * way in — the prompt budgets against this length, so a host that invents its
- * own can quietly feed back more context than the generator planned for.
- */
-export function normalizeTaskSummary(raw: string): string | undefined {
-  const summary = raw.trim().replace(/\s+/g, " ");
-  if (!summary) return undefined;
-  return truncateAt(summary, CHAT_TITLE_TASK_MAX_LENGTH);
-}
-
-/**
- * Projects a host's transcript onto the `recentMessages` title context: the
- * last `limit` messages that carry text, oldest first, with every non-user
- * role folded into `assistant`.
- *
- * Hosts model a transcript differently (questions, plans, tool activity), but
- * the title model only cares who was speaking, so the fold belongs here rather
- * than in each host. Callers pick the text for their own message kinds — a
- * plan message contributes its markdown, say — and pass `{role, text}` pairs.
- */
-export function toChatTitleMessages(
-  messages: readonly { role: string; text: string }[],
-  limit: number = CHAT_TITLE_RECENT_MESSAGE_LIMIT,
-): ChatTitleMessage[] {
-  const recent: ChatTitleMessage[] = [];
-  for (let index = messages.length - 1; index >= 0 && recent.length < limit; index -= 1) {
-    const message = messages[index];
-    if (!message || message.text.trim() === "") continue;
-    recent.push({
-      role: message.role === "user" ? "user" : "assistant",
-      text: message.text,
-    });
-  }
-  return recent.reverse();
-}
 
 function escapePromptData(raw: string): string {
   return raw
@@ -221,17 +140,6 @@ function escapeBounded(raw: string, budget: number): string {
   return escapePromptData(raw.slice(0, budget))
     .slice(0, budget)
     .replace(/&[a-z]{0,3}$/, "");
-}
-
-export function fallbackChatTitle(
-  prompt: string,
-  attachmentNames: readonly string[] = [],
-): string {
-  const firstLine = prompt.split("\n").map((line) => line.trim()).find(Boolean);
-  if (firstLine) return truncateChatTitle(firstLine);
-  return attachmentNames[0]
-    ? truncateChatTitle(`Image: ${attachmentNames[0]}`)
-    : "New thread";
 }
 
 function titlePrompt(

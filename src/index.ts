@@ -8,6 +8,18 @@
  */
 
 export {
+  CHAT_TITLE_MAX_LENGTH,
+  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  CHAT_TITLE_TASK_MAX_LENGTH,
+  fallbackChatTitle,
+  normalizeChatTitle,
+  normalizeTaskSummary,
+  toChatTitleMessages,
+  truncateChatTitle,
+  type ChatTitleMessage,
+} from "./title-text";
+
+export {
   PROTOCOL_VERSION,
   isTerminalEvent,
   type AbortReason,

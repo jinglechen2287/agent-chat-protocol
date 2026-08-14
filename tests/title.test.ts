@@ -782,3 +782,21 @@ describe("toChatTitleMessages", () => {
     expect(toChatTitleMessages([])).toEqual([]);
   });
 });
+
+// The title text rules are client-safe on purpose: a browser client derives
+// the offline title it shows before the generator answers, and must land on
+// the same width as the generated one.
+describe("client-safe title text rules", () => {
+  it("exports the same helpers from the package root", async () => {
+    const root = await import("../src/index");
+    expect(root.truncateChatTitle("x".repeat(80))).toBe(
+      truncateChatTitle("x".repeat(80)),
+    );
+    expect(root.CHAT_TITLE_MAX_LENGTH).toBe(CHAT_TITLE_MAX_LENGTH);
+    expect(root.normalizeTaskSummary("  a  b ")).toBe("a b");
+    expect(root.toChatTitleMessages([{ role: "user", text: "hi" }])).toEqual([
+      { role: "user", text: "hi" },
+    ]);
+    expect(root.fallbackChatTitle("round the button")).toBe("round the button");
+  });
+});

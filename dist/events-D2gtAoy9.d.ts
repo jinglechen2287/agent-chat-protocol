@@ -1,4 +1,59 @@
 import * as z from "zod";
+//#region src/title-text.d.ts
+/**
+ * Chat-title text rules — the bounds and normalizations a title is subject to,
+ * with no dependency on how one is generated.
+ *
+ * They live in the client-safe entry because both sides need them: the server
+ * bounds what the model returns and what a host stores, and a client derives
+ * the offline title it shows before the generator answers. A client that
+ * re-implements the width instead drifts from the generated one, and its copy
+ * collects fixes this one never sees.
+ */
+/** One side of a conversation, as the title model sees it. */
+interface ChatTitleMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+/** Widest a chat title gets, in UTF-16 units. */
+declare const CHAT_TITLE_MAX_LENGTH = 60;
+/** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
+declare const CHAT_TITLE_TASK_MAX_LENGTH = 400;
+/** Recent messages a host sends as title context unless it says otherwise. */
+declare const CHAT_TITLE_RECENT_MESSAGE_LIMIT = 12;
+/** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
+ * deriving its own offline title (the first line of a message, say) lands on
+ * the same width as a generated one instead of re-deriving the bound. */
+declare function truncateChatTitle(title: string): string;
+/** Reduces model or host text to a single bounded title line, or `undefined`
+ * when nothing usable is left. */
+declare function normalizeChatTitle(raw: string): string | undefined;
+/**
+ * Bounds a task summary to {@link CHAT_TITLE_TASK_MAX_LENGTH}, collapsing
+ * whitespace and reporting an empty one as absent. Exported because a host
+ * that stores the generator's task state has to bound it the same way on the
+ * way in — the prompt budgets against this length, so a host that invents its
+ * own can quietly feed back more context than the generator planned for.
+ */
+declare function normalizeTaskSummary(raw: string): string | undefined;
+/** The title shown before (or instead of) a generated one: the first non-empty
+ * line of the request, an image name, or a constant. */
+declare function fallbackChatTitle(prompt: string, attachmentNames?: readonly string[]): string;
+/**
+ * Projects a host's transcript onto the `recentMessages` title context: the
+ * last `limit` messages that carry text, oldest first, with every non-user
+ * role folded into `assistant`.
+ *
+ * Hosts model a transcript differently (questions, plans, tool activity), but
+ * the title model only cares who was speaking, so the fold belongs here rather
+ * than in each host. Callers pick the text for their own message kinds — a
+ * plan message contributes its markdown, say — and pass `{role, text}` pairs.
+ */
+declare function toChatTitleMessages(messages: readonly {
+  role: string;
+  text: string;
+}[], limit?: number): ChatTitleMessage[];
+//#endregion
 //#region src/question.d.ts
 /**
  * The structured clarifying-question block an agent can end a message with:
@@ -770,5 +825,5 @@ type ChatStreamEvent =
  * `error`. After one of these, no further events arrive for the turn. */
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
-export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-B7TyyJ84.d.ts.map
+export { QuestionSpec as A, truncateChatTitle as B, SelectControl as C, validateControls as D, parseControlsBlock as E, ChatTitleMessage as F, fallbackChatTitle as I, normalizeChatTitle as L, CHAT_TITLE_MAX_LENGTH as M, CHAT_TITLE_RECENT_MESSAGE_LIMIT as N, valuesEqual as O, CHAT_TITLE_TASK_MAX_LENGTH as P, normalizeTaskSummary as R, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y, toChatTitleMessages as z };
+//# sourceMappingURL=events-D2gtAoy9.d.ts.map

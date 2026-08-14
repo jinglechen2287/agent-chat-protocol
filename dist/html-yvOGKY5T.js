@@ -1,4 +1,99 @@
 import * as z from "zod";
+//#region src/title-text.ts
+/** Widest a chat title gets, in UTF-16 units. */
+const CHAT_TITLE_MAX_LENGTH = 60;
+/** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
+const CHAT_TITLE_TASK_MAX_LENGTH = 400;
+/** Recent messages a host sends as title context unless it says otherwise. */
+const CHAT_TITLE_RECENT_MESSAGE_LIMIT = 12;
+/**
+* Cuts to `max` UTF-16 units without splitting a surrogate pair: half an
+* emoji renders as a replacement glyph wherever the value is shown, and
+* survives into whatever the host persists.
+*/
+function truncateAt(value, max) {
+	if (value.length <= max) return value;
+	const cut = max - 1;
+	const lead = value.charCodeAt(cut - 1);
+	const trail = value.charCodeAt(cut);
+	const splitsPair = lead >= 55296 && lead <= 56319 && trail >= 56320 && trail <= 57343;
+	return `${value.slice(0, splitsPair ? cut - 1 : cut).trimEnd()}…`;
+}
+/** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
+* deriving its own offline title (the first line of a message, say) lands on
+* the same width as a generated one instead of re-deriving the bound. */
+function truncateChatTitle(title) {
+	return truncateAt(title, 60);
+}
+/**
+* Strip a wrapping markdown code fence, tolerating any info string
+* (```json, ```JSON, ```javascript), CRLF line endings, and a missing
+* newline before the closing fence. Internal: the generator uses it on model
+* output, and it is not part of the published surface.
+*/
+function stripCodeFence(raw) {
+	return raw.trim().replace(/^```[^\n]*\r?\n?/, "").replace(/\r?\n?```$/, "").trim();
+}
+/** Reduces model or host text to a single bounded title line, or `undefined`
+* when nothing usable is left. */
+function normalizeChatTitle(raw) {
+	let title = stripCodeFence(raw);
+	title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+	title = title.replace(/^title\s*:\s*/i, "").trim();
+	for (const [open, close] of [
+		["\"", "\""],
+		["'", "'"],
+		["`", "`"],
+		["“", "”"]
+	]) if (title.startsWith(open) && title.endsWith(close)) {
+		title = title.slice(open.length, -close.length).trim();
+		break;
+	}
+	title = title.replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
+	return title ? truncateChatTitle(title) : void 0;
+}
+/**
+* Bounds a task summary to {@link CHAT_TITLE_TASK_MAX_LENGTH}, collapsing
+* whitespace and reporting an empty one as absent. Exported because a host
+* that stores the generator's task state has to bound it the same way on the
+* way in — the prompt budgets against this length, so a host that invents its
+* own can quietly feed back more context than the generator planned for.
+*/
+function normalizeTaskSummary(raw) {
+	const summary = raw.trim().replace(/\s+/g, " ");
+	if (!summary) return void 0;
+	return truncateAt(summary, 400);
+}
+/** The title shown before (or instead of) a generated one: the first non-empty
+* line of the request, an image name, or a constant. */
+function fallbackChatTitle(prompt, attachmentNames = []) {
+	const firstLine = prompt.split("\n").map((line) => line.trim()).find(Boolean);
+	if (firstLine) return truncateChatTitle(firstLine);
+	return attachmentNames[0] ? truncateChatTitle(`Image: ${attachmentNames[0]}`) : "New thread";
+}
+/**
+* Projects a host's transcript onto the `recentMessages` title context: the
+* last `limit` messages that carry text, oldest first, with every non-user
+* role folded into `assistant`.
+*
+* Hosts model a transcript differently (questions, plans, tool activity), but
+* the title model only cares who was speaking, so the fold belongs here rather
+* than in each host. Callers pick the text for their own message kinds — a
+* plan message contributes its markdown, say — and pass `{role, text}` pairs.
+*/
+function toChatTitleMessages(messages, limit = 12) {
+	const recent = [];
+	for (let index = messages.length - 1; index >= 0 && recent.length < limit; index -= 1) {
+		const message = messages[index];
+		if (!message || message.text.trim() === "") continue;
+		recent.push({
+			role: message.role === "user" ? "user" : "assistant",
+			text: message.text
+		});
+	}
+	return recent.reverse();
+}
+//#endregion
 //#region src/events.ts
 /**
 * Version of this event contract. Servers include it on `session_started` so
@@ -942,6 +1037,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { validateControls as C, isTerminalEvent as E, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
+export { fallbackChatTitle as A, validateControls as C, CHAT_TITLE_MAX_LENGTH as D, isTerminalEvent as E, truncateChatTitle as F, normalizeTaskSummary as M, stripCodeFence as N, CHAT_TITLE_RECENT_MESSAGE_LIMIT as O, toChatTitleMessages as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, normalizeChatTitle as j, CHAT_TITLE_TASK_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-Bm4glSBc.js.map
+//# sourceMappingURL=html-yvOGKY5T.js.map

@@ -1,4 +1,4 @@
-import { a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec } from "../events-B7TyyJ84.js";
+import { B as truncateChatTitle, F as ChatTitleMessage, I as fallbackChatTitle, L as normalizeChatTitle, M as CHAT_TITLE_MAX_LENGTH, N as CHAT_TITLE_RECENT_MESSAGE_LIMIT, P as CHAT_TITLE_TASK_MAX_LENGTH, R as normalizeTaskSummary, a as ChatStreamEvent, l as ToolTaskMetadata, s as ToolCallDetail, x as ControlsSpec, z as toChatTitleMessages } from "../events-D2gtAoy9.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -128,10 +128,6 @@ declare const CHAT_TITLE_MODELS: {
 };
 type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;
 type ChatTitleSource = "model" | "fallback";
-interface ChatTitleMessage {
-  role: "user" | "assistant";
-  text: string;
-}
 interface ChatTitleInput {
   provider: ChatTitleProvider;
   prompt: string;
@@ -175,40 +171,6 @@ interface ChatTitleGeneratorOptions {
   timeoutMs?: number;
   maxInputChars?: number;
 }
-/** Widest a chat title gets, in UTF-16 units. */
-declare const CHAT_TITLE_MAX_LENGTH = 60;
-/** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
-declare const CHAT_TITLE_TASK_MAX_LENGTH = 400;
-/** Recent messages a host sends as title context unless it says otherwise. */
-declare const CHAT_TITLE_RECENT_MESSAGE_LIMIT = 12;
-/** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
- * deriving its own offline title (the first line of a message, say) lands on
- * the same width as a generated one instead of re-deriving the bound. */
-declare function truncateChatTitle(title: string): string;
-declare function normalizeChatTitle(raw: string): string | undefined;
-/**
- * Bounds a task summary to {@link CHAT_TITLE_TASK_MAX_LENGTH}, collapsing
- * whitespace and reporting an empty one as absent. Exported because a host
- * that stores the generator's task state has to bound it the same way on the
- * way in — the prompt budgets against this length, so a host that invents its
- * own can quietly feed back more context than the generator planned for.
- */
-declare function normalizeTaskSummary(raw: string): string | undefined;
-/**
- * Projects a host's transcript onto the `recentMessages` title context: the
- * last `limit` messages that carry text, oldest first, with every non-user
- * role folded into `assistant`.
- *
- * Hosts model a transcript differently (questions, plans, tool activity), but
- * the title model only cares who was speaking, so the fold belongs here rather
- * than in each host. Callers pick the text for their own message kinds — a
- * plan message contributes its markdown, say — and pass `{role, text}` pairs.
- */
-declare function toChatTitleMessages(messages: readonly {
-  role: string;
-  text: string;
-}[], limit?: number): ChatTitleMessage[];
-declare function fallbackChatTitle(prompt: string, attachmentNames?: readonly string[]): string;
 declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
 //#endregion
 export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
