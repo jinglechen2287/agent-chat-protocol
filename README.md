@@ -262,6 +262,16 @@ returns the current title (or the first-line/image-name fallback for a new chat)
 with `source: "fallback"`. Apps should keep all persisted title state in that
 case and emit no title event. Cancellation is propagated to the caller.
 
+The bounds the prompt budgets against are exported, so a host that stores title
+state or derives an offline title stays in step instead of re-deriving them:
+`normalizeChatTitle` and `truncateChatTitle` (`CHAT_TITLE_MAX_LENGTH`, cutting
+without splitting a surrogate pair), `normalizeTaskSummary`
+(`CHAT_TITLE_TASK_MAX_LENGTH`), and `fallbackChatTitle`. `toChatTitleMessages`
+projects a host transcript onto `recentMessages` — the last
+`CHAT_TITLE_RECENT_MESSAGE_LIMIT` messages carrying text, oldest first, every
+non-user role folded into `assistant`. Hosts choose the text for their own
+message kinds (a plan contributes its markdown) and pass `{role, text}` pairs.
+
 ## Design constraints
 
 - **Types + functions, not a framework.** No view layer ships here; rendering is Layer 3, per app.

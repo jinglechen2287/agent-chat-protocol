@@ -23,10 +23,16 @@ export {
 export { toolCallDetails, toolTaskMetadata } from "./tool-details";
 
 export {
+  CHAT_TITLE_MAX_LENGTH,
   CHAT_TITLE_MODELS,
+  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  CHAT_TITLE_TASK_MAX_LENGTH,
   createChatTitleGenerator,
   fallbackChatTitle,
   normalizeChatTitle,
+  normalizeTaskSummary,
+  toChatTitleMessages,
+  truncateChatTitle,
   type ChatTitleGeneratorOptions,
   type ChatTitleInput,
   type ChatTitleMessage,

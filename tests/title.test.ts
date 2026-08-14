@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CHAT_TITLE_MAX_LENGTH,
   CHAT_TITLE_MODELS,
+  CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+  CHAT_TITLE_TASK_MAX_LENGTH,
   createChatTitleGenerator,
   fallbackChatTitle,
   normalizeChatTitle,
+  normalizeTaskSummary,
+  toChatTitleMessages,
+  truncateChatTitle,
 } from "../src/server";
 
 describe("chat title generation", () => {
@@ -646,5 +652,133 @@ ${JSON.stringify({
     expect(normalizeChatTitle("a".repeat(100))).toBe(`${"a".repeat(59)}…`);
     expect(normalizeChatTitle("   ")).toBeUndefined();
     expect(fallbackChatTitle("", [])).toBe("New thread");
+  });
+});
+
+describe("truncateChatTitle", () => {
+  it("leaves a title within the bound untouched", () => {
+    expect(truncateChatTitle("Fix login redirect")).toBe("Fix login redirect");
+    expect(truncateChatTitle("x".repeat(CHAT_TITLE_MAX_LENGTH))).toHaveLength(
+      CHAT_TITLE_MAX_LENGTH,
+    );
+  });
+
+  it("truncates an overlong title with an ellipsis", () => {
+    const title = truncateChatTitle("x".repeat(CHAT_TITLE_MAX_LENGTH + 20));
+    expect(title).toHaveLength(CHAT_TITLE_MAX_LENGTH);
+    expect(title.endsWith("…")).toBe(true);
+  });
+
+  // Half an emoji renders as a replacement glyph wherever the title is shown.
+  it("never cuts a surrogate pair in half at the limit", () => {
+    const title = truncateChatTitle(`${"x".repeat(CHAT_TITLE_MAX_LENGTH - 2)}🚀 tail`);
+    expect(title).toBe(`${"x".repeat(CHAT_TITLE_MAX_LENGTH - 2)}…`);
+    expect(title).not.toMatch(/[\uD800-\uDFFF]/);
+  });
+
+  it("keeps a whole surrogate pair that fits", () => {
+    const title = truncateChatTitle(`${"x".repeat(CHAT_TITLE_MAX_LENGTH - 3)}🚀 tail`);
+    expect(title).toBe(`${"x".repeat(CHAT_TITLE_MAX_LENGTH - 3)}🚀…`);
+    // A lead with no trail, or a trail with no lead — the pair itself is fine.
+    expect(title).not.toMatch(
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/,
+    );
+  });
+});
+
+describe("normalizeChatTitle surrogate safety", () => {
+  it("does not leave a lone surrogate when it truncates", () => {
+    const title = normalizeChatTitle(`${"x".repeat(CHAT_TITLE_MAX_LENGTH - 2)}🚀 tail`);
+    expect(title).not.toMatch(/[\uD800-\uDFFF]/);
+  });
+});
+
+describe("normalizeTaskSummary", () => {
+  it("collapses whitespace and drops an empty summary", () => {
+    expect(normalizeTaskSummary("  Fix   the\nlogin redirect ")).toBe(
+      "Fix the login redirect",
+    );
+    expect(normalizeTaskSummary("   ")).toBeUndefined();
+  });
+
+  it("truncates an overlong summary with an ellipsis", () => {
+    const summary = normalizeTaskSummary("x".repeat(CHAT_TITLE_TASK_MAX_LENGTH + 50));
+    expect(summary).toHaveLength(CHAT_TITLE_TASK_MAX_LENGTH);
+    expect(summary?.endsWith("…")).toBe(true);
+  });
+
+  it("never cuts a surrogate pair in half at the limit", () => {
+    const summary = normalizeTaskSummary(
+      `${"x".repeat(CHAT_TITLE_TASK_MAX_LENGTH - 2)}🚀 tail`,
+    );
+    expect(summary).not.toMatch(/[\uD800-\uDFFF]/);
+  });
+});
+
+describe("toChatTitleMessages", () => {
+  it("folds every non-user role into assistant context", () => {
+    expect(
+      toChatTitleMessages([
+        { role: "user", text: "round the button" },
+        { role: "assistant", text: "done" },
+        { role: "question", text: "which button?" },
+        { role: "plan", text: "# Round it" },
+      ]),
+    ).toEqual([
+      { role: "user", text: "round the button" },
+      { role: "assistant", text: "done" },
+      { role: "assistant", text: "which button?" },
+      { role: "assistant", text: "# Round it" },
+    ]);
+  });
+
+  it("keeps the most recent messages, oldest first", () => {
+    const messages = Array.from({ length: 20 }, (_, index) => ({
+      role: "user",
+      text: `m${index}`,
+    }));
+    const recent = toChatTitleMessages(messages, 3);
+    expect(recent.map(({ text }) => text)).toEqual(["m17", "m18", "m19"]);
+  });
+
+  it("defaults to a bounded window", () => {
+    const messages = Array.from({ length: 40 }, (_, index) => ({
+      role: "user",
+      text: `m${index}`,
+    }));
+    expect(toChatTitleMessages(messages)).toHaveLength(
+      CHAT_TITLE_RECENT_MESSAGE_LIMIT,
+    );
+  });
+
+  // A blank message carries no topic signal and would only burn budget.
+  it("skips messages with no usable text", () => {
+    expect(
+      toChatTitleMessages([
+        { role: "user", text: "   " },
+        { role: "assistant", text: "" },
+        { role: "user", text: "round the button" },
+      ]),
+    ).toEqual([{ role: "user", text: "round the button" }]);
+  });
+
+  it("counts only kept messages against the limit", () => {
+    expect(
+      toChatTitleMessages(
+        [
+          { role: "user", text: "first" },
+          { role: "assistant", text: "  " },
+          { role: "user", text: "second" },
+        ],
+        2,
+      ),
+    ).toEqual([
+      { role: "user", text: "first" },
+      { role: "user", text: "second" },
+    ]);
+  });
+
+  it("returns nothing for an empty transcript", () => {
+    expect(toChatTitleMessages([])).toEqual([]);
   });
 });
