@@ -483,7 +483,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 7;
+declare const PROTOCOL_VERSION = 8;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -703,14 +703,29 @@ type ChatStreamEvent =
   model?: string;
 } |
 /**
- * The canonical title for the chat containing this turn. Non-terminal and
- * emitted when an asynchronous title generator replaces the app's immediate
- * fallback. Clients MUST update the chat/thread title without adding a
- * transcript message.
+ * The canonical title state for the chat containing this turn. Non-terminal
+ * and emitted when an asynchronous title generator answers. Clients MUST
+ * update the chat/thread title without adding a transcript message.
+ *
+ * The event is a complete snapshot, not a patch: clients that persist the
+ * title state MUST replace all of it, treating an absent `overarchingTask`
+ * or `pivotCandidate` as cleared. Because a generator can refresh the task
+ * summary while keeping the title, servers emit the snapshot whenever the
+ * generator answers — an unchanged `title` is expected and idempotent.
+ *
+ * The task fields are opaque to the client: it stores them and returns them
+ * on the next turn's title request, which is what lets the generator track
+ * an umbrella objective across a conversation rather than renaming from the
+ * latest message alone. A client that does not round-trip them leaves every
+ * generation to bootstrap from scratch.
  */
 {
   type: "thread_title";
   title: string;
+  /** Durable summary of the conversation's umbrella objective. */
+  overarchingTask?: string;
+  /** Unrelated task seen once, pending confirmation before it retitles. */
+  pivotCandidate?: string;
 } |
 /**
  * A full background-agent lifecycle snapshot. Non-terminal and mutable:
@@ -753,4 +768,4 @@ type ChatStreamEvent =
 declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 //#endregion
 export { QuestionSpec as A, SelectControl as C, validateControls as D, parseControlsBlock as E, valuesEqual as O, ParsedControlsText as S, initialControlValues as T, validateViewSpec as _, ChatStreamEvent as a, ControlValues as b, ToolPlanItem as c, ParsedViewText as d, VIEW_CATALOG as f, parseViewBlock as g, ViewSpec as h, BackgroundAgentStatus as i, parseQuestionBlock as j, ParsedQuestionText as k, ToolTaskMetadata as l, ViewComponent as m, BackgroundAgent as n, PROTOCOL_VERSION as o, VIEW_PROMPT as p, BackgroundAgentProgress as r, ToolCallDetail as s, AbortReason as t, isTerminalEvent as u, ColorControl as v, SliderControl as w, ControlsSpec as x, Control as y };
-//# sourceMappingURL=events-qYGUQ2KB.d.ts.map
+//# sourceMappingURL=events-BfaQZMnt.d.ts.map

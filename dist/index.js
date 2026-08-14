@@ -1,4 +1,4 @@
-import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-BBeQFOJc.js";
+import { C as validateControls, E as isTerminalEvent, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-Bm4glSBc.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -167,10 +167,16 @@ function mapSseToChatEvent(ev) {
 		}
 		case "thread_title": {
 			const title = get("title");
-			return typeof title === "string" && title.trim() !== "" ? {
+			if (typeof title !== "string" || title.trim() === "") return null;
+			const overarchingTask = optionalNonEmptyStringValue(get("overarchingTask"));
+			const pivotCandidate = optionalNonEmptyStringValue(get("pivotCandidate"));
+			if (overarchingTask === null || pivotCandidate === null) return null;
+			return {
 				type: "thread_title",
-				title
-			} : null;
+				title,
+				...overarchingTask !== void 0 ? { overarchingTask } : {},
+				...pivotCandidate !== void 0 ? { pivotCandidate } : {}
+			};
 		}
 		case "background_agent_updated": {
 			const agent = backgroundAgent(get("agent"));
@@ -211,10 +217,13 @@ function mapSseToChatEvent(ev) {
 		default: return null;
 	}
 }
-function optionalNonEmptyString(record, key) {
-	const value = record[key];
+/** `undefined` when the field is absent, `null` when present but unusable. */
+function optionalNonEmptyStringValue(value) {
 	if (value === void 0 || value === null) return void 0;
 	return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+function optionalNonEmptyString(record, key) {
+	return optionalNonEmptyStringValue(record[key]);
 }
 function optionalNonNegativeInteger(record, key) {
 	const value = record[key];

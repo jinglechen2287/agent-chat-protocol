@@ -478,6 +478,55 @@ describe("mapSseToChatEvent", () => {
     ).toBeNull();
   });
 
+  it("carries the title state a thread_title snapshot asks clients to persist", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "thread_title",
+        data: {
+          title: "Fix login redirect",
+          overarchingTask: "Repair the post-login redirect for expired sessions.",
+          pivotCandidate: "Rewrite the signup form.",
+        },
+      }),
+    ).toEqual({
+      type: "thread_title",
+      title: "Fix login redirect",
+      overarchingTask: "Repair the post-login redirect for expired sessions.",
+      pivotCandidate: "Rewrite the signup form.",
+    });
+  });
+
+  it("omits title state a thread_title snapshot leaves out", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "thread_title",
+        data: {
+          title: "Fix login redirect",
+          overarchingTask: "Repair the post-login redirect for expired sessions.",
+        },
+      }),
+    ).toEqual({
+      type: "thread_title",
+      title: "Fix login redirect",
+      overarchingTask: "Repair the post-login redirect for expired sessions.",
+    });
+  });
+
+  it("rejects a thread_title whose title state is present but unusable", () => {
+    expect(
+      mapSseToChatEvent({
+        event: "thread_title",
+        data: { title: "Fix login redirect", overarchingTask: "   " },
+      }),
+    ).toBeNull();
+    expect(
+      mapSseToChatEvent({
+        event: "thread_title",
+        data: { title: "Fix login redirect", pivotCandidate: 7 },
+      }),
+    ).toBeNull();
+  });
+
   it("rejects context_usage without a numeric contextTokens", () => {
     expect(
       mapSseToChatEvent({ event: "context_usage", data: { contextWindow: 200000 } }),
@@ -607,6 +656,12 @@ describe("encode/decode round trip", () => {
     },
     { type: "context_usage", contextTokens: 4004 },
     { type: "thread_title", title: "Fix login redirect" },
+    {
+      type: "thread_title",
+      title: "Fix login redirect",
+      overarchingTask: "Repair the post-login redirect for expired sessions.",
+      pivotCandidate: "Rewrite the signup form.",
+    },
     {
       type: "background_agent_updated",
       agent: {

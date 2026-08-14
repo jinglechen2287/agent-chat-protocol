@@ -26,7 +26,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 7` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 8` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `html` | `content` | A freeform generated page (an ` ```agent-html ` block body), rendered in a sandboxed frame. |
 | `html_delta` | `index`, `delta` | Best-effort newline-terminated fragments of the page an `html` event will deliver; never persisted. |
 | `context_usage` | `contextTokens`, `contextWindow?`, `model?` | |
-| `thread_title` | `title` | |
+| `thread_title` | `title`, `overarchingTask?`, `pivotCandidate?` | A complete snapshot of the chat's title state; absent task fields mean cleared. |
 | `background_agent_updated` | `agent: BackgroundAgent` | |
 | `stderr` | `chunk` | |
 | `done` | `exitCode` | ✓ |
@@ -67,7 +67,7 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`html`** — a freeform generated page: the body of an ` ```agent-html ` block, the escape hatch for layouts and interactions the view catalog can't express. Clients MUST render it in a sandboxed frame (never inline in the app document) wired to the postMessage bridge in `html.ts`: the host sends `agent-html:update`/`agent-html:theme` frames in, and validates `agent-html:ready`/`agent-html:height`/`agent-html:send` frames out with `parseHtmlFrameMessage` — a frame runs agent-authored code, so its messages are untrusted input. An `agent-html:send` text is sent verbatim as the next user turn, the freeform twin of a view Button's `message` template. The event is a transcript message alongside `assistant_text`; surrounding prose is kept. `HTML_PROMPT` teaches the emit side (style-first streaming order, scripts last, the `AgentBridge.send` API) so prompt and bridge cannot drift. An empty or oversized block degrades to prose, exactly like a rootless view block.
 - **`html_delta`** — a newline-terminated run of completed lines from an html block still being written, indexed like `assistant_text_delta`. Clients MAY append deltas to a scratch document and render it as a growing page (morphing, not re-executing — scripts wait for the completed event), and MUST discard the scratch when the same message's `html` (or `assistant_text`) arrives. Deltas stay out of the replay buffer; the store accumulates them (`pushHtmlDelta` / `pendingHtmlDeltas`) and a late subscriber catches up after replay, exactly like text partials.
 - **`context_usage`** — a context-window usage snapshot; render the latest as a context meter (each occurrence supersedes the last). Show `contextTokens` against `contextWindow` when present, the raw count alone when absent. Counts are provider-reported and may be approximate — clamp the meter at 100% rather than treating overflow as an error.
-- **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event.
+- **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event. It is a snapshot, not a patch: a client that persists title state MUST replace all of it, treating an absent `overarchingTask` or `pivotCandidate` as cleared. Servers emit it whenever the generator answers, including when the title is unchanged and only the task summary moved, so an identical `title` is expected and must be applied idempotently. Clients that store the chat themselves (browser-side history, for example) MUST keep the task fields and return them on the next turn's title request — without that round trip every generation bootstraps from scratch and the title can never follow a topic change.
 - **`background_agent_updated`** — upsert the complete snapshot by `agent.id`, replacing the prior snapshot for that agent. Do not append progress heartbeats as transcript messages. Status is normalized to `pending`, `running`, `completed`, `failed`, or `interrupted`; provider-specific IDs, spawn correlation, progress, summary, errors, and timestamps remain available on the snapshot.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
@@ -234,14 +234,14 @@ const result = await generateTitle({
 });
 
 if (result.source === "model") {
-  persistTitleState({
+  // Emit on every model answer, not only on a rename: a `keep` decision
+  // still refreshes the task summary the next turn needs.
+  emit({
+    type: "thread_title",
     title: result.title,
-    overarchingTask: result.overarchingTask,
-    pivotCandidate: result.pivotCandidate,
+    ...(result.overarchingTask ? { overarchingTask: result.overarchingTask } : {}),
+    ...(result.pivotCandidate ? { pivotCandidate: result.pivotCandidate } : {}),
   });
-  if (result.title !== currentTitle) {
-    emit({ type: "thread_title", title: result.title });
-  }
 }
 ```
 

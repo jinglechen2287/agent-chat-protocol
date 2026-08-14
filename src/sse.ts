@@ -195,9 +195,16 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     }
     case "thread_title": {
       const title = get("title");
-      return typeof title === "string" && title.trim() !== ""
-        ? { type: "thread_title", title }
-        : null;
+      if (typeof title !== "string" || title.trim() === "") return null;
+      const overarchingTask = optionalNonEmptyStringValue(get("overarchingTask"));
+      const pivotCandidate = optionalNonEmptyStringValue(get("pivotCandidate"));
+      if (overarchingTask === null || pivotCandidate === null) return null;
+      return {
+        type: "thread_title",
+        title,
+        ...(overarchingTask !== undefined ? { overarchingTask } : {}),
+        ...(pivotCandidate !== undefined ? { pivotCandidate } : {}),
+      };
     }
     case "background_agent_updated": {
       const agent = backgroundAgent(get("agent"));
@@ -234,13 +241,17 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
   }
 }
 
+/** `undefined` when the field is absent, `null` when present but unusable. */
+function optionalNonEmptyStringValue(value: unknown): string | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
 function optionalNonEmptyString(
   record: Record<string, unknown>,
   key: string,
 ): string | undefined | null {
-  const value = record[key];
-  if (value === undefined || value === null) return undefined;
-  return typeof value === "string" && value.trim() !== "" ? value : null;
+  return optionalNonEmptyStringValue(record[key]);
 }
 
 function optionalNonNegativeInteger(

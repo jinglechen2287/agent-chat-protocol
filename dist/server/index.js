@@ -1,4 +1,4 @@
-import { C as validateControls, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-BBeQFOJc.js";
+import { C as validateControls, S as parseControlsBlock, a as parseProposedPlan, b as VIEW_BLOCK_NAME, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, l as parseViewBlock, m as HTML_BLOCK_NAME, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, u as validateViewComponent, v as QUESTION_BLOCK_NAME } from "../html-Bm4glSBc.js";
 import * as z from "zod";
 //#region src/server/tool-details.ts
 function text(value) {
@@ -291,7 +291,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 7
+			protocolVersion: 8
 		});
 	};
 	const emitTerminal = (ev) => {
