@@ -313,11 +313,11 @@ const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 * nothing, and end the final message with a `<proposed_plan>` block that the
 * client lifts into a plan card (see plan.ts for the parse side).
 *
-* Written for headless CLI turns on either provider. Claude runs it under
-* `--permission-mode plan` with ExitPlanMode disallowed (the -p CLI never
-* enables that tool, and without this contract the model hunts for it);
-* Codex runs it under a read-only sandbox policy. The prompt is what aligns
-* both on one plan-delivery channel. */
+* Written for headless turns on either provider. Claude runs it in the `plan`
+* permission mode, where a headless session has no approval channel behind
+* ExitPlanMode (without this contract the model hunts for it); Codex runs it
+* under a read-only sandbox policy. The prompt is what aligns both on one
+* plan-delivery channel. */
 const PLAN_PROMPT = [
 	"## Plan mode",
 	"",
@@ -353,13 +353,12 @@ const PLAN_PROMPT = [
 	"client offers implementation to the user itself."
 ].join("\n");
 /** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
-* in prose and produces no plan. Claude enforces read-only outside plan mode
-* (whose built-in framing would push the turn to produce a plan): permission
-* mode `auto` with the user settings source dropped auto-approves read-only
-* shell commands and denies mutating ones, while a `--tools` whitelist
-* removes the editing tools entirely. Codex enforces it with a read-only
-* turn sandbox. No parse side exists — the reply is ordinary assistant
-* text. */
+* in prose and produces no plan. Hosts enforce read-only outside plan mode
+* (whose built-in framing would push the turn to produce a plan): a Claude
+* host can run the turn in permission mode `auto` behind a PreToolUse hook
+* that denies anything but read-only research tools; Codex enforces it with a
+* read-only turn sandbox. No parse side exists — the reply is ordinary
+* assistant text. */
 const CHAT_PROMPT = [
 	"## Chat mode",
 	"",
@@ -1061,4 +1060,4 @@ const HTML_PROMPT = [
 //#endregion
 export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-rPfO5Sge.js.map
+//# sourceMappingURL=html-DywsGFkQ.js.map

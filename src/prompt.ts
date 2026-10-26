@@ -27,11 +27,11 @@ export const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
  * nothing, and end the final message with a `<proposed_plan>` block that the
  * client lifts into a plan card (see plan.ts for the parse side).
  *
- * Written for headless CLI turns on either provider. Claude runs it under
- * `--permission-mode plan` with ExitPlanMode disallowed (the -p CLI never
- * enables that tool, and without this contract the model hunts for it);
- * Codex runs it under a read-only sandbox policy. The prompt is what aligns
- * both on one plan-delivery channel. */
+ * Written for headless turns on either provider. Claude runs it in the `plan`
+ * permission mode, where a headless session has no approval channel behind
+ * ExitPlanMode (without this contract the model hunts for it); Codex runs it
+ * under a read-only sandbox policy. The prompt is what aligns both on one
+ * plan-delivery channel. */
 export const PLAN_PROMPT: string = [
   "## Plan mode",
   "",
@@ -68,13 +68,12 @@ export const PLAN_PROMPT: string = [
 ].join("\n");
 
 /** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
- * in prose and produces no plan. Claude enforces read-only outside plan mode
- * (whose built-in framing would push the turn to produce a plan): permission
- * mode `auto` with the user settings source dropped auto-approves read-only
- * shell commands and denies mutating ones, while a `--tools` whitelist
- * removes the editing tools entirely. Codex enforces it with a read-only
- * turn sandbox. No parse side exists — the reply is ordinary assistant
- * text. */
+ * in prose and produces no plan. Hosts enforce read-only outside plan mode
+ * (whose built-in framing would push the turn to produce a plan): a Claude
+ * host can run the turn in permission mode `auto` behind a PreToolUse hook
+ * that denies anything but read-only research tools; Codex enforces it with a
+ * read-only turn sandbox. No parse side exists — the reply is ordinary
+ * assistant text. */
 export const CHAT_PROMPT: string = [
   "## Chat mode",
   "",
