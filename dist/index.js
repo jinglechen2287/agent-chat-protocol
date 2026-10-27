@@ -174,6 +174,25 @@ function mapSseToChatEvent(ev) {
 				pivotCandidate: titleStatementValue(get("pivotCandidate"))
 			});
 		}
+		case "user_message": {
+			const text = get("text");
+			const steerId = get("steerId");
+			const turnId = get("turnId");
+			const mode = get("mode");
+			const ts = get("ts");
+			if (typeof text !== "string" || text.trim() === "") return null;
+			if (typeof steerId !== "string" || steerId === "") return null;
+			if (typeof turnId !== "string" || turnId === "") return null;
+			if (typeof mode !== "string" || !Number.isFinite(ts)) return null;
+			return {
+				type: "user_message",
+				text,
+				steerId,
+				turnId,
+				mode,
+				ts
+			};
+		}
 		case "background_agent_updated": {
 			const agent = backgroundAgent(get("agent"));
 			return agent ? {

@@ -257,6 +257,24 @@ export type ChatStreamEvent =
    */
   | { type: "background_agent_updated"; agent: BackgroundAgent }
   /**
+   * The user steered the running turn: words typed while the agent worked,
+   * handed to it mid-turn. Non-terminal and replayable. Clients MUST render
+   * `text` as a user message at this point in the stream — between the agent
+   * output before it and after it — and MUST NOT start a new turn for it.
+   * `steerId` is the id the sending client minted, so it can retire its own
+   * optimistic copy; `turnId` names the turn steered and `mode` the chat mode
+   * the turn runs in (an app-defined string).
+   */
+  | {
+      type: "user_message";
+      text: string;
+      steerId: string;
+      turnId: string;
+      mode: string;
+      /** Unix milliseconds the agent took the message. */
+      ts: number;
+    }
+  /**
    * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
    * or surface it in a collapsed log. Never render it as assistant prose.
    */

@@ -471,6 +471,23 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "context_usage", contextTokens: 100 });
   });
 
+  it("maps a user steer, and drops one missing its ids", () => {
+    const steer = {
+      type: "user_message" as const,
+      text: "also update the docs",
+      steerId: "steer-1",
+      turnId: "turn-1",
+      mode: "edit",
+      ts: 1_700_000_000_000,
+    };
+    const { type: _type, ...data } = steer;
+    expect(mapSseToChatEvent({ event: "user_message", data })).toEqual(steer);
+    expect(mapSseToChatEvent(toSseEvent(steer))).toEqual(steer);
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, steerId: "" } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, text: "  " } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, ts: "now" } })).toBeNull();
+  });
+
   it("maps a non-empty thread title", () => {
     expect(
       mapSseToChatEvent({ event: "thread_title", data: { title: "Fix login redirect" } }),

@@ -18,6 +18,7 @@ describe("event documentation", () => {
   it("lists every stream event in the client contract, including metadata events", () => {
     expect(readme).toContain("**`context_usage`**");
     expect(readme).toContain("**`thread_title`**");
+    expect(readme).toContain("**`user_message`**");
     expect(readme).toContain("createChatTitleGenerator");
   });
 
