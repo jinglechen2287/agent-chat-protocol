@@ -22,7 +22,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 `dist/` is committed, so a `github:` install is build-free. Two entry points:
 
 - `agent-chat-protocol` — **client-safe**: event types, SSE codec, question/controls parsers + validators, prompt sections. No Node-only imports; safe in browser bundles.
-- `agent-chat-protocol/server` — **server-only glue**: the runner→events bridge, the reattachable turn store, tool-detail projection, and opt-in chat-title orchestration. Peer-depends on `agent-cli-runner`.
+- `agent-chat-protocol/server` — **server-only glue**: the runner→events bridge, the reattachable turn store, tool-detail projection, and opt-in thread-title orchestration. Peer-depends on `agent-cli-runner`.
 
 ## The event contract
 
@@ -203,14 +203,70 @@ function stream(task, write: (chunk: string) => void) {
 
 `bridge.fail` maps the runner's failures onto the contract: `AbortError` → `aborted (user)`, `TimeoutError` → `aborted (timeout)`, anything else → `error`.
 
-## Chat titles
+## Thread titles
 
-`createChatTitleGenerator` provides one shared, opt-in policy for apps that use
-the Claude Code and Codex CLI stack: Claude uses `haiku`, Codex uses
+`createThreadTitleGenerator` provides one shared, opt-in policy for apps that
+use the Claude Code and Codex CLI stack: Claude uses `haiku`, Codex uses
 `gpt-5.6-luna`, and both use low effort in an isolated run. The helper owns the
 prompt, bounded input, normalization, and heuristic fallback; the app injects
 its runner so this package never starts a process or triggers billable work by
 itself.
+
+A thread is named once and then left alone, the way ChatGPT and Claude title
+their chats:
+
+1. Show `fallbackChatTitle(firstMessage)` immediately.
+2. On the first turn only, call `mode: "initial"` with the first request. The
+   model returns a short sentence-case title and `needsRefinement`, which is
+   true only when the request alone cannot reveal its subject ("fix this", a
+   bare link, an unexplained image).
+3. If it needed refinement (or generation failed), call `mode: "update"` once
+   after the first reply, with that reply as context.
+4. Never retitle on later turns. A user's own rename is final; an explicit
+   "regenerate title" action calls `mode: "update"` again.
+
+```ts
+import { createThreadTitleGenerator } from "agent-chat-protocol/server";
+
+const generateTitle = createThreadTitleGenerator({
+  run: (request) => runAgent({
+    ...request,
+    cwd: temporaryDirectory,
+    continueConversation: false,
+  }),
+});
+
+const first = await generateTitle({
+  mode: "initial",
+  provider: "claude",
+  prompt: firstUserMessage,
+  attachmentNames: ["checkout.png"],
+  signal,
+});
+
+// Later, once — or when the user asks for a new title:
+const refined = await generateTitle({
+  mode: "update",
+  provider: "claude",
+  currentTitle: storedTitle,
+  firstPrompt: firstUserMessage,
+  recentMessages: toChatTitleMessages(transcript),
+  signal,
+});
+```
+
+`update` keeps the current title, returned exactly as given, when it is still
+accurate — unless `reason: "user"` says the user asked for a new one, in which
+case the model is told to find a different title. A failed, malformed, or placeholder answer ("Title", "New thread")
+returns the current title (or the first-line fallback) with
+`source: "fallback"`; persist nothing in that case. Cancellation is propagated
+to the caller. The generator keeps no state between calls, so a host emits a
+plain `threadTitleEvent({ title })` when it stores a new title.
+
+## Chat titles (deprecated per-turn generator)
+
+`createChatTitleGenerator` is the earlier policy that re-decides the title on
+every turn. It is kept for existing hosts; prefer `createThreadTitleGenerator`.
 
 ```ts
 import {

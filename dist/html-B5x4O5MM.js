@@ -58,6 +58,8 @@ function normalizeChatTitle(raw) {
 * that stores the generator's task state has to bound it the same way on the
 * way in — the prompt budgets against this length, so a host that invents its
 * own can quietly feed back more context than the generator planned for.
+*
+* @deprecated Only the per-turn `createChatTitleGenerator` keeps task state.
 */
 function normalizeTaskSummary(raw) {
 	const summary = raw.trim().replace(/\s+/g, " ");
@@ -1060,4 +1062,4 @@ const HTML_PROMPT = [
 //#endregion
 export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-DywsGFkQ.js.map
+//# sourceMappingURL=html-B5x4O5MM.js.map

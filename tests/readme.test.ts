@@ -20,6 +20,7 @@ describe("event documentation", () => {
     expect(readme).toContain("**`thread_title`**");
     expect(readme).toContain("**`user_message`**");
     expect(readme).toContain("createChatTitleGenerator");
+    expect(readme).toContain("createThreadTitleGenerator");
   });
 
   it("documents the protocol version the code exports", () => {

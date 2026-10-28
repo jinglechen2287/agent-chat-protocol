@@ -34,6 +34,8 @@ declare function normalizeChatTitle(raw: string): string | undefined;
  * that stores the generator's task state has to bound it the same way on the
  * way in — the prompt budgets against this length, so a host that invents its
  * own can quietly feed back more context than the generator planned for.
+ *
+ * @deprecated Only the per-turn `createChatTitleGenerator` keeps task state.
  */
 declare function normalizeTaskSummary(raw: string): string | undefined;
 /** The title shown before (or instead of) a generated one: the first non-empty
@@ -886,4 +888,4 @@ declare function threadTitleSnapshotEvent(state: {
 }): ThreadTitleEvent;
 //#endregion
 export { validateControls as A, normalizeChatTitle as B, ControlValues as C, SliderControl as D, SelectControl as E, CHAT_TITLE_MAX_LENGTH as F, toChatTitleMessages as H, CHAT_TITLE_RECENT_MESSAGE_LIMIT as I, CHAT_TITLE_TASK_MAX_LENGTH as L, ParsedQuestionText as M, QuestionSpec as N, initialControlValues as O, parseQuestionBlock as P, ChatTitleMessage as R, Control as S, ParsedControlsText as T, truncateChatTitle as U, normalizeTaskSummary as V, ViewComponent as _, ChatStreamEvent as a, validateViewSpec as b, ToolCallDetail as c, isTerminalEvent as d, threadTitleEvent as f, VIEW_PROMPT as g, VIEW_CATALOG as h, BackgroundAgentStatus as i, valuesEqual as j, parseControlsBlock as k, ToolPlanItem as l, ParsedViewText as m, BackgroundAgent as n, PROTOCOL_VERSION as o, threadTitleSnapshotEvent as p, BackgroundAgentProgress as r, ThreadTitleEvent as s, AbortReason as t, ToolTaskMetadata as u, ViewSpec as v, ControlsSpec as w, ColorControl as x, parseViewBlock as y, fallbackChatTitle as z };
-//# sourceMappingURL=events-BGEK0i1I.d.ts.map
+//# sourceMappingURL=events-DSAV9ao4.d.ts.map

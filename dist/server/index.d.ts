@@ -1,4 +1,4 @@
-import { B as normalizeChatTitle, F as CHAT_TITLE_MAX_LENGTH, H as toChatTitleMessages, I as CHAT_TITLE_RECENT_MESSAGE_LIMIT, L as CHAT_TITLE_TASK_MAX_LENGTH, R as ChatTitleMessage, U as truncateChatTitle, V as normalizeTaskSummary, a as ChatStreamEvent, c as ToolCallDetail, f as threadTitleEvent, p as threadTitleSnapshotEvent, s as ThreadTitleEvent, u as ToolTaskMetadata, w as ControlsSpec, z as fallbackChatTitle } from "../events-BGEK0i1I.js";
+import { B as normalizeChatTitle, F as CHAT_TITLE_MAX_LENGTH, H as toChatTitleMessages, I as CHAT_TITLE_RECENT_MESSAGE_LIMIT, L as CHAT_TITLE_TASK_MAX_LENGTH, R as ChatTitleMessage, U as truncateChatTitle, V as normalizeTaskSummary, a as ChatStreamEvent, c as ToolCallDetail, f as threadTitleEvent, p as threadTitleSnapshotEvent, s as ThreadTitleEvent, u as ToolTaskMetadata, w as ControlsSpec, z as fallbackChatTitle } from "../events-DSAV9ao4.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -171,7 +171,60 @@ interface ChatTitleGeneratorOptions {
   timeoutMs?: number;
   maxInputChars?: number;
 }
+/**
+ * @deprecated Re-decides the title on every turn and carries
+ * `overarchingTask`/`pivotCandidate` state between turns. Prefer
+ * `createThreadTitleGenerator`, which names a thread once and refreshes
+ * it only when the host asks.
+ */
 declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
 //#endregion
-export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type ThreadTitleEvent, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
+//#region src/server/thread-title.d.ts
+/**
+ * One title request. A host names a thread once from its first request
+ * (`initial`), and at most refreshes it later (`update`) — once after the
+ * first reply when the initial title needed refinement, or when the user asks
+ * for a new title. Titles never drift with every turn.
+ */
+type ThreadTitleRequest = {
+  mode: "initial";
+  provider: ChatTitleProvider;
+  /** The thread's first user request. */
+  prompt: string;
+  attachmentNames?: readonly string[];
+  signal?: AbortSignal;
+} | {
+  mode: "update";
+  provider: ChatTitleProvider;
+  /** The title the thread wears now; kept verbatim when still accurate. */
+  currentTitle: string;
+  /** The thread's first user request — the subject until the user changes it. */
+  firstPrompt: string;
+  /** Recent conversation, oldest first (see `toChatTitleMessages`). */
+  recentMessages: readonly ChatTitleMessage[];
+  /** `"user"` when the user asked for a new title, so an accurate one is
+   * no reason to keep it; otherwise a host refinement, which keeps an
+   * accurate title as it is. */
+  reason?: "refinement" | "user";
+  attachmentNames?: readonly string[];
+  signal?: AbortSignal;
+};
+interface ThreadTitleResult {
+  title: string;
+  /** Only from `initial`: the request alone could not reveal the subject
+   * ("fix this", a bare link), so the host should `update` once the first
+   * reply gives it context. Always false on a fallback or an `update`. */
+  needsRefinement: boolean;
+  source: ChatTitleSource;
+}
+/**
+ * Builds the thread-title generator. It keeps no state: the host decides when
+ * to call it (once per thread, plus an optional refinement) and persists the
+ * title itself. Failure never throws — it returns the current title, or the
+ * first-line fallback, with `source: "fallback"` — except cancellation via
+ * `signal`, which propagates.
+ */
+declare function createThreadTitleGenerator(options: ChatTitleGeneratorOptions): (request: ThreadTitleRequest) => Promise<ThreadTitleResult>;
+//#endregion
+export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type ThreadTitleEvent, type ThreadTitleRequest, type ThreadTitleResult, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, createThreadTitleGenerator, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 //# sourceMappingURL=index.d.ts.map

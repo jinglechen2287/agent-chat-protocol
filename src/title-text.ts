@@ -86,6 +86,8 @@ export function normalizeChatTitle(raw: string): string | undefined {
  * that stores the generator's task state has to bound it the same way on the
  * way in — the prompt budgets against this length, so a host that invents its
  * own can quietly feed back more context than the generator planned for.
+ *
+ * @deprecated Only the per-turn `createChatTitleGenerator` keeps task state.
  */
 export function normalizeTaskSummary(raw: string): string | undefined {
   const summary = raw.trim().replace(/\s+/g, " ");

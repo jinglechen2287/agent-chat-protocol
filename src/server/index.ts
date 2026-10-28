@@ -35,6 +35,12 @@ export {
   type ChatTitleSource,
 } from "./title";
 
+export {
+  createThreadTitleGenerator,
+  type ThreadTitleRequest,
+  type ThreadTitleResult,
+} from "./thread-title";
+
 /** The client-safe title text rules, re-exported so a server-side host
  * reaches the whole title API through one entry; they also live on the
  * package root. */

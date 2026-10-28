@@ -8,9 +8,16 @@ import {
   fallbackChatTitle,
   normalizeChatTitle,
   normalizeTaskSummary,
-  stripCodeFence,
   type ChatTitleMessage,
 } from "../title-text.js";
+import {
+  boundRecentMessages,
+  decodePromptData,
+  DEFAULT_TITLE_MAX_INPUT_CHARS,
+  DEFAULT_TITLE_TIMEOUT_MS,
+  escapeBounded,
+  parseJsonObject,
+} from "./title-prompt.js";
 
 export const CHAT_TITLE_MODELS = {
   claude: "haiku",
@@ -71,8 +78,6 @@ export interface ChatTitleGeneratorOptions {
   maxInputChars?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 10_000;
-const DEFAULT_MAX_INPUT_CHARS = 4_000;
 
 // Non-strict objects: zod strips unknown keys by default, so a harmless
 // extra key (e.g. "reason") does not reject an otherwise valid decision.
@@ -97,35 +102,6 @@ const ModelDecision = z.discriminatedUnion("decision", [
     overarchingTask: z.string(),
   }),
 ]);
-
-function escapePromptData(raw: string): string {
-  return raw
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-// Inverse of escapePromptData for model output that echoes escaped context;
-// decode &amp; last so a double-escaped "&amp;lt;" round-trips to "&lt;"
-// instead of collapsing to "<".
-function decodePromptData(raw: string): string {
-  return raw
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
-}
-
-// Escaping never shrinks a string, so the first `budget` escaped chars come
-// from at most the first `budget` input chars — escape only that slice
-// (O(budget) instead of O(input)). A trailing bare "&" run can only be a cut
-// entity, because a raw "&" always escapes to "&amp;", so strip it after the
-// final slice.
-function escapeBounded(raw: string, budget: number): string {
-  if (budget <= 0) return "";
-  return escapePromptData(raw.slice(0, budget))
-    .slice(0, budget)
-    .replace(/&[a-z]{0,3}$/, "");
-}
 
 function titlePrompt(
   input: ChatTitleInput,
@@ -159,26 +135,9 @@ function titlePrompt(
   const boundedFirst = take(input.firstPrompt, 0.1);
 
   const recentBudget = Math.min(remaining, Math.max(1, Math.floor(maxInputChars * 0.3)));
-  let recentRemaining = recentBudget;
-  const recentParts: string[] = [];
-  for (let index = recentMessages.length - 1; index >= 0 && recentRemaining > 0; index -= 1) {
-    const message = recentMessages[index];
-    if (!message) continue;
-    const separatorLength = recentParts.length ? 1 : 0;
-    // XML-style role markers cannot be forged from message text because its
-    // "<" and ">" are escaped.
-    const open = `<${message.role}>`;
-    const close = `</${message.role}>`;
-    const textBudget = recentRemaining - separatorLength - open.length - close.length - 2;
-    if (textBudget <= 0) break;
-    const text = escapeBounded(message.text, textBudget);
-    if (!text) continue;
-    const part = `${open}\n${text}\n${close}`;
-    recentParts.unshift(part);
-    recentRemaining -= part.length + separatorLength;
-  }
-  const boundedRecent = recentParts.join("\n") || "(none)";
-  remaining -= recentBudget - recentRemaining;
+  const recent = boundRecentMessages(recentMessages, recentBudget);
+  const boundedRecent = recent.text || "(none)";
+  remaining -= recent.used;
 
   const attachmentText = attachmentNames
     .map((name) => `- ${name}`)
@@ -229,21 +188,8 @@ function titlePrompt(
 }
 
 function parseModelResult(raw: string, input: ChatTitleInput): ChatTitleResult | undefined {
-  let parsed: unknown;
-  const json = stripCodeFence(raw);
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    // Salvage a JSON object embedded in surrounding prose.
-    const start = json.indexOf("{");
-    const end = json.lastIndexOf("}");
-    if (start === -1 || end <= start) return undefined;
-    try {
-      parsed = JSON.parse(json.slice(start, end + 1));
-    } catch {
-      return undefined;
-    }
-  }
+  const parsed = parseJsonObject(raw);
+  if (parsed === undefined) return undefined;
   const decision = ModelDecision.safeParse(parsed);
   if (!decision.success) return undefined;
   const data = decision.data;
@@ -307,11 +253,17 @@ function parseModelResult(raw: string, input: ChatTitleInput): ChatTitleResult |
     : undefined;
 }
 
+/**
+ * @deprecated Re-decides the title on every turn and carries
+ * `overarchingTask`/`pivotCandidate` state between turns. Prefer
+ * `createThreadTitleGenerator`, which names a thread once and refreshes
+ * it only when the host asks.
+ */
 export function createChatTitleGenerator(
   options: ChatTitleGeneratorOptions,
 ): (input: ChatTitleInput) => Promise<ChatTitleResult> {
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const maxInputChars = options.maxInputChars ?? DEFAULT_MAX_INPUT_CHARS;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TITLE_TIMEOUT_MS;
+  const maxInputChars = options.maxInputChars ?? DEFAULT_TITLE_MAX_INPUT_CHARS;
   // Computed lazily: only the failure branches need the heuristic fallback.
   const fallbackFor = (input: ChatTitleInput): ChatTitleResult => ({
     // A failed generation must not rewrite the stored title, so it is kept
