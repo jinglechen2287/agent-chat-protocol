@@ -393,7 +393,7 @@ const QUESTION_PROMPT = [
 	`  \`\`\`${QUESTION_BLOCK_NAME}`,
 	"  {\"question\": \"Short question?\", \"options\": [\"First choice\", \"Second choice\"]}",
 	"  ```",
-	"  Emit at most one such block, as the very last thing in the message, with 2–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text."
+	"  Emit at most one such block, as the very last thing in the message, with 1–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text."
 ].join("\n");
 //#endregion
 //#region src/view.ts
@@ -917,7 +917,7 @@ function parseBlockBody(body) {
 		}
 		if (options.length >= MAX_OPTIONS) break;
 	}
-	if (options.length < 2) return null;
+	if (options.length < 1) return null;
 	return {
 		question,
 		options
@@ -1070,4 +1070,4 @@ const HTML_PROMPT = [
 //#endregion
 export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, validateControls as w, chatPrompt as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-BdLOV_QO.js.map
+//# sourceMappingURL=html-CPH7qhP_.js.map

@@ -15,7 +15,7 @@
 export interface QuestionSpec {
   /** The clarifying question to put to the user. */
   question: string;
-  /** Two or more short answer labels the user can pick from. */
+  /** One or more short answer labels the user can pick from. */
   options: string[];
 }
 
@@ -83,9 +83,9 @@ function parseBlockBody(body: string): QuestionSpec | null {
     }
     if (options.length >= MAX_OPTIONS) break;
   }
-  // A question needs at least two distinct choices to be worth a card — with
-  // one (or none) the agent should just ask in plain text.
-  if (options.length < 2) return null;
+  // One option is worth a card: it can offer a single next step, and a typed
+  // reply is always the other answer. With none, the block isn't a question.
+  if (options.length < 1) return null;
 
   return { question, options };
 }

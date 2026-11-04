@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as validateControls, x as chatPrompt, y as QUESTION_PROMPT } from "./html-BdLOV_QO.js";
+import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as PLAN_PROMPT, a as parseProposedPlan, b as VIEW_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseHtmlFrameMessage, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as HTML_BLOCK_NAME, n as HTML_SEND_MAX, o as parseQuestionBlock, p as CONTROLS_BLOCK_NAME, r as parseHtmlBlock, s as VIEW_CATALOG, t as HTML_PROMPT, u as validateViewComponent, v as QUESTION_BLOCK_NAME, w as validateControls, x as chatPrompt, y as QUESTION_PROMPT } from "./html-CPH7qhP_.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -90,7 +90,7 @@ function mapSseToChatEvent(ev) {
 		case "question": {
 			const question = get("question");
 			const options = get("options");
-			if (typeof question === "string" && Array.isArray(options) && options.length >= 2 && options.every((o) => typeof o === "string")) return {
+			if (typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "")) return {
 				type: "question",
 				question,
 				options

@@ -130,12 +130,12 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
     case "question": {
       const question = get("question");
       const options = get("options");
-      // QuestionSpec requires at least two options; mirror that invariant.
+      // QuestionSpec requires at least one real option; mirror that invariant.
       if (
         typeof question === "string" &&
         Array.isArray(options) &&
-        options.length >= 2 &&
-        options.every((o) => typeof o === "string")
+        options.every((o) => typeof o === "string") &&
+        options.some((o) => (o as string).trim() !== "")
       ) {
         return { type: "question", question, options };
       }

@@ -251,19 +251,21 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "question", question: "Which?", options: ["A", "B"] });
   });
 
-  it("rejects a question with fewer than two options", () => {
-    expect(
-      mapSseToChatEvent({
-        event: "question",
-        data: { question: "Which?", options: [] },
-      }),
-    ).toBeNull();
+  it("maps a question with one option", () => {
     expect(
       mapSseToChatEvent({
         event: "question",
         data: { question: "Which?", options: ["only"] },
       }),
-    ).toBeNull();
+    ).toEqual({ type: "question", question: "Which?", options: ["only"] });
+  });
+
+  it("rejects a question with no usable options", () => {
+    for (const options of [[], [""], [" "]]) {
+      expect(
+        mapSseToChatEvent({ event: "question", data: { question: "Which?", options } }),
+      ).toBeNull();
+    }
   });
 
   it("maps plan", () => {

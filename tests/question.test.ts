@@ -44,9 +44,17 @@ describe("parseQuestionBlock", () => {
     expect(parsed.text).toBe(raw);
   });
 
-  it("requires at least two options", () => {
+  it("takes a single option, so an agent can offer one next step", () => {
     const raw = block("agent-question", '{"question": "Q?", "options": ["Only"]}');
-    expect(parseQuestionBlock(raw).question).toBeNull();
+    expect(parseQuestionBlock(raw).question).toEqual({ question: "Q?", options: ["Only"] });
+  });
+
+  it("requires at least one option", () => {
+    for (const options of ["[]", '[" "]', "[3]"]) {
+      const raw = block("agent-question", `{"question": "Q?", "options": ${options}}`);
+      expect(parseQuestionBlock(raw).question).toBeNull();
+      expect(parseQuestionBlock(raw).text).toBe(raw);
+    }
   });
 
   it("skips blank and non-string options and caps at eight", () => {
@@ -80,12 +88,12 @@ describe("parseQuestionBlock", () => {
     ]);
   });
 
-  it("deduplicates options so repeats can't satisfy the two-choice minimum", () => {
+  it("deduplicates options", () => {
     const raw = block(
       "agent-question",
       '{"question": "Q?", "options": ["A", "A", " A "]}',
     );
-    expect(parseQuestionBlock(raw).question).toBeNull();
+    expect(parseQuestionBlock(raw).question?.options).toEqual(["A"]);
 
     const dedupe = block(
       "agent-question",

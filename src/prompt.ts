@@ -110,6 +110,6 @@ export const QUESTION_PROMPT: string = [
   `  \`\`\`${QUESTION_BLOCK_NAME}`,
   '  {"question": "Short question?", "options": ["First choice", "Second choice"]}',
   "  ```",
-  "  Emit at most one such block, as the very last thing in the message, with 2–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text.",
+  "  Emit at most one such block, as the very last thing in the message, with 1–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text.",
 ].join("\n");
 
