@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHAT_PROMPT, parseProposedPlan, PLAN_PROMPT } from "../src/index";
+import { CHAT_PROMPT, chatPrompt, parseProposedPlan, PLAN_PROMPT } from "../src/index";
 
 const wrap = (body: string): string =>
   "<proposed_plan>\n" + body + "\n</proposed_plan>";
@@ -184,5 +184,15 @@ describe("CHAT_PROMPT", () => {
   it("forbids every mutation channel, including external tools", () => {
     expect(CHAT_PROMPT).toMatch(/Not allowed:.*editing or writing files/s);
     expect(CHAT_PROMPT).toMatch(/mutat\w+ through (external|MCP)/i);
+  });
+});
+
+describe("chatPrompt", () => {
+  it("states the host's own research line inside the same contract", () => {
+    const prompt = chatPrompt("HOST RESEARCH LINE");
+    expect(prompt).toContain("HOST RESEARCH LINE");
+    expect(prompt).toContain("it does not produce a plan");
+    expect(prompt).toMatch(/Not allowed:.*editing or writing files/s);
+    expect(prompt).toMatch(/mutat\w+ through (external|MCP)/i);
   });
 });

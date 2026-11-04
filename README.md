@@ -126,7 +126,7 @@ import { QUESTION_PROMPT, CONTROLS_BLOCK_NAME } from "agent-chat-protocol";
 
 Controls emission guidance is **app-authored**: what the controls tune is an app concern (carve's is CSS), so each app writes its own controls prompt section, using `CONTROLS_BLOCK_NAME` as the fence and the core widget schema this package validates.
 
-Two mode prompt sections ship alongside the grammar prompts: `PLAN_PROMPT` teaches a plan-mode turn to research read-only and deliver a `<proposed_plan>` block, and `CHAT_PROMPT` teaches a chat-mode turn to answer read-only in plain prose — no plan, no block, no parse side. Both are written for headless CLI turns on either provider; the host supplies the matching enforcement (Claude permission flags, Codex a read-only sandbox).
+Two mode prompt sections ship alongside the grammar prompts: `PLAN_PROMPT` teaches a plan-mode turn to research read-only and deliver a `<proposed_plan>` block, and `CHAT_PROMPT` teaches a chat-mode turn to answer read-only in plain prose — no plan, no block, no parse side. Both are written for headless CLI turns on either provider; the host supplies the matching enforcement (Claude permission flags, Codex a read-only sandbox). `CHAT_PROMPT` assumes the turn can run read-only commands; a host with a narrower allowlist calls `chatPrompt(research)` with its own line, so the prompt never promises what the host blocks.
 
 **Parse side** — the bridge does this for you; standalone:
 

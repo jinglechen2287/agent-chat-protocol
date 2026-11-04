@@ -360,24 +360,32 @@ const PLAN_PROMPT = [
 * host can run the turn in permission mode `auto` behind a PreToolUse hook
 * that denies anything but read-only research tools; Codex enforces it with a
 * read-only turn sandbox. No parse side exists — the reply is ordinary
-* assistant text. */
-const CHAT_PROMPT = [
-	"## Chat mode",
-	"",
-	"You are in chat mode: this turn answers, it does not change anything and",
-	"it does not produce a plan. Treat every request — however imperative — as",
-	"a request to talk the work through, not to carry it out.",
-	"",
-	"Allowed: reading and searching files, read-only shell commands, and any",
-	"other non-mutating research your environment permits.",
-	"Not allowed: editing or writing files, applying patches, running",
-	"formatters or codegen, mutating through external or MCP tools (reading",
-	"through them is fine), or any command whose purpose is to carry out the",
-	"work rather than answer the question.",
-	"",
-	"Answer conversationally and no longer than the question needs. Quote the",
-	"specific files and lines you looked at so the user can follow you there."
-].join("\n");
+* assistant text.
+*
+* `research` says what the host's enforcement lets the turn read with, so the
+* prompt never promises something the host blocks. */
+function chatPrompt(research) {
+	return [
+		"## Chat mode",
+		"",
+		"You are in chat mode: this turn answers, it does not change anything and",
+		"it does not produce a plan. Treat every request — however imperative — as",
+		"a request to talk the work through, not to carry it out.",
+		"",
+		research,
+		"Not allowed: editing or writing files, applying patches, running",
+		"formatters or codegen, mutating through external or MCP tools, or any",
+		"command whose purpose is to carry out the work rather than answer the",
+		"question.",
+		"",
+		"Answer conversationally and no longer than the question needs. Quote the",
+		"specific files and lines you looked at so the user can follow you there."
+	].join("\n");
+}
+/** The chat-mode contract for a host whose turns may run read-only commands,
+* like a read-only sandbox. A host with a narrower allowlist states it through
+* {@link chatPrompt} instead. */
+const CHAT_PROMPT = chatPrompt("Allowed: reading and searching files, read-only shell commands, reading through external or MCP tools, and any other non-mutating research your environment permits.");
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 const QUESTION_PROMPT = [
 	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
@@ -1060,6 +1068,6 @@ const HTML_PROMPT = [
 	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
 ].join("\n");
 //#endregion
-export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
+export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, validateControls as w, chatPrompt as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-B5x4O5MM.js.map
+//# sourceMappingURL=html-BdLOV_QO.js.map

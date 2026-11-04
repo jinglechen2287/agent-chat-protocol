@@ -73,24 +73,35 @@ export const PLAN_PROMPT: string = [
  * host can run the turn in permission mode `auto` behind a PreToolUse hook
  * that denies anything but read-only research tools; Codex enforces it with a
  * read-only turn sandbox. No parse side exists — the reply is ordinary
- * assistant text. */
-export const CHAT_PROMPT: string = [
-  "## Chat mode",
-  "",
-  "You are in chat mode: this turn answers, it does not change anything and",
-  "it does not produce a plan. Treat every request — however imperative — as",
-  "a request to talk the work through, not to carry it out.",
-  "",
-  "Allowed: reading and searching files, read-only shell commands, and any",
-  "other non-mutating research your environment permits.",
-  "Not allowed: editing or writing files, applying patches, running",
-  "formatters or codegen, mutating through external or MCP tools (reading",
-  "through them is fine), or any command whose purpose is to carry out the",
-  "work rather than answer the question.",
-  "",
-  "Answer conversationally and no longer than the question needs. Quote the",
-  "specific files and lines you looked at so the user can follow you there.",
-].join("\n");
+ * assistant text.
+ *
+ * `research` says what the host's enforcement lets the turn read with, so the
+ * prompt never promises something the host blocks. */
+export function chatPrompt(research: string): string {
+  return [
+    "## Chat mode",
+    "",
+    "You are in chat mode: this turn answers, it does not change anything and",
+    "it does not produce a plan. Treat every request — however imperative — as",
+    "a request to talk the work through, not to carry it out.",
+    "",
+    research,
+    "Not allowed: editing or writing files, applying patches, running",
+    "formatters or codegen, mutating through external or MCP tools, or any",
+    "command whose purpose is to carry out the work rather than answer the",
+    "question.",
+    "",
+    "Answer conversationally and no longer than the question needs. Quote the",
+    "specific files and lines you looked at so the user can follow you there.",
+  ].join("\n");
+}
+
+/** The chat-mode contract for a host whose turns may run read-only commands,
+ * like a read-only sandbox. A host with a narrower allowlist states it through
+ * {@link chatPrompt} instead. */
+export const CHAT_PROMPT: string = chatPrompt(
+  "Allowed: reading and searching files, read-only shell commands, reading through external or MCP tools, and any other non-mutating research your environment permits.",
+);
 
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 export const QUESTION_PROMPT: string = [

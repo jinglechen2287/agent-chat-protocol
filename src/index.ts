@@ -90,6 +90,7 @@ export {
 
 export {
   CHAT_PROMPT,
+  chatPrompt,
   CONTROLS_BLOCK_NAME,
   HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,
