@@ -311,6 +311,9 @@ const HTML_BLOCK_NAME = "agent-html";
 const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
+/** Tells a turn with full access that limits set by earlier turns' modes are
+* over. A host only needs it on a conversation that has had a restricted turn. */
+const BUILD_PROMPT = "You are in Build mode: limits from earlier turns' modes no longer apply.";
 /** Teaches a plan-mode turn its output contract: research freely, change
 * nothing, and end the final message with a `<proposed_plan>` block that the
 * client lifts into a plan card (see plan.ts for the parse side).
@@ -323,69 +326,34 @@ const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 const PLAN_PROMPT = [
 	"## Plan mode",
 	"",
-	"You are in plan mode: this turn produces a plan, not changes. Treat every",
-	"request — however imperative — as a request to plan the work, not do it.",
+	"This turn produces a plan, not changes: treat every request, however imperative, as a request to plan the work.",
 	"",
-	"Allowed: reading and searching files, inspecting configs and schemas, and",
-	"other non-mutating commands that make the plan more accurate. Explore",
-	"before asking; only ask the user what exploration cannot answer.",
-	"Not allowed: editing or writing files, applying patches, running",
-	"formatters or codegen, or any command whose purpose is to carry out the",
-	"work rather than refine the plan.",
+	"Read, search, and run non-mutating commands to make the plan accurate. Explore before asking; ask only what exploration can't answer. Don't edit files, apply patches, or run formatters or codegen.",
 	"",
-	"You are running headless inside a chat client:",
-	"- The ExitPlanMode tool is NOT available here and MUST NOT be called —",
-	"  there is no approval channel behind it.",
-	"- Do not write the plan to a file; the client cannot read files.",
+	"Don't call ExitPlanMode, since nothing is behind it, and don't write the plan to a file.",
 	"",
-	"When the plan is complete and decision-complete (the implementer needs to",
-	"make no further decisions), end your final message with the plan wrapped",
-	"in a proposed-plan block:",
+	"When nothing is left for the implementer to decide, end your final message with one block, each tag on its own line and markdown inside:",
 	"",
 	"<proposed_plan>",
 	"# Clear title",
 	"",
-	"Brief summary, the concrete changes (files, interfaces, code where it",
-	"helps), how to verify, and any assumptions you chose.",
+	"Brief summary, the concrete changes (files, interfaces, code where it helps), how to verify, and any assumptions you chose.",
 	"</proposed_plan>",
 	"",
-	"Rules for the block: each tag on its own line, markdown inside, keep the",
-	"tag names exactly as written, and emit at most one block per turn — only",
-	"when the plan is complete. Do not ask \"should I proceed?\" afterwards; the",
-	"client offers implementation to the user itself."
+	"Don't ask \"should I proceed?\" afterwards; the client offers to implement it."
 ].join("\n");
-/** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
-* in prose and produces no plan. Hosts enforce read-only outside plan mode
-* (whose built-in framing would push the turn to produce a plan): a Claude
-* host can run the turn in permission mode `auto` behind a PreToolUse hook
-* that denies anything but read-only research tools; Codex enforces it with a
-* read-only turn sandbox. No parse side exists — the reply is ordinary
-* assistant text.
-*
-* `research` says what the host's enforcement lets the turn read with, so the
-* prompt never promises something the host blocks. */
-function chatPrompt(research) {
-	return [
-		"## Chat mode",
-		"",
-		"You are in chat mode: this turn answers, it does not change anything and",
-		"it does not produce a plan. Treat every request — however imperative — as",
-		"a request to talk the work through, not to carry it out.",
-		"",
-		research,
-		"Not allowed: editing or writing files, applying patches, running",
-		"formatters or codegen, mutating through external or MCP tools, or any",
-		"command whose purpose is to carry out the work rather than answer the",
-		"question.",
-		"",
-		"Answer conversationally and no longer than the question needs. Quote the",
-		"specific files and lines you looked at so the user can follow you there."
-	].join("\n");
-}
-/** The chat-mode contract for a host whose turns may run read-only commands,
-* like a read-only sandbox. A host with a narrower allowlist states it through
-* {@link chatPrompt} instead. */
-const CHAT_PROMPT = chatPrompt("Allowed: reading and searching files, read-only shell commands, reading through external or MCP tools, and any other non-mutating research your environment permits.");
+/** Teaches a chat-mode turn its contract: it can read, search, and run commands
+* but not edit files. The host enforces that: a Claude host with a tool guard on
+* the file tools and an OS sandbox on the shell, Codex with a read-only turn
+* sandbox. It uses the question block, so a host sends {@link QUESTION_PROMPT}
+* too. No parse side exists: the reply is ordinary assistant text. */
+const CHAT_PROMPT = [
+	"## Chat mode",
+	"",
+	"You can read, search, and run commands, but not edit files by any route: file tools, shell, or MCP.",
+	"",
+	"If an action is blocked, don't work around it: ask with a question block whose approve option names the exact action."
+].join("\n");
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 const QUESTION_PROMPT = [
 	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
@@ -1050,24 +1018,7 @@ function parseHtmlBlock(raw) {
 		html: body
 	};
 }
-/** The prompt section that teaches the html block and the in-frame bridge
-* API. Apps append it behind the user's request in experiment-style modes;
-* a test keeps it covering the load-bearing rules. */
-const HTML_PROMPT = [
-	"- This conversation is in experiment mode: the user has explicitly asked for bespoke generated pages. Default to answering with one — reach for it whenever the reply benefits from layout, styling, or interaction. Plain prose alone is right only when there is genuinely nothing to show (a yes/no, a pure opinion).",
-	"- Lead with a sentence or two of prose when context helps, then end the message with one fenced block containing a complete HTML document:",
-	"  ```agent-html",
-	"  <!doctype html>",
-	"  <html><head><style>/* all styles inline here */</style></head>",
-	"  <body>…<script>/* behavior last */<\/script></body></html>",
-	"  ```",
-	"- The client renders the document in a sandboxed frame *while it streams*, top to bottom. Put one <style> tag in <head> before any body content so partial pages are styled from the first paint; put <script> tags at the very end of <body> — they run once the document is complete, never against a half-built DOM.",
-	`- The frame exposes window.AgentBridge. Calling AgentBridge.send("text") submits that text (max ${HTML_SEND_MAX} chars) as the user's next chat message — wire buttons, forms, and selections to it for anything that should continue the conversation. There is no other host API; do not use fetch, XHR, or navigation.`,
-	"- The frame loads no external resources: no CDN scripts, stylesheets, or fonts — inline everything. Images may use https URLs.",
-	"- Design mobile-first (~390px wide) and theme-aware: the host defines CSS variables on :root and keeps them matching the app's light/dark scheme — build your palette from them (e.g. color-mix with a fixed hue) instead of hardcoding page-wide colors. Surface fills, never for text: --background, --muted, --accent (each sits close to the page background). Text colors: --foreground for primary text, --muted-foreground for secondary text, --accent-foreground on an --accent surface. Lines: --border.",
-	"- Never invent data to fill a page: render the real values you have, fetching or computing them first when tools allow. When the data genuinely isn't available, say so instead of rendering placeholders."
-].join("\n");
 //#endregion
-export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, PLAN_PROMPT as _, parseProposedPlan as a, VIEW_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseHtmlFrameMessage as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, HTML_BLOCK_NAME as m, HTML_SEND_MAX as n, parseQuestionBlock as o, CONTROLS_BLOCK_NAME as p, parseHtmlBlock as r, VIEW_CATALOG as s, HTML_PROMPT as t, validateViewComponent as u, QUESTION_BLOCK_NAME as v, validateControls as w, chatPrompt as x, QUESTION_PROMPT as y };
+export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseQuestionBlock as a, VIEW_BLOCK_NAME as b, parseViewBlock as c, BUILD_PROMPT as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, validateViewComponent as l, HTML_BLOCK_NAME as m, parseHtmlBlock as n, VIEW_CATALOG as o, CONTROLS_BLOCK_NAME as p, parseHtmlFrameMessage as r, VIEW_PROMPT as s, HTML_SEND_MAX as t, validateViewSpec as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
 
-//# sourceMappingURL=html-CPH7qhP_.js.map
+//# sourceMappingURL=html-CdetDzqo.js.map

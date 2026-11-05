@@ -74,7 +74,6 @@ export {
 } from "./controls";
 
 export {
-  HTML_PROMPT,
   HTML_SEND_MAX,
   parseHtmlBlock,
   parseHtmlFrameMessage,
@@ -89,8 +88,8 @@ export {
 } from "./html";
 
 export {
+  BUILD_PROMPT,
   CHAT_PROMPT,
-  chatPrompt,
   CONTROLS_BLOCK_NAME,
   HTML_BLOCK_NAME,
   LEGACY_CONTROLS_BLOCK_NAME,

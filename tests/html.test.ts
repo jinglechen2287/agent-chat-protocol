@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   HTML_BLOCK_NAME,
-  HTML_PROMPT,
   HTML_SEND_MAX,
   parseHtmlBlock,
   parseHtmlFrameMessage,
@@ -90,24 +89,5 @@ describe("parseHtmlFrameMessage", () => {
     expect(parseHtmlFrameMessage({ type: "agent-html:send", text: "x".repeat(HTML_SEND_MAX + 1) }))
       .toBeNull();
     expect(parseHtmlFrameMessage({ type: "agent-html:navigate", url: "https://x" })).toBeNull();
-  });
-});
-
-describe("HTML_PROMPT", () => {
-  it("states the load-bearing rules", () => {
-    expect(HTML_PROMPT).toContain(HTML_BLOCK_NAME);
-    expect(HTML_PROMPT).toContain("AgentBridge.send");
-    expect(HTML_PROMPT).toContain("<style>");
-    expect(HTML_PROMPT).toContain("<script>");
-    expect(HTML_PROMPT).toContain(String(HTML_SEND_MAX));
-  });
-
-  it("separates surface variables from text variables", () => {
-    // --muted alone reads as "muted text color" and produces invisible
-    // text on the near-identical background; the prompt must teach the
-    // surface/foreground pairs explicitly.
-    expect(HTML_PROMPT).toContain("--muted-foreground");
-    expect(HTML_PROMPT).toContain("--accent-foreground");
-    expect(HTML_PROMPT).toContain("never for text");
   });
 });

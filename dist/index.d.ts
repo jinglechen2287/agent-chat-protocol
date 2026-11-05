@@ -150,10 +150,6 @@ interface ParsedHtmlText {
  * left in the prose as plain text, exactly like a rootless view block.
  */
 declare function parseHtmlBlock(raw: string): ParsedHtmlText;
-/** The prompt section that teaches the html block and the in-frame bridge
- * API. Apps append it behind the user's request in experiment-style modes;
- * a test keeps it covering the load-bearing rules. */
-declare const HTML_PROMPT: string;
 //#endregion
 //#region src/prompt.d.ts
 /**
@@ -179,6 +175,9 @@ declare const HTML_BLOCK_NAME = "agent-html";
 declare const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
+/** Tells a turn with full access that limits set by earlier turns' modes are
+ * over. A host only needs it on a conversation that has had a restricted turn. */
+declare const BUILD_PROMPT: string;
 /** Teaches a plan-mode turn its output contract: research freely, change
  * nothing, and end the final message with a `<proposed_plan>` block that the
  * client lifts into a plan card (see plan.ts for the parse side).
@@ -189,23 +188,14 @@ declare const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
  * under a read-only sandbox policy. The prompt is what aligns both on one
  * plan-delivery channel. */
 declare const PLAN_PROMPT: string;
-/** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
- * in prose and produces no plan. Hosts enforce read-only outside plan mode
- * (whose built-in framing would push the turn to produce a plan): a Claude
- * host can run the turn in permission mode `auto` behind a PreToolUse hook
- * that denies anything but read-only research tools; Codex enforces it with a
- * read-only turn sandbox. No parse side exists — the reply is ordinary
- * assistant text.
- *
- * `research` says what the host's enforcement lets the turn read with, so the
- * prompt never promises something the host blocks. */
-declare function chatPrompt(research: string): string;
-/** The chat-mode contract for a host whose turns may run read-only commands,
- * like a read-only sandbox. A host with a narrower allowlist states it through
- * {@link chatPrompt} instead. */
+/** Teaches a chat-mode turn its contract: it can read, search, and run commands
+ * but not edit files. The host enforces that: a Claude host with a tool guard on
+ * the file tools and an OS sandbox on the shell, Codex with a read-only turn
+ * sandbox. It uses the question block, so a host sends {@link QUESTION_PROMPT}
+ * too. No parse side exists: the reply is ordinary assistant text. */
 declare const CHAT_PROMPT: string;
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
 //#endregion
-export { type AbortReason, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ChatTitleMessage, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_PROMPT, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ThreadTitleEvent, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, chatPrompt, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
+export { type AbortReason, BUILD_PROMPT, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ChatTitleMessage, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ThreadTitleEvent, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

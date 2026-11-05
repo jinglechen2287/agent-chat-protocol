@@ -42,7 +42,6 @@ describe("html documentation", () => {
     expect(readme).toContain("**`html`**");
     expect(readme).toContain("sandboxed frame");
     expect(readme).toContain("parseHtmlFrameMessage");
-    expect(readme).toContain("HTML_PROMPT");
   });
 
   it("states that html deltas are scratch the completed html supersedes", () => {

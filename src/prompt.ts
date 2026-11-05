@@ -23,6 +23,11 @@ export const LEGACY_QUESTION_BLOCK_NAME = "carve-question";
 /** Accepted by the parsers during migration; do not teach agents to emit. */
 export const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 
+/** Tells a turn with full access that limits set by earlier turns' modes are
+ * over. A host only needs it on a conversation that has had a restricted turn. */
+export const BUILD_PROMPT: string =
+  "You are in Build mode: limits from earlier turns' modes no longer apply.";
+
 /** Teaches a plan-mode turn its output contract: research freely, change
  * nothing, and end the final message with a `<proposed_plan>` block that the
  * client lifts into a plan card (see plan.ts for the parse side).
@@ -35,73 +40,35 @@ export const LEGACY_CONTROLS_BLOCK_NAME = "carve-controls";
 export const PLAN_PROMPT: string = [
   "## Plan mode",
   "",
-  "You are in plan mode: this turn produces a plan, not changes. Treat every",
-  "request — however imperative — as a request to plan the work, not do it.",
+  "This turn produces a plan, not changes: treat every request, however imperative, as a request to plan the work.",
   "",
-  "Allowed: reading and searching files, inspecting configs and schemas, and",
-  "other non-mutating commands that make the plan more accurate. Explore",
-  "before asking; only ask the user what exploration cannot answer.",
-  "Not allowed: editing or writing files, applying patches, running",
-  "formatters or codegen, or any command whose purpose is to carry out the",
-  "work rather than refine the plan.",
+  "Read, search, and run non-mutating commands to make the plan accurate. Explore before asking; ask only what exploration can't answer. Don't edit files, apply patches, or run formatters or codegen.",
   "",
-  "You are running headless inside a chat client:",
-  "- The ExitPlanMode tool is NOT available here and MUST NOT be called —",
-  "  there is no approval channel behind it.",
-  "- Do not write the plan to a file; the client cannot read files.",
+  "Don't call ExitPlanMode, since nothing is behind it, and don't write the plan to a file.",
   "",
-  "When the plan is complete and decision-complete (the implementer needs to",
-  "make no further decisions), end your final message with the plan wrapped",
-  "in a proposed-plan block:",
+  "When nothing is left for the implementer to decide, end your final message with one block, each tag on its own line and markdown inside:",
   "",
   "<proposed_plan>",
   "# Clear title",
   "",
-  "Brief summary, the concrete changes (files, interfaces, code where it",
-  "helps), how to verify, and any assumptions you chose.",
+  "Brief summary, the concrete changes (files, interfaces, code where it helps), how to verify, and any assumptions you chose.",
   "</proposed_plan>",
   "",
-  "Rules for the block: each tag on its own line, markdown inside, keep the",
-  "tag names exactly as written, and emit at most one block per turn — only",
-  'when the plan is complete. Do not ask "should I proceed?" afterwards; the',
-  "client offers implementation to the user itself.",
+  'Don\'t ask "should I proceed?" afterwards; the client offers to implement it.',
 ].join("\n");
 
-/** Teaches a chat-mode turn its contract: a read-only Q&A turn that answers
- * in prose and produces no plan. Hosts enforce read-only outside plan mode
- * (whose built-in framing would push the turn to produce a plan): a Claude
- * host can run the turn in permission mode `auto` behind a PreToolUse hook
- * that denies anything but read-only research tools; Codex enforces it with a
- * read-only turn sandbox. No parse side exists — the reply is ordinary
- * assistant text.
- *
- * `research` says what the host's enforcement lets the turn read with, so the
- * prompt never promises something the host blocks. */
-export function chatPrompt(research: string): string {
-  return [
-    "## Chat mode",
-    "",
-    "You are in chat mode: this turn answers, it does not change anything and",
-    "it does not produce a plan. Treat every request — however imperative — as",
-    "a request to talk the work through, not to carry it out.",
-    "",
-    research,
-    "Not allowed: editing or writing files, applying patches, running",
-    "formatters or codegen, mutating through external or MCP tools, or any",
-    "command whose purpose is to carry out the work rather than answer the",
-    "question.",
-    "",
-    "Answer conversationally and no longer than the question needs. Quote the",
-    "specific files and lines you looked at so the user can follow you there.",
-  ].join("\n");
-}
-
-/** The chat-mode contract for a host whose turns may run read-only commands,
- * like a read-only sandbox. A host with a narrower allowlist states it through
- * {@link chatPrompt} instead. */
-export const CHAT_PROMPT: string = chatPrompt(
-  "Allowed: reading and searching files, read-only shell commands, reading through external or MCP tools, and any other non-mutating research your environment permits.",
-);
+/** Teaches a chat-mode turn its contract: it can read, search, and run commands
+ * but not edit files. The host enforces that: a Claude host with a tool guard on
+ * the file tools and an OS sandbox on the shell, Codex with a read-only turn
+ * sandbox. It uses the question block, so a host sends {@link QUESTION_PROMPT}
+ * too. No parse side exists: the reply is ordinary assistant text. */
+export const CHAT_PROMPT: string = [
+  "## Chat mode",
+  "",
+  "You can read, search, and run commands, but not edit files by any route: file tools, shell, or MCP.",
+  "",
+  "If an action is blocked, don't work around it: ask with a question block whose approve option names the exact action.",
+].join("\n");
 
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 export const QUESTION_PROMPT: string = [
