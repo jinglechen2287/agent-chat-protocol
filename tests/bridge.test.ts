@@ -769,4 +769,117 @@ describe("createChatEventBridge", () => {
       expect(deltas).toEqual([{ type: "html_delta", index: 1, delta: "<p>x</p>\n" }]);
     });
   });
+
+  describe("plan blocks in the text stream", () => {
+    const stream = (chunks: string[]): ChatStreamEvent[] => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      for (const chunk of chunks) bridge.callbacks.onAssistantTextDelta?.(chunk);
+      return events;
+    };
+    const prose = (events: ChatStreamEvent[]): string =>
+      events.flatMap((ev) => (ev.type === "assistant_text_delta" ? [ev.delta] : [])).join("");
+    const blockEvents = (events: ChatStreamEvent[]): ChatStreamEvent[] =>
+      events.filter((ev) => ev.type === "html_delta" || ev.type === "view_line");
+
+    const plan = [
+      "Here it is.",
+      "<proposed_plan>",
+      "# Teach the grammar",
+      "",
+      "```agent-html",
+      "<p>an example</p>",
+      "```",
+      "",
+      "```agent-view",
+      '{"id":"root","type":"Divider"}',
+      "```",
+      "",
+      "Then ship it.",
+      "</proposed_plan>",
+    ].join("\n");
+
+    it("streams fences inside a plan as text, with no block events", () => {
+      const events = stream([plan]);
+      expect(prose(events)).toBe(plan);
+      expect(blockEvents(events)).toEqual([]);
+    });
+
+    it("recognizes a fence split across chunks inside a plan", () => {
+      const events = stream(["<proposed_plan>\n# T\n\n`", "``agent-", "html\n<p>x</p>\n`", "``\nafter\n"]);
+      expect(prose(events)).toBe("<proposed_plan>\n# T\n\n```agent-html\n<p>x</p>\n```\nafter\n");
+      expect(blockEvents(events)).toEqual([]);
+    });
+
+    it("recognizes tags split across chunks", () => {
+      const events = stream([
+        "<propos",
+        "ed_plan>\r",
+        "\n# T\n",
+        "```agent-html\n<p>x</p>\n```\n</proposed",
+        "_plan>\n",
+        "```agent-html\n<p>real</p>\n",
+      ]);
+      expect(events.flatMap((ev) => (ev.type === "html_delta" ? [ev.delta] : []))).toEqual(["<p>real</p>\n"]);
+    });
+
+    it("still suppresses an agent block after the closing tag", () => {
+      const events = stream([
+        "<proposed_plan>\n# T\n</proposed_plan>\n",
+        '```agent-question\n{"question":"More?","options":["Yes"]}\n```',
+      ]);
+      expect(prose(events)).toBe("<proposed_plan>\n# T\n</proposed_plan>\n");
+    });
+
+    it("still suppresses an agent block before a plan", () => {
+      const events = stream(["```agent-html\n<p>x</p>\n```\n<proposed_plan>\n"]);
+      expect(prose(events)).toBe("");
+      expect(blockEvents(events)).toHaveLength(1);
+    });
+
+    it("ignores a tag mentioned inside a line", () => {
+      const events = stream(["Ends with a <proposed_plan> block.\n```agent-html\n<p>x</p>\n"]);
+      expect(prose(events)).toBe("Ends with a <proposed_plan> block.\n");
+      expect(blockEvents(events)).toHaveLength(1);
+    });
+
+    it("exempts only the first plan, the one a completed message lifts", () => {
+      const events = stream([
+        "<proposed_plan>\n# First\n</proposed_plan>\n<proposed_plan>\n```agent-html\n<p>x</p>\n",
+      ]);
+      expect(prose(events)).toBe("<proposed_plan>\n# First\n</proposed_plan>\n<proposed_plan>\n");
+      expect(blockEvents(events)).toHaveLength(1);
+    });
+
+    it("lifts the plan whole when the message completes", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantTextDelta?.(plan);
+      bridge.callbacks.onAssistantText?.(plan);
+      expect(events.at(-1)).toMatchObject({ type: "plan", title: "Teach the grammar" });
+      expect(events.filter((ev) => ev.type === "html")).toEqual([]);
+    });
+
+    it("parses an unclosed plan as it does without one when the message completes", () => {
+      const unclosed = "<proposed_plan>\n```agent-html\n<p>x</p>\n```";
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantTextDelta?.(unclosed);
+      bridge.callbacks.onAssistantText?.(unclosed);
+      const done = events.filter((ev) => ev.type !== "assistant_text_delta");
+      expect(done).toEqual([
+        { type: "assistant_text", text: "<proposed_plan>" },
+        { type: "html", content: "<p>x</p>" },
+      ]);
+    });
+
+    it("starts the next message outside the plan", () => {
+      const { events, emit } = collect();
+      const bridge = createChatEventBridge(emit);
+      bridge.callbacks.onAssistantTextDelta?.("<proposed_plan>\n# T\n");
+      bridge.callbacks.onAssistantText?.("Done.");
+      bridge.callbacks.onAssistantTextDelta?.("```agent-html\n<p>x</p>\n");
+      expect(blockEvents(events)).toEqual([{ type: "html_delta", index: 1, delta: "<p>x</p>\n" }]);
+    });
+  });
 });

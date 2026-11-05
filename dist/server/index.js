@@ -167,8 +167,14 @@ function toolCallDetails(info) {
 * The remaining job is not splitting a fence: a fragment can end mid-marker,
 * and ```` ``` ```` on its own tells us nothing until the info string that
 * follows it arrives. Those bytes are withheld until they can be classified.
+*
+* A `<proposed_plan>` block is the exception to all of it. Its body is markdown
+* that may show any of these fences as examples, and the completed message
+* lifts the plan first, so inside one they are text like any other.
 */
 const FENCE = "```";
+/** A plan tag alone on its line, by the line rules of plan.ts's block match. */
+const PLAN_TAG_LINE = /^[^\S\r\n]*<(\/?)proposed_plan>[^\S\r\n]*\r?$/gm;
 /** Info strings whose block the completed message renders as a card. */
 const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
 	QUESTION_BLOCK_NAME,
@@ -194,6 +200,15 @@ function createTextDeltaStream() {
 			at = raw.indexOf(FENCE, at + 1);
 		}
 		return -1;
+	};
+	/** Whether a line start lies inside the message's plan block: its first, the
+	* only one a completed message lifts. Reads from the top of the message,
+	* since the opening tag has usually been emitted by then. */
+	const insidePlan = (lineStart) => {
+		let open = false;
+		for (const tag of raw.slice(0, lineStart).matchAll(PLAN_TAG_LINE)) if (tag[1] === "") open = true;
+		else if (open) return false;
+		return open;
 	};
 	/** Length of a trailing backtick run that could still grow into a fence. */
 	const heldTail = () => {
@@ -242,6 +257,10 @@ function createTextDeltaStream() {
 			for (;;) {
 				const fence = lineStartFence(scan);
 				if (fence === -1) break;
+				if (insidePlan(fence)) {
+					scan = fence + 3;
+					continue;
+				}
 				const infoEnd = raw.indexOf("\n", fence + 3);
 				if (infoEnd === -1) return {
 					text: take(fence),
