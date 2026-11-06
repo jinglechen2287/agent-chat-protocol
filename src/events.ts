@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -70,6 +70,24 @@ export interface BackgroundAgent {
   /** Unix epoch timestamp in milliseconds when the agent reached a terminal state. */
   endedAt?: number;
 }
+
+/** Where one MCP server stands, normalized across providers. */
+export interface McpServerStatus {
+  name: string;
+  status: "connecting" | "connected" | "failed" | "needs-auth" | "disabled";
+  /** Why it failed, when the provider says. */
+  error?: string;
+}
+
+/** An MCP server asking the user for something while its tool call waits. The
+ * host mints `id`; the client quotes it when answering through the host's own
+ * API. */
+export type McpElicitation = { id: string; serverName: string; message: string } & (
+  | { mode: "form"; requestedSchema: Record<string, unknown> }
+  | { mode: "url"; url: string }
+);
+
+export type McpElicitationAction = "accept" | "decline" | "cancel";
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
@@ -256,6 +274,24 @@ export type ChatStreamEvent =
    * timestamps remain available on the snapshot.
    */
   | { type: "background_agent_updated"; agent: BackgroundAgent }
+  /**
+   * Every MCP server's status, as a complete snapshot that replaces the last.
+   * Non-terminal and replayable, and not transcript content: clients MAY show
+   * it, and MUST NOT add a transcript message for it.
+   */
+  | { type: "mcp_status"; servers: McpServerStatus[] }
+  /**
+   * An MCP server needs the user's input, and its tool call is waiting. Non-
+   * terminal and replayable, and not transcript content. A client that supports
+   * it renders the request and answers through the host's API; it stays open
+   * until a matching `mcp_elicitation_resolved` or the end of the turn. A client
+   * that doesn't MAY ignore it, in which case the host's timeout ends the wait.
+   * Render `url` only with the user's consent, showing its host: the server
+   * chose it. The answer itself never appears in the stream.
+   */
+  | { type: "mcp_elicitation"; request: McpElicitation }
+  /** The request `id` is over, however it ended. Clients MUST retire it. */
+  | { type: "mcp_elicitation_resolved"; id: string; action: McpElicitationAction }
   /**
    * The user steered the running turn: words typed while the agent worked,
    * handed to it mid-turn. Non-terminal and replayable. Clients MUST render

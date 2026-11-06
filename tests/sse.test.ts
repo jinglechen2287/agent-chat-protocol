@@ -824,3 +824,67 @@ describe("isTerminalEvent", () => {
     expect(isTerminalEvent({ type: "stderr", chunk: "x" })).toBe(false);
   });
 });
+
+describe("MCP events", () => {
+  const roundTrip = (ev: ChatStreamEvent) => {
+    const frame = parseSseBuffer(encodeChatEvent(ev)).events[0]!;
+    return mapSseToChatEvent(frame);
+  };
+  const decode = (event: string, data: unknown) => mapSseToChatEvent({ event, data });
+
+  it("round-trips a status snapshot", () => {
+    const ev: ChatStreamEvent = {
+      type: "mcp_status",
+      servers: [
+        { name: "a", status: "connected" },
+        { name: "b", status: "failed", error: "Connection closed" },
+      ],
+    };
+    expect(roundTrip(ev)).toEqual(ev);
+  });
+
+  it("drops a malformed status snapshot, keeping nothing half-valid", () => {
+    expect(decode("mcp_status", {})).toBeNull();
+    expect(decode("mcp_status", { servers: "x" })).toBeNull();
+    expect(decode("mcp_status", { servers: [{ name: "a" }] })).toBeNull();
+    expect(decode("mcp_status", { servers: [{ name: "a", status: "weird" }] })).toBeNull();
+    expect(decode("mcp_status", { servers: [{ name: "", status: "failed" }] })).toBeNull();
+  });
+
+  it("round-trips form and URL requests", () => {
+    const form: ChatStreamEvent = {
+      type: "mcp_elicitation",
+      request: {
+        id: "r1",
+        serverName: "probe",
+        message: "Who are you?",
+        mode: "form",
+        requestedSchema: { type: "object", properties: { name: { type: "string" } } },
+      },
+    };
+    const url: ChatStreamEvent = {
+      type: "mcp_elicitation",
+      request: { id: "r2", serverName: "probe", message: "Sign in", mode: "url", url: "https://example.com" },
+    };
+    expect(roundTrip(form)).toEqual(form);
+    expect(roundTrip(url)).toEqual(url);
+  });
+
+  it("drops a malformed request", () => {
+    const base = { id: "r", serverName: "s", message: "m" };
+    expect(decode("mcp_elicitation", {})).toBeNull();
+    expect(decode("mcp_elicitation", { request: { ...base, mode: "other" } })).toBeNull();
+    expect(decode("mcp_elicitation", { request: { ...base, mode: "form" } })).toBeNull();
+    expect(decode("mcp_elicitation", { request: { ...base, mode: "form", requestedSchema: [] } })).toBeNull();
+    expect(decode("mcp_elicitation", { request: { ...base, mode: "url" } })).toBeNull();
+    expect(decode("mcp_elicitation", { request: { id: "", serverName: "s", message: "m", mode: "url", url: "u" } })).toBeNull();
+  });
+
+  it("round-trips a resolution and drops a malformed one", () => {
+    const ev: ChatStreamEvent = { type: "mcp_elicitation_resolved", id: "r1", action: "accept" };
+    expect(roundTrip(ev)).toEqual(ev);
+    expect(decode("mcp_elicitation_resolved", { id: "r1" })).toBeNull();
+    expect(decode("mcp_elicitation_resolved", { id: "r1", action: "maybe" })).toBeNull();
+    expect(decode("mcp_elicitation_resolved", { action: "accept" })).toBeNull();
+  });
+});

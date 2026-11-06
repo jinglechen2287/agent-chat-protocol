@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_RECENT_MESSAGE_LIMIT, C as validateControls, D as threadTitleEvent, E as isTerminalEvent, I as toChatTitleMessages, L as truncateChatTitle, M as fallbackChatTitle, N as normalizeChatTitle, O as threadTitleSnapshotEvent, P as normalizeTaskSummary, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseQuestionBlock, b as VIEW_BLOCK_NAME, c as parseViewBlock, d as BUILD_PROMPT, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_TASK_MAX_LENGTH, k as CHAT_TITLE_MAX_LENGTH, l as validateViewComponent, m as HTML_BLOCK_NAME, n as parseHtmlBlock, o as VIEW_CATALOG, p as CONTROLS_BLOCK_NAME, r as parseHtmlFrameMessage, s as VIEW_PROMPT, t as HTML_SEND_MAX, u as validateViewSpec, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-CdetDzqo.js";
+import { A as CHAT_TITLE_RECENT_MESSAGE_LIMIT, C as validateControls, D as threadTitleEvent, E as isTerminalEvent, I as toChatTitleMessages, L as truncateChatTitle, M as fallbackChatTitle, N as normalizeChatTitle, O as threadTitleSnapshotEvent, P as normalizeTaskSummary, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseQuestionBlock, b as VIEW_BLOCK_NAME, c as parseViewBlock, d as BUILD_PROMPT, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_TASK_MAX_LENGTH, k as CHAT_TITLE_MAX_LENGTH, l as validateViewComponent, m as HTML_BLOCK_NAME, n as parseHtmlBlock, o as VIEW_CATALOG, p as CONTROLS_BLOCK_NAME, r as parseHtmlFrameMessage, s as VIEW_PROMPT, t as HTML_SEND_MAX, u as validateViewSpec, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-ofT73oXJ.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -200,6 +200,31 @@ function mapSseToChatEvent(ev) {
 				agent
 			} : null;
 		}
+		case "mcp_status": {
+			const servers = mcpServerStatuses(get("servers"));
+			return servers ? {
+				type: "mcp_status",
+				servers
+			} : null;
+		}
+		case "mcp_elicitation": {
+			const request = mcpElicitation(get("request"));
+			return request ? {
+				type: "mcp_elicitation",
+				request
+			} : null;
+		}
+		case "mcp_elicitation_resolved": {
+			const id = get("id");
+			const action = get("action");
+			if (typeof id !== "string" || id === "") return null;
+			if (action !== "accept" && action !== "decline" && action !== "cancel") return null;
+			return {
+				type: "mcp_elicitation_resolved",
+				id,
+				action
+			};
+		}
 		case "stderr": {
 			const chunk = get("chunk");
 			if (typeof chunk === "string") return {
@@ -305,6 +330,51 @@ function backgroundAgent(value) {
 		...progress !== void 0 ? { progress } : {},
 		...endedAt !== void 0 ? { endedAt } : {}
 	};
+}
+function mcpServerStatuses(value) {
+	if (!Array.isArray(value)) return null;
+	const servers = [];
+	for (const entry of value) {
+		if (typeof entry !== "object" || entry === null) return null;
+		const { name, status, error } = entry;
+		if (typeof name !== "string" || name === "") return null;
+		if (status !== "connecting" && status !== "connected" && status !== "failed" && status !== "needs-auth" && status !== "disabled") return null;
+		if (error !== void 0 && typeof error !== "string") return null;
+		servers.push({
+			name,
+			status,
+			...error ? { error } : {}
+		});
+	}
+	return servers;
+}
+function mcpElicitation(value) {
+	if (typeof value !== "object" || value === null) return null;
+	const { id, serverName, message, mode, requestedSchema, url } = value;
+	if (typeof id !== "string" || id === "") return null;
+	if (typeof serverName !== "string" || serverName === "") return null;
+	if (typeof message !== "string") return null;
+	if (mode === "form") {
+		if (typeof requestedSchema !== "object" || requestedSchema === null || Array.isArray(requestedSchema)) return null;
+		return {
+			id,
+			serverName,
+			message,
+			mode,
+			requestedSchema
+		};
+	}
+	if (mode === "url") {
+		if (typeof url !== "string" || url === "") return null;
+		return {
+			id,
+			serverName,
+			message,
+			mode,
+			url
+		};
+	}
+	return null;
 }
 function toolPlanItems(value) {
 	if (!Array.isArray(value) || value.length === 0) return void 0;

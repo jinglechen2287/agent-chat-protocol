@@ -26,7 +26,7 @@ Layer 1 — agent-cli-runner      (CLI subprocess runtime)
 
 ## The event contract
 
-A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 9` (servers include it on `session_started`).
+A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 10` (servers include it on `session_started`).
 
 | Event | Payload | Terminal |
 | --- | --- | --- |
@@ -45,6 +45,9 @@ A turn is a stream of `ChatStreamEvent`s. Protocol version: `PROTOCOL_VERSION = 
 | `thread_title` | `title`, `overarchingTask?`, `pivotCandidate?` | The chat's title state. Task fields are tri-state: a string stores, `null` clears, absent says nothing. |
 | `user_message` | `text`, `steerId`, `turnId`, `mode`, `ts` | A user steer handed to the running turn. |
 | `background_agent_updated` | `agent: BackgroundAgent` | |
+| `mcp_status` | `servers: McpServerStatus[]` | Every MCP server's status; each snapshot replaces the last. |
+| `mcp_elicitation` | `request: McpElicitation` | An MCP server needs input while its tool call waits. |
+| `mcp_elicitation_resolved` | `id`, `action` | That request is over. |
 | `stderr` | `chunk` | |
 | `done` | `exitCode` | ✓ |
 | `aborted` | `reason?: "user" \| "timeout"` | ✓ |
@@ -71,6 +74,9 @@ What a conforming client MUST do per event. The same text lives as TSDoc on the 
 - **`thread_title`** — replace the chat/thread title without adding a transcript message. The event is non-terminal and replayable like every other event. Each task field is a tri-state statement: a string stores that value, an explicit `null` clears the stored one, and an absent field says nothing — the client keeps what it has. A client that persists title state MUST apply each statement and return the stored fields on the next turn's title request — without that round trip every generation bootstraps from scratch and the title can never follow a topic change. Who holds that state decides how a server emits: one whose client owns the chat (browser-side history) MUST emit a complete snapshot on every model answer — both task fields present, a dropped one as `null` (`threadTitleSnapshotEvent` builds this) — including a `keep` that only refreshes the task summary, while one that persists the state itself MAY emit only on a rename and leave the task fields absent. Clients MUST apply a repeated `title` idempotently either way.
 - **`user_message`** — the user steered the running turn: words typed while the agent worked, handed to it mid-turn. Render `text` as a user message at its place in the stream — after the agent output before it, before the output after it — and do not start a new turn for it. `steerId` is the id the sending client minted, so it can retire its optimistic copy when the event arrives; `turnId` names the turn steered and `mode` the app-defined chat mode it runs in. Non-terminal and replayable like every other event.
 - **`background_agent_updated`** — upsert the complete snapshot by `agent.id`, replacing the prior snapshot for that agent. Do not append progress heartbeats as transcript messages. Status is normalized to `pending`, `running`, `completed`, `failed`, or `interrupted`; provider-specific IDs, spawn correlation, progress, summary, errors, and timestamps remain available on the snapshot.
+- **`mcp_status`** — a complete snapshot of every MCP server, replacing the last. Non-terminal and replayable. Clients MAY show it, and MUST NOT add a transcript message for it.
+- **`mcp_elicitation`** — an MCP server needs the user's input and its tool call is waiting. Non-terminal and replayable, and not transcript content. A client that supports it renders the request and answers through the host's own API, quoting `request.id`; the request stays open until a matching `mcp_elicitation_resolved` or the end of the turn. A client that doesn't MAY ignore it, in which case the host's timeout ends the wait. Open `url` only with the user's consent, showing its host, because the server chose it. The answer never appears in the stream.
+- **`mcp_elicitation_resolved`** — request `id` is over, however it ended. Clients MUST retire it.
 - **`stderr`** — diagnostic channel; MAY be ignored or surfaced in a collapsed log. Never render as assistant prose.
 - **`done`** — the turn completed; `exitCode` 0 is success.
 - **`aborted`** — killed before completing. Render `user` (deliberate cancel) and `timeout` (wall-clock limit) differently; absent reason means treat as `user`.

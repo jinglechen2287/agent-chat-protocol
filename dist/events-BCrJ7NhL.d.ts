@@ -549,7 +549,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 9;
+declare const PROTOCOL_VERSION = 10;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -593,6 +593,28 @@ interface BackgroundAgent {
   /** Unix epoch timestamp in milliseconds when the agent reached a terminal state. */
   endedAt?: number;
 }
+/** Where one MCP server stands, normalized across providers. */
+interface McpServerStatus {
+  name: string;
+  status: "connecting" | "connected" | "failed" | "needs-auth" | "disabled";
+  /** Why it failed, when the provider says. */
+  error?: string;
+}
+/** An MCP server asking the user for something while its tool call waits. The
+ * host mints `id`; the client quotes it when answering through the host's own
+ * API. */
+type McpElicitation = {
+  id: string;
+  serverName: string;
+  message: string;
+} & ({
+  mode: "form";
+  requestedSchema: Record<string, unknown>;
+} | {
+  mode: "url";
+  url: string;
+});
+type McpElicitationAction = "accept" | "decline" | "cancel";
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 type AbortReason = "user" | "timeout";
@@ -813,6 +835,34 @@ type ChatStreamEvent =
   agent: BackgroundAgent;
 } |
 /**
+ * Every MCP server's status, as a complete snapshot that replaces the last.
+ * Non-terminal and replayable, and not transcript content: clients MAY show
+ * it, and MUST NOT add a transcript message for it.
+ */
+{
+  type: "mcp_status";
+  servers: McpServerStatus[];
+} |
+/**
+ * An MCP server needs the user's input, and its tool call is waiting. Non-
+ * terminal and replayable, and not transcript content. A client that supports
+ * it renders the request and answers through the host's API; it stays open
+ * until a matching `mcp_elicitation_resolved` or the end of the turn. A client
+ * that doesn't MAY ignore it, in which case the host's timeout ends the wait.
+ * Render `url` only with the user's consent, showing its host: the server
+ * chose it. The answer itself never appears in the stream.
+ */
+{
+  type: "mcp_elicitation";
+  request: McpElicitation;
+} |
+/** The request `id` is over, however it ended. Clients MUST retire it. */
+{
+  type: "mcp_elicitation_resolved";
+  id: string;
+  action: McpElicitationAction;
+} |
+/**
  * The user steered the running turn: words typed while the agent worked,
  * handed to it mid-turn. Non-terminal and replayable. Clients MUST render
  * `text` as a user message at this point in the stream — between the agent
@@ -887,5 +937,5 @@ declare function threadTitleSnapshotEvent(state: {
   pivotCandidate?: string | null | undefined;
 }): ThreadTitleEvent;
 //#endregion
-export { validateControls as A, normalizeChatTitle as B, ControlValues as C, SliderControl as D, SelectControl as E, CHAT_TITLE_MAX_LENGTH as F, toChatTitleMessages as H, CHAT_TITLE_RECENT_MESSAGE_LIMIT as I, CHAT_TITLE_TASK_MAX_LENGTH as L, ParsedQuestionText as M, QuestionSpec as N, initialControlValues as O, parseQuestionBlock as P, ChatTitleMessage as R, Control as S, ParsedControlsText as T, truncateChatTitle as U, normalizeTaskSummary as V, ViewComponent as _, ChatStreamEvent as a, validateViewSpec as b, ToolCallDetail as c, isTerminalEvent as d, threadTitleEvent as f, VIEW_PROMPT as g, VIEW_CATALOG as h, BackgroundAgentStatus as i, valuesEqual as j, parseControlsBlock as k, ToolPlanItem as l, ParsedViewText as m, BackgroundAgent as n, PROTOCOL_VERSION as o, threadTitleSnapshotEvent as p, BackgroundAgentProgress as r, ThreadTitleEvent as s, AbortReason as t, ToolTaskMetadata as u, ViewSpec as v, ControlsSpec as w, ColorControl as x, parseViewBlock as y, fallbackChatTitle as z };
-//# sourceMappingURL=events-TqDsi04u.d.ts.map
+export { SliderControl as A, CHAT_TITLE_TASK_MAX_LENGTH as B, validateViewSpec as C, ControlsSpec as D, ControlValues as E, ParsedQuestionText as F, toChatTitleMessages as G, fallbackChatTitle as H, QuestionSpec as I, truncateChatTitle as K, parseQuestionBlock as L, parseControlsBlock as M, validateControls as N, ParsedControlsText as O, valuesEqual as P, CHAT_TITLE_MAX_LENGTH as R, parseViewBlock as S, Control as T, normalizeChatTitle as U, ChatTitleMessage as V, normalizeTaskSummary as W, ParsedViewText as _, ChatStreamEvent as a, ViewComponent as b, McpServerStatus as c, ToolCallDetail as d, ToolPlanItem as f, threadTitleSnapshotEvent as g, threadTitleEvent as h, BackgroundAgentStatus as i, initialControlValues as j, SelectControl as k, PROTOCOL_VERSION as l, isTerminalEvent as m, BackgroundAgent as n, McpElicitation as o, ToolTaskMetadata as p, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, ThreadTitleEvent as u, VIEW_CATALOG as v, ColorControl as w, ViewSpec as x, VIEW_PROMPT as y, CHAT_TITLE_RECENT_MESSAGE_LIMIT as z };
+//# sourceMappingURL=events-BCrJ7NhL.d.ts.map

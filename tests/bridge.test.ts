@@ -883,3 +883,31 @@ describe("createChatEventBridge", () => {
     });
   });
 });
+
+describe("createChatEventBridge MCP", () => {
+  it("emits a status snapshot as an event", () => {
+    const events: ChatStreamEvent[] = [];
+    const bridge = createChatEventBridge((ev) => events.push(ev));
+    bridge.callbacks.onMcpStatus([{ name: "a", status: "failed", error: "no" }]);
+    expect(events).toEqual([
+      { type: "mcp_status", servers: [{ name: "a", status: "failed", error: "no" }] },
+    ]);
+  });
+
+  it("stays quiet about status once the turn has ended", () => {
+    const events: ChatStreamEvent[] = [];
+    const bridge = createChatEventBridge((ev) => events.push(ev));
+    bridge.finish({ exitCode: 0 });
+    events.length = 0;
+    bridge.callbacks.onMcpStatus([{ name: "a", status: "connected" }]);
+    expect(events).toEqual([]);
+  });
+
+  it("declines elicitations by default, so a host without UI keeps today's behaviour", async () => {
+    const bridge = createChatEventBridge(() => {});
+    await expect(bridge.callbacks.onMcpElicitation(
+      { serverName: "s", message: "m", mode: "url", url: "https://example.com" },
+      { signal: new AbortController().signal },
+    )).resolves.toEqual({ action: "decline" });
+  });
+});

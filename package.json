@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "agent-cli-runner": "github:jinglechen2287/agent-cli-runner",
+    "agent-cli-runner": "github:jinglechen2287/agent-cli-runner#366857efe3dc4fb520a62ec5f1941e5aabb46213",
     "tsdown": "^0.22.9",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

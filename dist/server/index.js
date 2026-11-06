@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_RECENT_MESSAGE_LIMIT, C as validateControls, D as threadTitleEvent, F as stripCodeFence, I as toChatTitleMessages, L as truncateChatTitle, M as fallbackChatTitle, N as normalizeChatTitle, O as threadTitleSnapshotEvent, P as normalizeTaskSummary, S as parseControlsBlock, a as parseQuestionBlock, b as VIEW_BLOCK_NAME, c as parseViewBlock, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_TASK_MAX_LENGTH, k as CHAT_TITLE_MAX_LENGTH, l as validateViewComponent, m as HTML_BLOCK_NAME, n as parseHtmlBlock, p as CONTROLS_BLOCK_NAME, v as QUESTION_BLOCK_NAME } from "../html-CdetDzqo.js";
+import { A as CHAT_TITLE_RECENT_MESSAGE_LIMIT, C as validateControls, D as threadTitleEvent, F as stripCodeFence, I as toChatTitleMessages, L as truncateChatTitle, M as fallbackChatTitle, N as normalizeChatTitle, O as threadTitleSnapshotEvent, P as normalizeTaskSummary, S as parseControlsBlock, a as parseQuestionBlock, b as VIEW_BLOCK_NAME, c as parseViewBlock, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_TASK_MAX_LENGTH, k as CHAT_TITLE_MAX_LENGTH, l as validateViewComponent, m as HTML_BLOCK_NAME, n as parseHtmlBlock, p as CONTROLS_BLOCK_NAME, v as QUESTION_BLOCK_NAME } from "../html-ofT73oXJ.js";
 import * as z from "zod";
 //#region src/server/tool-details.ts
 function text(value) {
@@ -310,7 +310,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 9
+			protocolVersion: 10
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -470,6 +470,14 @@ function createChatEventBridge(emit, options = {}) {
 			...usage.model !== void 0 ? { model: usage.model } : {}
 		});
 	};
+	const onMcpStatus = (servers) => {
+		if (terminal) return;
+		emit({
+			type: "mcp_status",
+			servers
+		});
+	};
+	const onMcpElicitation = async () => ({ action: "decline" });
 	const onBackgroundAgentUpdate = (agent) => {
 		if (terminal) return;
 		emit({
@@ -486,7 +494,9 @@ function createChatEventBridge(emit, options = {}) {
 			onToolResult,
 			onBackgroundAgentUpdate,
 			onStderr,
-			onUsage
+			onUsage,
+			onMcpStatus,
+			onMcpElicitation
 		},
 		finish(result) {
 			flushPendingTaskCreates();

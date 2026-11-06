@@ -19,6 +19,8 @@
 import type {
   AgentCallbacks,
   BackgroundAgentInfo,
+  McpElicitationResponse,
+  McpServerStatusInfo,
   TokenUsage,
   ToolResultInfo,
   ToolUseInfo,
@@ -253,6 +255,15 @@ export function createChatEventBridge(
     });
   };
 
+  const onMcpStatus = (servers: McpServerStatusInfo[]): void => {
+    if (terminal) return;
+    emit({ type: "mcp_status", servers });
+  };
+
+  // Answering needs a client and a way back, which only the host has: it
+  // overrides this. Until then, the behaviour the CLIs have with no handler.
+  const onMcpElicitation = async (): Promise<McpElicitationResponse> => ({ action: "decline" });
+
   const onBackgroundAgentUpdate = (agent: BackgroundAgentInfo): void => {
     if (terminal) return;
     emit({ type: "background_agent_updated", agent });
@@ -268,6 +279,8 @@ export function createChatEventBridge(
       onBackgroundAgentUpdate,
       onStderr,
       onUsage,
+      onMcpStatus,
+      onMcpElicitation,
     },
     finish(result: { exitCode: number }): void {
       flushPendingTaskCreates();

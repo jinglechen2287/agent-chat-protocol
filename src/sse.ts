@@ -18,6 +18,8 @@ import type {
   ToolCallDetail,
   ToolPlanItem,
   ToolTaskMetadata,
+  McpElicitation,
+  McpServerStatus,
 } from "./events";
 import { threadTitleEvent } from "./events";
 import { validateControls } from "./controls";
@@ -222,6 +224,21 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const agent = backgroundAgent(get("agent"));
       return agent ? { type: "background_agent_updated", agent } : null;
     }
+    case "mcp_status": {
+      const servers = mcpServerStatuses(get("servers"));
+      return servers ? { type: "mcp_status", servers } : null;
+    }
+    case "mcp_elicitation": {
+      const request = mcpElicitation(get("request"));
+      return request ? { type: "mcp_elicitation", request } : null;
+    }
+    case "mcp_elicitation_resolved": {
+      const id = get("id");
+      const action = get("action");
+      if (typeof id !== "string" || id === "") return null;
+      if (action !== "accept" && action !== "decline" && action !== "cancel") return null;
+      return { type: "mcp_elicitation_resolved", id, action };
+    }
     case "stderr": {
       const chunk = get("chunk");
       if (typeof chunk === "string") return { type: "stderr", chunk };
@@ -356,6 +373,53 @@ function backgroundAgent(value: unknown): BackgroundAgent | null {
     ...(progress !== undefined ? { progress } : {}),
     ...(endedAt !== undefined ? { endedAt } : {}),
   };
+}
+
+function mcpServerStatuses(value: unknown): McpServerStatus[] | null {
+  if (!Array.isArray(value)) return null;
+  const servers: McpServerStatus[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const { name, status, error } = entry as Record<string, unknown>;
+    if (typeof name !== "string" || name === "") return null;
+    if (
+      status !== "connecting"
+      && status !== "connected"
+      && status !== "failed"
+      && status !== "needs-auth"
+      && status !== "disabled"
+    ) {
+      return null;
+    }
+    if (error !== undefined && typeof error !== "string") return null;
+    servers.push({ name, status, ...(error ? { error } : {}) });
+  }
+  return servers;
+}
+
+function mcpElicitation(value: unknown): McpElicitation | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { id, serverName, message, mode, requestedSchema, url } = value as Record<string, unknown>;
+  if (typeof id !== "string" || id === "") return null;
+  if (typeof serverName !== "string" || serverName === "") return null;
+  if (typeof message !== "string") return null;
+  if (mode === "form") {
+    if (typeof requestedSchema !== "object" || requestedSchema === null || Array.isArray(requestedSchema)) {
+      return null;
+    }
+    return {
+      id,
+      serverName,
+      message,
+      mode,
+      requestedSchema: requestedSchema as Record<string, unknown>,
+    };
+  }
+  if (mode === "url") {
+    if (typeof url !== "string" || url === "") return null;
+    return { id, serverName, message, mode, url };
+  }
+  return null;
 }
 
 function toolPlanItems(value: unknown): ToolPlanItem[] | undefined {
