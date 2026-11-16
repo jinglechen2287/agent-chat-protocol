@@ -370,11 +370,15 @@ function pendingMessages(value) {
 		let sender;
 		if (from !== void 0) {
 			if (typeof from !== "object" || from === null) return null;
-			const { threadId, title } = from;
+			const { threadId, title, machineId, machineName } = from;
 			if (typeof threadId !== "string" || threadId === "" || typeof title !== "string") return null;
+			if (machineId !== void 0 && typeof machineId !== "string") return null;
+			if (machineName !== void 0 && typeof machineName !== "string") return null;
 			sender = {
 				threadId,
-				title
+				title,
+				...machineId !== void 0 ? { machineId } : {},
+				...machineName !== void 0 ? { machineName } : {}
 			};
 		}
 		messages.push({

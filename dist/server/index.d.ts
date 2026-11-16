@@ -1,4 +1,4 @@
-import { G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as toChatTitleMessages, K as normalizeChatTitle, O as ControlsSpec, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, m as ToolTaskMetadata, q as normalizeTaskSummary } from "../events-Bve488Fz.js";
+import { G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as toChatTitleMessages, K as normalizeChatTitle, O as ControlsSpec, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, m as ToolTaskMetadata, q as normalizeTaskSummary } from "../events-CemOHIZt.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {

@@ -657,10 +657,13 @@ interface PendingMessage {
   mode: string;
   /** Unix milliseconds the host took it. */
   ts: number;
-  /** Another thread's agent sent it. */
+  /** Another thread's agent sent it; on another of the host's machines when
+   * `machineId` is given. */
   from?: {
     threadId: string;
     title: string;
+    machineId?: string;
+    machineName?: string;
   };
 }
 /** Why a turn ended without completing. `user` is a deliberate cancel;
@@ -1003,4 +1006,4 @@ declare function threadTitleSnapshotEvent(state: {
 }): ThreadTitleEvent;
 //#endregion
 export { SelectControl as A, parseQuestionBlock as B, parseViewBlock as C, ControlValues as D, Control as E, valuesEqual as F, fallbackChatTitle as G, CHAT_TITLE_RECENT_MESSAGE_LIMIT as H, ParsedQuestionText as I, toChatTitleMessages as J, normalizeChatTitle as K, QuestionItem as L, initialControlValues as M, parseControlsBlock as N, ControlsSpec as O, validateControls as P, QuestionSpec as R, ViewSpec as S, ColorControl as T, CHAT_TITLE_TASK_MAX_LENGTH as U, CHAT_TITLE_MAX_LENGTH as V, ChatTitleMessage as W, truncateChatTitle as Y, threadTitleSnapshotEvent as _, ChatStreamEvent as a, VIEW_PROMPT as b, McpServerStatus as c, ThreadTitleEvent as d, ToolCallDetail as f, threadTitleEvent as g, isTerminalEvent as h, BackgroundAgentStatus as i, SliderControl as j, ParsedControlsText as k, PROTOCOL_VERSION as l, ToolTaskMetadata as m, BackgroundAgent as n, McpElicitation as o, ToolPlanItem as p, normalizeTaskSummary as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, PendingMessage as u, ParsedViewText as v, validateViewSpec as w, ViewComponent as x, VIEW_CATALOG as y, formatQuestionAnswers as z };
-//# sourceMappingURL=events-Bve488Fz.d.ts.map
+//# sourceMappingURL=events-CemOHIZt.d.ts.map

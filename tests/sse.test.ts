@@ -884,6 +884,22 @@ describe("pending_messages", () => {
     expect(roundTrip(ev)).toEqual(ev);
   });
 
+  it("keeps the Mac a sender lives on", () => {
+    const ev: ChatStreamEvent = {
+      type: "pending_messages",
+      revision: 1,
+      messages: [{
+        id: "s1", kind: "steer", text: "hi", mode: "edit", ts: 1,
+        from: { threadId: "t2", title: "Parent", machineId: "m2", machineName: "Studio" },
+      }],
+    };
+    expect(roundTrip(ev)).toEqual(ev);
+    expect(decode("pending_messages", {
+      revision: 1,
+      messages: [{ id: "s1", kind: "steer", text: "hi", mode: "edit", ts: 1, from: { threadId: "t2", title: "P", machineId: 3 } }],
+    })).toBeNull();
+  });
+
   it("round-trips an empty snapshot", () => {
     const ev: ChatStreamEvent = { type: "pending_messages", revision: 0, messages: [] };
     expect(roundTrip(ev)).toEqual(ev);

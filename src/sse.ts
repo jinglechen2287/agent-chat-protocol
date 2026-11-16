@@ -419,9 +419,16 @@ function pendingMessages(value: unknown): PendingMessage[] | null {
     let sender: PendingMessage["from"];
     if (from !== undefined) {
       if (typeof from !== "object" || from === null) return null;
-      const { threadId, title } = from as Record<string, unknown>;
+      const { threadId, title, machineId, machineName } = from as Record<string, unknown>;
       if (typeof threadId !== "string" || threadId === "" || typeof title !== "string") return null;
-      sender = { threadId, title };
+      if (machineId !== undefined && typeof machineId !== "string") return null;
+      if (machineName !== undefined && typeof machineName !== "string") return null;
+      sender = {
+        threadId,
+        title,
+        ...(machineId !== undefined ? { machineId } : {}),
+        ...(machineName !== undefined ? { machineName } : {}),
+      };
     }
     messages.push({ id, kind, text, mode, ts, ...(sender ? { from: sender } : {}) });
   }

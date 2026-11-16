@@ -100,8 +100,9 @@ export interface PendingMessage {
   mode: string;
   /** Unix milliseconds the host took it. */
   ts: number;
-  /** Another thread's agent sent it. */
-  from?: { threadId: string; title: string };
+  /** Another thread's agent sent it; on another of the host's machines when
+   * `machineId` is given. */
+  from?: { threadId: string; title: string; machineId?: string; machineName?: string };
 }
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
