@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -88,6 +88,21 @@ export type McpElicitation = { id: string; serverName: string; message: string }
 );
 
 export type McpElicitationAction = "accept" | "decline" | "cancel";
+
+/** Words the user sent that wait on the host: a `steer` for the running turn
+ * the agent hasn't taken yet, or a `queue`d message to run as a turn of its
+ * own once the thread is free. `id` is the id the sending client minted. */
+export interface PendingMessage {
+  id: string;
+  kind: "steer" | "queue";
+  text: string;
+  /** The app-defined chat mode it was sent in. */
+  mode: string;
+  /** Unix milliseconds the host took it. */
+  ts: number;
+  /** Another thread's agent sent it. */
+  from?: { threadId: string; title: string };
+}
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
@@ -298,6 +313,15 @@ export type ChatStreamEvent =
   | { type: "mcp_elicitation"; request: McpElicitation }
   /** The request `id` is over, however it ended. Clients MUST retire it. */
   | { type: "mcp_elicitation_resolved"; id: string; action: McpElicitationAction }
+  /**
+   * Everything the user sent that still waits on the host, as a complete
+   * snapshot that replaces the last: steers the agent hasn't taken and messages
+   * queued to run after the turn. `revision` only ever rises for a thread, so a
+   * client can ignore an older list it reads later. Non-terminal and
+   * replayable, and not transcript content: a steer that lands still arrives as
+   * its own `user_message`.
+   */
+  | { type: "pending_messages"; revision: number; messages: PendingMessage[] }
   /**
    * The user steered the running turn: words typed while the agent worked,
    * handed to it mid-turn. Non-terminal and replayable. Clients MUST render

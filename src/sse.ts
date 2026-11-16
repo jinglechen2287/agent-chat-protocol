@@ -20,6 +20,7 @@ import type {
   ToolTaskMetadata,
   McpElicitation,
   McpServerStatus,
+  PendingMessage,
 } from "./events";
 import type { QuestionItem } from "./question";
 import { threadTitleEvent } from "./events";
@@ -252,6 +253,12 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const servers = mcpServerStatuses(get("servers"));
       return servers ? { type: "mcp_status", servers } : null;
     }
+    case "pending_messages": {
+      const revision = get("revision");
+      if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) return null;
+      const messages = pendingMessages(get("messages"));
+      return messages ? { type: "pending_messages", revision, messages } : null;
+    }
     case "mcp_elicitation": {
       const request = mcpElicitation(get("request"));
       return request ? { type: "mcp_elicitation", request } : null;
@@ -397,6 +404,28 @@ function backgroundAgent(value: unknown): BackgroundAgent | null {
     ...(progress !== undefined ? { progress } : {}),
     ...(endedAt !== undefined ? { endedAt } : {}),
   };
+}
+
+function pendingMessages(value: unknown): PendingMessage[] | null {
+  if (!Array.isArray(value)) return null;
+  const messages: PendingMessage[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const { id, kind, text, mode, ts, from } = entry as Record<string, unknown>;
+    if (typeof id !== "string" || id === "") return null;
+    if (kind !== "steer" && kind !== "queue") return null;
+    if (typeof text !== "string" || typeof mode !== "string") return null;
+    if (typeof ts !== "number" || !Number.isFinite(ts)) return null;
+    let sender: PendingMessage["from"];
+    if (from !== undefined) {
+      if (typeof from !== "object" || from === null) return null;
+      const { threadId, title } = from as Record<string, unknown>;
+      if (typeof threadId !== "string" || threadId === "" || typeof title !== "string") return null;
+      sender = { threadId, title };
+    }
+    messages.push({ id, kind, text, mode, ts, ...(sender ? { from: sender } : {}) });
+  }
+  return messages;
 }
 
 function mcpServerStatuses(value: unknown): McpServerStatus[] | null {

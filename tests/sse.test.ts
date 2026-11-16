@@ -865,6 +865,46 @@ describe("isTerminalEvent", () => {
   });
 });
 
+describe("pending_messages", () => {
+  const roundTrip = (ev: ChatStreamEvent) => {
+    const frame = parseSseBuffer(encodeChatEvent(ev)).events[0]!;
+    return mapSseToChatEvent(frame);
+  };
+  const decode = (event: string, data: unknown) => mapSseToChatEvent({ event, data });
+
+  it("round-trips a snapshot of steers and queued messages", () => {
+    const ev: ChatStreamEvent = {
+      type: "pending_messages",
+      revision: 3,
+      messages: [
+        { id: "s1", kind: "steer", text: "also tests", mode: "edit", ts: 10 },
+        { id: "q1", kind: "queue", text: "then deploy", mode: "plan", ts: 11, from: { threadId: "t2", title: "Parent" } },
+      ],
+    };
+    expect(roundTrip(ev)).toEqual(ev);
+  });
+
+  it("round-trips an empty snapshot", () => {
+    const ev: ChatStreamEvent = { type: "pending_messages", revision: 0, messages: [] };
+    expect(roundTrip(ev)).toEqual(ev);
+  });
+
+  it("drops a malformed snapshot, keeping nothing half-valid", () => {
+    const good = { id: "s1", kind: "steer", text: "x", mode: "edit", ts: 1 };
+    expect(decode("pending_messages", { messages: [] })).toBeNull();
+    expect(decode("pending_messages", { revision: -1, messages: [] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1.5, messages: [] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: "x" })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, id: "" }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, kind: "later" }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, text: 3 }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, mode: 3 }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, ts: "x" }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, from: { threadId: "" , title: "x" } }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, from: { threadId: "t" } }] })).toBeNull();
+  });
+});
+
 describe("MCP events", () => {
   const roundTrip = (ev: ChatStreamEvent) => {
     const frame = parseSseBuffer(encodeChatEvent(ev)).events[0]!;

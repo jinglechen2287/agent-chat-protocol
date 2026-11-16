@@ -580,7 +580,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 11;
+declare const PROTOCOL_VERSION = 12;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -646,6 +646,23 @@ type McpElicitation = {
   url: string;
 });
 type McpElicitationAction = "accept" | "decline" | "cancel";
+/** Words the user sent that wait on the host: a `steer` for the running turn
+ * the agent hasn't taken yet, or a `queue`d message to run as a turn of its
+ * own once the thread is free. `id` is the id the sending client minted. */
+interface PendingMessage {
+  id: string;
+  kind: "steer" | "queue";
+  text: string;
+  /** The app-defined chat mode it was sent in. */
+  mode: string;
+  /** Unix milliseconds the host took it. */
+  ts: number;
+  /** Another thread's agent sent it. */
+  from?: {
+    threadId: string;
+    title: string;
+  };
+}
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 type AbortReason = "user" | "timeout";
@@ -898,6 +915,19 @@ type ChatStreamEvent =
   action: McpElicitationAction;
 } |
 /**
+ * Everything the user sent that still waits on the host, as a complete
+ * snapshot that replaces the last: steers the agent hasn't taken and messages
+ * queued to run after the turn. `revision` only ever rises for a thread, so a
+ * client can ignore an older list it reads later. Non-terminal and
+ * replayable, and not transcript content: a steer that lands still arrives as
+ * its own `user_message`.
+ */
+{
+  type: "pending_messages";
+  revision: number;
+  messages: PendingMessage[];
+} |
+/**
  * The user steered the running turn: words typed while the agent worked,
  * handed to it mid-turn. Non-terminal and replayable. Clients MUST render
  * `text` as a user message at this point in the stream — between the agent
@@ -972,5 +1002,5 @@ declare function threadTitleSnapshotEvent(state: {
   pivotCandidate?: string | null | undefined;
 }): ThreadTitleEvent;
 //#endregion
-export { SliderControl as A, CHAT_TITLE_MAX_LENGTH as B, validateViewSpec as C, ControlsSpec as D, ControlValues as E, ParsedQuestionText as F, normalizeChatTitle as G, CHAT_TITLE_TASK_MAX_LENGTH as H, QuestionItem as I, truncateChatTitle as J, normalizeTaskSummary as K, QuestionSpec as L, parseControlsBlock as M, validateControls as N, ParsedControlsText as O, valuesEqual as P, formatQuestionAnswers as R, parseViewBlock as S, Control as T, ChatTitleMessage as U, CHAT_TITLE_RECENT_MESSAGE_LIMIT as V, fallbackChatTitle as W, ParsedViewText as _, ChatStreamEvent as a, ViewComponent as b, McpServerStatus as c, ToolCallDetail as d, ToolPlanItem as f, threadTitleSnapshotEvent as g, threadTitleEvent as h, BackgroundAgentStatus as i, initialControlValues as j, SelectControl as k, PROTOCOL_VERSION as l, isTerminalEvent as m, BackgroundAgent as n, McpElicitation as o, ToolTaskMetadata as p, toChatTitleMessages as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, ThreadTitleEvent as u, VIEW_CATALOG as v, ColorControl as w, ViewSpec as x, VIEW_PROMPT as y, parseQuestionBlock as z };
-//# sourceMappingURL=events-B88-vVQY.d.ts.map
+export { SelectControl as A, parseQuestionBlock as B, parseViewBlock as C, ControlValues as D, Control as E, valuesEqual as F, fallbackChatTitle as G, CHAT_TITLE_RECENT_MESSAGE_LIMIT as H, ParsedQuestionText as I, toChatTitleMessages as J, normalizeChatTitle as K, QuestionItem as L, initialControlValues as M, parseControlsBlock as N, ControlsSpec as O, validateControls as P, QuestionSpec as R, ViewSpec as S, ColorControl as T, CHAT_TITLE_TASK_MAX_LENGTH as U, CHAT_TITLE_MAX_LENGTH as V, ChatTitleMessage as W, truncateChatTitle as Y, threadTitleSnapshotEvent as _, ChatStreamEvent as a, VIEW_PROMPT as b, McpServerStatus as c, ThreadTitleEvent as d, ToolCallDetail as f, threadTitleEvent as g, isTerminalEvent as h, BackgroundAgentStatus as i, SliderControl as j, ParsedControlsText as k, PROTOCOL_VERSION as l, ToolTaskMetadata as m, BackgroundAgent as n, McpElicitation as o, ToolPlanItem as p, normalizeTaskSummary as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, PendingMessage as u, ParsedViewText as v, validateViewSpec as w, ViewComponent as x, VIEW_CATALOG as y, formatQuestionAnswers as z };
+//# sourceMappingURL=events-Bve488Fz.d.ts.map

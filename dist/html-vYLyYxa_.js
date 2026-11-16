@@ -93,7 +93,7 @@ function toChatTitleMessages(messages, limit = 12, project) {
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 11;
+const PROTOCOL_VERSION = 12;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -1065,4 +1065,4 @@ function parseHtmlBlock(raw) {
 //#endregion
 export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-CbCwm-Ju.js.map
+//# sourceMappingURL=html-vYLyYxa_.js.map

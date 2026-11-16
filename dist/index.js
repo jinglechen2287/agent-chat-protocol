@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-CbCwm-Ju.js";
+import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-vYLyYxa_.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -223,6 +223,16 @@ function mapSseToChatEvent(ev) {
 				servers
 			} : null;
 		}
+		case "pending_messages": {
+			const revision = get("revision");
+			if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) return null;
+			const messages = pendingMessages(get("messages"));
+			return messages ? {
+				type: "pending_messages",
+				revision,
+				messages
+			} : null;
+		}
 		case "mcp_elicitation": {
 			const request = mcpElicitation(get("request"));
 			return request ? {
@@ -346,6 +356,37 @@ function backgroundAgent(value) {
 		...progress !== void 0 ? { progress } : {},
 		...endedAt !== void 0 ? { endedAt } : {}
 	};
+}
+function pendingMessages(value) {
+	if (!Array.isArray(value)) return null;
+	const messages = [];
+	for (const entry of value) {
+		if (typeof entry !== "object" || entry === null) return null;
+		const { id, kind, text, mode, ts, from } = entry;
+		if (typeof id !== "string" || id === "") return null;
+		if (kind !== "steer" && kind !== "queue") return null;
+		if (typeof text !== "string" || typeof mode !== "string") return null;
+		if (typeof ts !== "number" || !Number.isFinite(ts)) return null;
+		let sender;
+		if (from !== void 0) {
+			if (typeof from !== "object" || from === null) return null;
+			const { threadId, title } = from;
+			if (typeof threadId !== "string" || threadId === "" || typeof title !== "string") return null;
+			sender = {
+				threadId,
+				title
+			};
+		}
+		messages.push({
+			id,
+			kind,
+			text,
+			mode,
+			ts,
+			...sender ? { from: sender } : {}
+		});
+	}
+	return messages;
 }
 function mcpServerStatuses(value) {
 	if (!Array.isArray(value)) return null;
