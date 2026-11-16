@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_RECENT_MESSAGE_LIMIT, C as validateControls, D as threadTitleEvent, E as isTerminalEvent, I as toChatTitleMessages, L as truncateChatTitle, M as fallbackChatTitle, N as normalizeChatTitle, O as threadTitleSnapshotEvent, P as normalizeTaskSummary, S as parseControlsBlock, T as PROTOCOL_VERSION, _ as PLAN_PROMPT, a as parseQuestionBlock, b as VIEW_BLOCK_NAME, c as parseViewBlock, d as BUILD_PROMPT, f as CHAT_PROMPT, g as LEGACY_QUESTION_BLOCK_NAME, h as LEGACY_CONTROLS_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_TASK_MAX_LENGTH, k as CHAT_TITLE_MAX_LENGTH, l as validateViewComponent, m as HTML_BLOCK_NAME, n as parseHtmlBlock, o as VIEW_CATALOG, p as CONTROLS_BLOCK_NAME, r as parseHtmlFrameMessage, s as VIEW_PROMPT, t as HTML_SEND_MAX, u as validateViewSpec, v as QUESTION_BLOCK_NAME, w as valuesEqual, x as initialControlValues, y as QUESTION_PROMPT } from "./html-ofT73oXJ.js";
+import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-CbCwm-Ju.js";
 //#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -32,6 +32,16 @@ function parseSseBuffer(buffer) {
 		events,
 		remainder
 	};
+}
+/** A form question's list as `QuestionSpec.questions` holds it: at least one
+* question, each a string with at least one real option and, when set, a
+* boolean `multi`. */
+function isQuestionList(value) {
+	return Array.isArray(value) && value.length > 0 && value.every((item) => {
+		if (!item || typeof item !== "object") return false;
+		const { question, options, multi } = item;
+		return typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "") && (multi === void 0 || typeof multi === "boolean");
+	});
 }
 /**
 * Validates a decoded SSE frame into the typed event union. Returns null for
@@ -90,11 +100,17 @@ function mapSseToChatEvent(ev) {
 		case "question": {
 			const question = get("question");
 			const options = get("options");
-			if (typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "")) return {
-				type: "question",
-				question,
-				options
-			};
+			if (typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "")) {
+				const multi = get("multi");
+				const questions = get("questions");
+				return {
+					type: "question",
+					question,
+					options,
+					...typeof multi === "boolean" ? { multi } : {},
+					...isQuestionList(questions) ? { questions } : {}
+				};
+			}
 			return null;
 		}
 		case "plan": {
@@ -458,6 +474,6 @@ function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 //#endregion
-export { BUILD_PROMPT, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
+export { BUILD_PROMPT, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatQuestionAnswers, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

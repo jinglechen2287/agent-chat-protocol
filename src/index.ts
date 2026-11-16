@@ -51,8 +51,10 @@ export {
 } from "./sse";
 
 export {
+  formatQuestionAnswers,
   parseQuestionBlock,
   type ParsedQuestionText,
+  type QuestionItem,
   type QuestionSpec,
 } from "./question";
 

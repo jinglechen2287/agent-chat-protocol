@@ -73,17 +73,41 @@ declare function toChatTitleMessages<T>(messages: readonly T[], limit: number | 
  *   {"question": "Which nav style?", "options": ["Sidebar", "Top bar"]}
  *   ```
  *
+ * or, to ask several things at once, a list of them — each may set
+ * `"multi": true` to take more than one option:
+ *
+ *   ```agent-question
+ *   {"questions": [
+ *     {"question": "Which nav style?", "options": ["Sidebar", "Top bar"]},
+ *     {"question": "Which pages?", "options": ["Home", "Docs"], "multi": true}
+ *   ]}
+ *   ```
+ *
  * When present and well-formed the block is lifted into a `QuestionSpec` and
  * stripped from the surrounding prose. A malformed block is left untouched as
  * plain text — showing the user a slightly raw message beats dropping it.
  *
  * The legacy `carve-question` fence is accepted during migration.
  */
-interface QuestionSpec {
+/** One question: what to ask and the labels the user can pick from. */
+interface QuestionItem {
   /** The clarifying question to put to the user. */
   question: string;
   /** One or more short answer labels the user can pick from. */
   options: string[];
+  /** The user may pick more than one option. Absent means one. */
+  multi?: boolean;
+}
+/**
+ * A parsed question block. `question`, `options` and `multi` are always its
+ * first question, so a client that knows only one question per card still
+ * renders something sensible. `questions` is present only when the card is a
+ * form the user fills in and then sends — more than one question, or any
+ * multi-select one — and holds every question, the first included. Without it
+ * the card is the one-tap kind: the picked label is the whole reply.
+ */
+interface QuestionSpec extends QuestionItem {
+  questions?: QuestionItem[];
 }
 interface ParsedQuestionText {
   /** The message text with a valid question block removed and trimmed. Empty
@@ -93,6 +117,13 @@ interface ParsedQuestionText {
   question: QuestionSpec | null;
 }
 declare function parseQuestionBlock(raw: string): ParsedQuestionText;
+/**
+ * A form card's reply, as the next user turn: one numbered line per question,
+ * `1. Question → Answer`, several answers joined by `; `, and `(skipped)` for
+ * a question left unanswered. `answers[i]` holds question `i`'s picked labels
+ * and any typed text; blank ones are dropped.
+ */
+declare function formatQuestionAnswers(items: readonly QuestionItem[], answers: readonly (readonly string[])[]): string;
 //#endregion
 //#region src/controls.d.ts
 /**
@@ -549,7 +580,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 10;
+declare const PROTOCOL_VERSION = 11;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -680,12 +711,16 @@ type ChatStreamEvent =
  * selectable choices; the chosen option's label (or a typed free-text reply)
  * is sent verbatim as the next user turn. Selecting locally marks the card
  * answered — no special reply channel exists.
+ *
+ * With `questions` the card is a form: clients SHOULD render every question,
+ * take several picks where `multi` is set and a typed answer for any of
+ * them, and send all the answers at once as one user turn, formatted by
+ * `formatQuestionAnswers`. A client that ignores `questions` still has the
+ * first question in `question` and `options`.
  */
-{
+({
   type: "question";
-  question: string;
-  options: QuestionSpec["options"];
-} |
+} & QuestionSpec) |
 /**
  * A proposed implementation plan (a `<proposed_plan>` block body) from a
  * plan-mode turn. Clients MUST render `planMarkdown` as sanitized
@@ -937,5 +972,5 @@ declare function threadTitleSnapshotEvent(state: {
   pivotCandidate?: string | null | undefined;
 }): ThreadTitleEvent;
 //#endregion
-export { SliderControl as A, CHAT_TITLE_TASK_MAX_LENGTH as B, validateViewSpec as C, ControlsSpec as D, ControlValues as E, ParsedQuestionText as F, toChatTitleMessages as G, fallbackChatTitle as H, QuestionSpec as I, truncateChatTitle as K, parseQuestionBlock as L, parseControlsBlock as M, validateControls as N, ParsedControlsText as O, valuesEqual as P, CHAT_TITLE_MAX_LENGTH as R, parseViewBlock as S, Control as T, normalizeChatTitle as U, ChatTitleMessage as V, normalizeTaskSummary as W, ParsedViewText as _, ChatStreamEvent as a, ViewComponent as b, McpServerStatus as c, ToolCallDetail as d, ToolPlanItem as f, threadTitleSnapshotEvent as g, threadTitleEvent as h, BackgroundAgentStatus as i, initialControlValues as j, SelectControl as k, PROTOCOL_VERSION as l, isTerminalEvent as m, BackgroundAgent as n, McpElicitation as o, ToolTaskMetadata as p, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, ThreadTitleEvent as u, VIEW_CATALOG as v, ColorControl as w, ViewSpec as x, VIEW_PROMPT as y, CHAT_TITLE_RECENT_MESSAGE_LIMIT as z };
-//# sourceMappingURL=events-BCrJ7NhL.d.ts.map
+export { SliderControl as A, CHAT_TITLE_MAX_LENGTH as B, validateViewSpec as C, ControlsSpec as D, ControlValues as E, ParsedQuestionText as F, normalizeChatTitle as G, CHAT_TITLE_TASK_MAX_LENGTH as H, QuestionItem as I, truncateChatTitle as J, normalizeTaskSummary as K, QuestionSpec as L, parseControlsBlock as M, validateControls as N, ParsedControlsText as O, valuesEqual as P, formatQuestionAnswers as R, parseViewBlock as S, Control as T, ChatTitleMessage as U, CHAT_TITLE_RECENT_MESSAGE_LIMIT as V, fallbackChatTitle as W, ParsedViewText as _, ChatStreamEvent as a, ViewComponent as b, McpServerStatus as c, ToolCallDetail as d, ToolPlanItem as f, threadTitleSnapshotEvent as g, threadTitleEvent as h, BackgroundAgentStatus as i, initialControlValues as j, SelectControl as k, PROTOCOL_VERSION as l, isTerminalEvent as m, BackgroundAgent as n, McpElicitation as o, ToolTaskMetadata as p, toChatTitleMessages as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, ThreadTitleEvent as u, VIEW_CATALOG as v, ColorControl as w, ViewSpec as x, VIEW_PROMPT as y, parseQuestionBlock as z };
+//# sourceMappingURL=events-B88-vVQY.d.ts.map

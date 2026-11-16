@@ -93,7 +93,7 @@ function toChatTitleMessages(messages, limit = 12, project) {
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 10;
+const PROTOCOL_VERSION = 11;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -356,12 +356,18 @@ const CHAT_PROMPT = [
 ].join("\n");
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 const QUESTION_PROMPT = [
-	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
+	"- If the request is genuinely ambiguous (multiple reasonable interpretations), ask instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
 	"- When a clarifying question has a small, fixed set of answers, end your message with a question block so the user can answer in one click:",
 	`  \`\`\`${QUESTION_BLOCK_NAME}`,
 	"  {\"question\": \"Short question?\", \"options\": [\"First choice\", \"Second choice\"]}",
 	"  ```",
-	"  Emit at most one such block, as the very last thing in the message, with 1–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text."
+	"  The user's pick (or a typed reply) arrives as the next message.",
+	"- When you need several answers, ask them all in one block rather than one per turn, and add `\"multi\": true` to a question that takes more than one pick:",
+	`  \`\`\`${QUESTION_BLOCK_NAME}`,
+	"  {\"questions\": [{\"question\": \"First question?\", \"options\": [\"A\", \"B\"]}, {\"question\": \"Second question?\", \"options\": [\"C\", \"D\", \"E\"], \"multi\": true}]}",
+	"  ```",
+	"  The user can also type their own answer to any question. The answers arrive together as the next message, one numbered line per question, such as `1. First question? → A`, with `(skipped)` for one they left.",
+	"- Emit at most one block, as the very last thing in the message, with 1–6 short option labels per question. If an answer isn't a small fixed set of choices, just ask in plain text."
 ].join("\n");
 //#endregion
 //#region src/view.ts
@@ -870,9 +876,27 @@ function parseBlockBody(body) {
 	}
 	if (!parsed || typeof parsed !== "object") return null;
 	const obj = parsed;
+	const raw = "questions" in obj ? obj.questions : [obj];
+	if (!Array.isArray(raw) || raw.length === 0) return null;
+	const items = [];
+	for (const entry of raw) {
+		const item = parseItem(entry);
+		if (!item) return null;
+		items.push(item);
+	}
+	const [first, ...rest] = items;
+	return rest.length > 0 || first.multi === true ? {
+		...first,
+		questions: items
+	} : first;
+}
+function parseItem(entry) {
+	if (!entry || typeof entry !== "object") return null;
+	const obj = entry;
 	if (typeof obj.question !== "string") return null;
 	const question = obj.question.trim();
 	if (!question || question.length > MAX_QUESTION_LENGTH) return null;
+	if (obj.multi !== void 0 && typeof obj.multi !== "boolean") return null;
 	if (!Array.isArray(obj.options)) return null;
 	const options = [];
 	const seen = /* @__PURE__ */ new Set();
@@ -886,10 +910,30 @@ function parseBlockBody(body) {
 		if (options.length >= MAX_OPTIONS) break;
 	}
 	if (options.length < 1) return null;
-	return {
+	return obj.multi === true ? {
+		question,
+		options,
+		multi: true
+	} : {
 		question,
 		options
 	};
+}
+/** Text on one line: line breaks and runs of spaces become one space. */
+function oneLine(text) {
+	return text.replace(/\s+/g, " ").trim();
+}
+/**
+* A form card's reply, as the next user turn: one numbered line per question,
+* `1. Question → Answer`, several answers joined by `; `, and `(skipped)` for
+* a question left unanswered. `answers[i]` holds question `i`'s picked labels
+* and any typed text; blank ones are dropped.
+*/
+function formatQuestionAnswers(items, answers) {
+	return items.map((item, index) => {
+		const picked = (answers[index] ?? []).map(oneLine).filter(Boolean);
+		return `${index + 1}. ${oneLine(item.question)} → ${picked.length > 0 ? picked.join("; ") : "(skipped)"}`;
+	}).join("\n");
 }
 //#endregion
 //#region src/plan.ts
@@ -1019,6 +1063,6 @@ function parseHtmlBlock(raw) {
 	};
 }
 //#endregion
-export { CHAT_TITLE_RECENT_MESSAGE_LIMIT as A, validateControls as C, threadTitleEvent as D, isTerminalEvent as E, stripCodeFence as F, toChatTitleMessages as I, truncateChatTitle as L, fallbackChatTitle as M, normalizeChatTitle as N, threadTitleSnapshotEvent as O, normalizeTaskSummary as P, parseControlsBlock as S, PROTOCOL_VERSION as T, PLAN_PROMPT as _, parseQuestionBlock as a, VIEW_BLOCK_NAME as b, parseViewBlock as c, BUILD_PROMPT as d, CHAT_PROMPT as f, LEGACY_QUESTION_BLOCK_NAME as g, LEGACY_CONTROLS_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_TASK_MAX_LENGTH as j, CHAT_TITLE_MAX_LENGTH as k, validateViewComponent as l, HTML_BLOCK_NAME as m, parseHtmlBlock as n, VIEW_CATALOG as o, CONTROLS_BLOCK_NAME as p, parseHtmlFrameMessage as r, VIEW_PROMPT as s, HTML_SEND_MAX as t, validateViewSpec as u, QUESTION_BLOCK_NAME as v, valuesEqual as w, initialControlValues as x, QUESTION_PROMPT as y };
+export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-ofT73oXJ.js.map
+//# sourceMappingURL=html-CbCwm-Ju.js.map

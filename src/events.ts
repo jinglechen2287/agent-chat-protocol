@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -148,8 +148,14 @@ export type ChatStreamEvent =
    * selectable choices; the chosen option's label (or a typed free-text reply)
    * is sent verbatim as the next user turn. Selecting locally marks the card
    * answered — no special reply channel exists.
+   *
+   * With `questions` the card is a form: clients SHOULD render every question,
+   * take several picks where `multi` is set and a typed answer for any of
+   * them, and send all the answers at once as one user turn, formatted by
+   * `formatQuestionAnswers`. A client that ignores `questions` still has the
+   * first question in `question` and `options`.
    */
-  | { type: "question"; question: string; options: QuestionSpec["options"] }
+  | ({ type: "question" } & QuestionSpec)
   /**
    * A proposed implementation plan (a `<proposed_plan>` block body) from a
    * plan-mode turn. Clients MUST render `planMarkdown` as sanitized

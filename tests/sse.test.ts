@@ -260,6 +260,46 @@ describe("mapSseToChatEvent", () => {
     ).toEqual({ type: "question", question: "Which?", options: ["only"] });
   });
 
+  it("keeps a form question's list through encoding and decoding", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "question",
+        question: "Where?",
+        options: ["A"],
+        questions: [
+          { question: "Where?", options: ["A"] },
+          { question: "Split?", options: ["B", "C"], multi: true },
+        ],
+      },
+      {
+        type: "question",
+        question: "Which?",
+        options: ["A", "B"],
+        multi: true,
+        questions: [{ question: "Which?", options: ["A", "B"], multi: true }],
+      },
+    ];
+    for (const ev of events) {
+      const { events: frames } = parseSseBuffer(encodeChatEvent(ev));
+      expect(mapSseToChatEvent(frames[0]!)).toEqual(ev);
+    }
+  });
+
+  it("drops a malformed question list or multi but keeps the question", () => {
+    for (const extra of [
+      { questions: [] },
+      { questions: "nope" },
+      { questions: [{ question: "Q?", options: [] }] },
+      { questions: [{ question: "Q?", options: ["A"], multi: "yes" }] },
+      { questions: [{ question: 3, options: ["A"] }] },
+      { multi: "yes" },
+    ]) {
+      expect(
+        mapSseToChatEvent({ event: "question", data: { question: "Which?", options: ["A"], ...extra } }),
+      ).toEqual({ type: "question", question: "Which?", options: ["A"] });
+    }
+  });
+
   it("rejects a question with no usable options", () => {
     for (const options of [[], [""], [" "]]) {
       expect(

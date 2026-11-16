@@ -21,6 +21,7 @@ import type {
   McpElicitation,
   McpServerStatus,
 } from "./events";
+import type { QuestionItem } from "./question";
 import { threadTitleEvent } from "./events";
 import { validateControls } from "./controls";
 import { validateViewComponent, validateViewSpec } from "./view";
@@ -78,6 +79,21 @@ export function parseSseBuffer(buffer: string): SseParseResult {
     events.push({ event, data });
   }
   return { events, remainder };
+}
+
+/** A form question's list as `QuestionSpec.questions` holds it: at least one
+ * question, each a string with at least one real option and, when set, a
+ * boolean `multi`. */
+function isQuestionList(value: unknown): value is QuestionItem[] {
+  return Array.isArray(value) && value.length > 0 && value.every((item: unknown) => {
+    if (!item || typeof item !== "object") return false;
+    const { question, options, multi } = item as Record<string, unknown>;
+    return typeof question === "string"
+      && Array.isArray(options)
+      && options.every((o) => typeof o === "string")
+      && options.some((o) => (o as string).trim() !== "")
+      && (multi === undefined || typeof multi === "boolean");
+  });
 }
 
 /**
@@ -139,7 +155,15 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
         options.every((o) => typeof o === "string") &&
         options.some((o) => (o as string).trim() !== "")
       ) {
-        return { type: "question", question, options };
+        const multi = get("multi");
+        const questions = get("questions");
+        return {
+          type: "question",
+          question,
+          options,
+          ...(typeof multi === "boolean" ? { multi } : {}),
+          ...(isQuestionList(questions) ? { questions } : {}),
+        };
       }
       return null;
     }

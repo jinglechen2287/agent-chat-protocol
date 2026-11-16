@@ -72,11 +72,17 @@ export const CHAT_PROMPT: string = [
 
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 export const QUESTION_PROMPT: string = [
-  "- If the request is genuinely ambiguous (multiple reasonable interpretations), ask one short clarifying question instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
+  "- If the request is genuinely ambiguous (multiple reasonable interpretations), ask instead of guessing, and don't make edits that turn. Otherwise apply the change directly.",
   "- When a clarifying question has a small, fixed set of answers, end your message with a question block so the user can answer in one click:",
   `  \`\`\`${QUESTION_BLOCK_NAME}`,
   '  {"question": "Short question?", "options": ["First choice", "Second choice"]}',
   "  ```",
-  "  Emit at most one such block, as the very last thing in the message, with 1–6 short option labels. The user's pick (or a typed reply) arrives as the next message. If the answer isn't a small fixed set of choices, just ask in plain text.",
+  "  The user's pick (or a typed reply) arrives as the next message.",
+  "- When you need several answers, ask them all in one block rather than one per turn, and add `\"multi\": true` to a question that takes more than one pick:",
+  `  \`\`\`${QUESTION_BLOCK_NAME}`,
+  '  {"questions": [{"question": "First question?", "options": ["A", "B"]}, {"question": "Second question?", "options": ["C", "D", "E"], "multi": true}]}',
+  "  ```",
+  "  The user can also type their own answer to any question. The answers arrive together as the next message, one numbered line per question, such as `1. First question? → A`, with `(skipped)` for one they left.",
+  "- Emit at most one block, as the very last thing in the message, with 1–6 short option labels per question. If an answer isn't a small fixed set of choices, just ask in plain text.",
 ].join("\n");
 
