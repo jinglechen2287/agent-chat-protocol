@@ -111,9 +111,24 @@ describe("parseQuestionBlock", () => {
 
     const longOption = block(
       "agent-question",
-      JSON.stringify({ question: "Q?", options: ["A", "B", "C".repeat(101)] }),
+      JSON.stringify({ question: "Q?", options: ["A", "B", "C".repeat(501)] }),
     );
     expect(parseQuestionBlock(longOption).question?.options).toEqual(["A", "B"]);
+  });
+
+  it("keeps a long, explanatory option label", () => {
+    const explained =
+      "Approved tier: it enters the library with an \"approved, not shipped\" badge; the server records your approval, so the source check accepts it until it ships";
+    const raw = block(
+      "agent-question",
+      JSON.stringify({
+        questions: [
+          { question: "What should it do?", options: [explained, "Shipped only"] },
+          { question: "Where?", options: ["Side panel", "Design view"] },
+        ],
+      }),
+    );
+    expect(parseQuestionBlock(raw).question?.questions?.[0]?.options).toEqual([explained, "Shipped only"]);
   });
 
   it("collapses the blank-line seam when the block sat mid-message", () => {

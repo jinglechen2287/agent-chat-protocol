@@ -843,10 +843,9 @@ const VIEW_PROMPT = [
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
 * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
-/** Defensive length ceilings, mirroring the controls schema's. Over-length
-* questions invalidate the block; over-length options are skipped. */
+/** Defensive length ceilings against a runaway block, not a style rule: an option that explains itself in a sentence or two still renders, since cards wrap long labels. Over-length questions invalidate the block; over-length options are skipped. */
 const MAX_QUESTION_LENGTH = 500;
-const MAX_OPTION_LENGTH = 100;
+const MAX_OPTION_LENGTH = 500;
 /** Matches the first question fenced block. The info string must be exactly
 * the block name (optionally followed by trailing spaces) so plain ```json
 * blocks the agent emits for other reasons are ignored. */
@@ -1065,4 +1064,4 @@ function parseHtmlBlock(raw) {
 //#endregion
 export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-vYLyYxa_.js.map
+//# sourceMappingURL=html-DySyLgTO.js.map

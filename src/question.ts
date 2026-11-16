@@ -54,10 +54,9 @@ export interface ParsedQuestionText {
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
  * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
-/** Defensive length ceilings, mirroring the controls schema's. Over-length
- * questions invalidate the block; over-length options are skipped. */
+/** Defensive length ceilings against a runaway block, not a style rule: an option that explains itself in a sentence or two still renders, since cards wrap long labels. Over-length questions invalidate the block; over-length options are skipped. */
 const MAX_QUESTION_LENGTH = 500;
-const MAX_OPTION_LENGTH = 100;
+const MAX_OPTION_LENGTH = 500;
 
 /** Matches the first question fenced block. The info string must be exactly
  * the block name (optionally followed by trailing spaces) so plain ```json
