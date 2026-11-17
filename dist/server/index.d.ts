@@ -1,6 +1,5 @@
-import { G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as toChatTitleMessages, K as normalizeChatTitle, O as ControlsSpec, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, m as ToolTaskMetadata, q as normalizeTaskSummary } from "../events-CemOHIZt.js";
+import { G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as toChatTitleMessages, K as normalizeChatTitle, O as ControlsSpec, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, m as ToolTaskMetadata, q as normalizeTaskSummary } from "../events-BuaIRj80.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
-//#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
   /**
    * A session id the caller minted before spawning (so the client learns it
@@ -36,8 +35,6 @@ interface ChatEventBridge {
   fail(err: unknown): void;
 }
 declare function createChatEventBridge(emit: (ev: ChatStreamEvent) => void, options?: ChatEventBridgeOptions): ChatEventBridge;
-//#endregion
-//#region src/server/task-store.d.ts
 interface TurnTask {
   id: string;
   /** Every event pushed so far, in order — the replay buffer. */
@@ -111,8 +108,6 @@ interface TaskStore {
   delete(id: string): void;
 }
 declare function createTaskStore(options?: TaskStoreOptions): TaskStore;
-//#endregion
-//#region src/server/tool-details.d.ts
 /** Extracts the stable task identity that clients use to correlate task calls. */
 declare function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefined;
 /**
@@ -120,8 +115,6 @@ declare function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefin
  * should retain.
  */
 declare function toolCallDetails(info: ToolUseInfo): ToolCallDetail[];
-//#endregion
-//#region src/server/title.d.ts
 declare const CHAT_TITLE_MODELS: {
   readonly claude: "haiku";
   readonly codex: "gpt-5.6-luna";
@@ -178,8 +171,6 @@ interface ChatTitleGeneratorOptions {
  * it only when the host asks.
  */
 declare function createChatTitleGenerator(options: ChatTitleGeneratorOptions): (input: ChatTitleInput) => Promise<ChatTitleResult>;
-//#endregion
-//#region src/server/thread-title.d.ts
 /**
  * One title request. A host names a thread once from its first request
  * (`initial`), and at most refreshes it later (`update`) — once after the
@@ -225,6 +216,5 @@ interface ThreadTitleResult {
  * `signal`, which propagates.
  */
 declare function createThreadTitleGenerator(options: ChatTitleGeneratorOptions): (request: ThreadTitleRequest) => Promise<ThreadTitleResult>;
-//#endregion
 export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, type ChatEventBridge, type ChatEventBridgeOptions, type ChatTitleGeneratorOptions, type ChatTitleInput, type ChatTitleMessage, type ChatTitleProvider, type ChatTitleResult, type ChatTitleRunRequest, type ChatTitleRunResult, type ChatTitleRunner, type ChatTitleSource, type CompleteOptions, type TaskStore, type TaskStoreOptions, type ThreadTitleEvent, type ThreadTitleRequest, type ThreadTitleResult, type TurnTask, createChatEventBridge, createChatTitleGenerator, createTaskStore, createThreadTitleGenerator, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 //# sourceMappingURL=index.d.ts.map

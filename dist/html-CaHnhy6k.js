@@ -1,5 +1,5 @@
 import * as z from "zod";
-//#region src/title-text.ts
+// src/title-text.ts
 /** Widest a chat title gets, in UTF-16 units. */
 const CHAT_TITLE_MAX_LENGTH = 60;
 /** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
@@ -87,8 +87,7 @@ function toChatTitleMessages(messages, limit = 12, project) {
 	}
 	return recent.reverse();
 }
-//#endregion
-//#region src/events.ts
+// src/events.ts
 /**
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
@@ -129,8 +128,7 @@ function threadTitleSnapshotEvent(state) {
 		pivotCandidate: state.pivotCandidate || null
 	};
 }
-//#endregion
-//#region src/controls.ts
+// src/controls.ts
 /** Defensive ceilings — the agent is asked for less; a runaway block should
 * degrade to plain text rather than flood the client. */
 const MAX_CONTROLS = 12;
@@ -286,8 +284,7 @@ function parseControlsBlock(raw, validate = validateControls) {
 		controls
 	};
 }
-//#endregion
-//#region src/prompt.ts
+// src/prompt.ts
 /**
 * The emit side of the generative-UI grammar: the prompt section that teaches
 * an agent when and how to end a message with an ```agent-question``` block.
@@ -369,8 +366,7 @@ const QUESTION_PROMPT = [
 	"  The user can also type their own answer to any question. The answers arrive together as the next message, one numbered line per question, such as `1. First question? → A`, with `(skipped)` for one they left.",
 	"- Emit at most one block, as the very last thing in the message, with 1–6 short option labels per question. If an answer isn't a small fixed set of choices, just ask in plain text."
 ].join("\n");
-//#endregion
-//#region src/view.ts
+// src/view.ts
 /**
 * The ```agent-view``` grammar: a generative-UI view composed from a fixed
 * component catalog, one JSON object per line.
@@ -694,7 +690,7 @@ const MAX_BLOCK_BYTES = 65536;
 /** Input-side work bound: entries past this are never schema-validated, so a
 * hostile frame cannot buy unbounded parse work. Generous headroom over the
 * render cap keeps legitimate skipped-line noise from starving late ids. */
-const MAX_VALIDATED_ENTRIES = MAX_COMPONENTS * 4;
+const MAX_VALIDATED_ENTRIES = 400;
 /** Validates one component line against the catalog — the per-line half of
 * {@link validateViewSpec}, exported for streamed `view_line` delivery where
 * whole-graph validation cannot run yet. */
@@ -838,8 +834,7 @@ const VIEW_PROMPT = [
 	"- Catalog:",
 	...Object.entries(VIEW_CATALOG).map(([name, entry]) => `  - ${name}: ${entry.prompt.replace(`${name} `, "")}`)
 ].join("\n");
-//#endregion
-//#region src/question.ts
+// src/question.ts
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
 * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
@@ -934,12 +929,9 @@ function formatQuestionAnswers(items, answers) {
 		return `${index + 1}. ${oneLine(item.question)} → ${picked.length > 0 ? picked.join("; ") : "(skipped)"}`;
 	}).join("\n");
 }
-//#endregion
-//#region src/plan.ts
-/** Defensive ceiling on the plan body. Plans are long-form documents, so this
-* is far looser than the question/controls limits — it only exists so a
-* runaway generation can't flood clients through one event. */
-const MAX_PLAN_LENGTH = 1e5;
+// src/plan.ts
+/** Defensive ceiling on the plan body, in UTF-8 bytes. Plans are long-form documents, and a host may ask for one as a complete HTML page, so this matches the html block's ceiling; it only exists so a runaway generation can't flood clients through one event. */
+const MAX_PLAN_BYTES = 262144;
 /** Matches the first plan block. Both tags must sit on their own line
 * (surrounding whitespace allowed) so an inline mention of the tag in prose
 * is never mistaken for a block. Non-greedy: stops at the first closing tag. */
@@ -975,7 +967,7 @@ function parseProposedPlan(raw) {
 		plan: null
 	};
 	const planMarkdown = (match[1] ?? "").replace(/\r\n/g, "\n").trim();
-	if (!planMarkdown || planMarkdown.length > MAX_PLAN_LENGTH) return {
+	if (!planMarkdown || new TextEncoder().encode(planMarkdown).length > MAX_PLAN_BYTES) return {
 		text: raw,
 		plan: null
 	};
@@ -987,8 +979,7 @@ function parseProposedPlan(raw) {
 		}
 	};
 }
-//#endregion
-//#region src/html.ts
+// src/html.ts
 /**
 * The ```agent-html``` grammar: a freeform generated page, streamed raw and
 * rendered in a sandboxed frame — the escape hatch for layouts and
@@ -1061,7 +1052,6 @@ function parseHtmlBlock(raw) {
 		html: body
 	};
 }
-//#endregion
 export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-DySyLgTO.js.map
+//# sourceMappingURL=html-CaHnhy6k.js.map

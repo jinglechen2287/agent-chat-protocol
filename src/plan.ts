@@ -32,10 +32,8 @@ export interface ParsedPlanText {
   plan: PlanSpec | null;
 }
 
-/** Defensive ceiling on the plan body. Plans are long-form documents, so this
- * is far looser than the question/controls limits — it only exists so a
- * runaway generation can't flood clients through one event. */
-const MAX_PLAN_LENGTH = 100_000;
+/** Defensive ceiling on the plan body, in UTF-8 bytes. Plans are long-form documents, and a host may ask for one as a complete HTML page, so this matches the html block's ceiling; it only exists so a runaway generation can't flood clients through one event. */
+const MAX_PLAN_BYTES = 262_144;
 
 /** Matches the first plan block. Both tags must sit on their own line
  * (surrounding whitespace allowed) so an inline mention of the tag in prose
@@ -87,7 +85,7 @@ export function parseProposedPlan(raw: string): ParsedPlanText {
   if (!match) return { text: raw, plan: null };
 
   const planMarkdown = (match[1] ?? "").replace(/\r\n/g, "\n").trim();
-  if (!planMarkdown || planMarkdown.length > MAX_PLAN_LENGTH) {
+  if (!planMarkdown || new TextEncoder().encode(planMarkdown).length > MAX_PLAN_BYTES) {
     return { text: raw, plan: null };
   }
 

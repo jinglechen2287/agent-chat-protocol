@@ -1,5 +1,4 @@
 import * as z from "zod";
-//#region src/title-text.d.ts
 /**
  * Chat-title text rules — the bounds and normalizations a title is subject to,
  * with no dependency on how one is generated.
@@ -64,8 +63,6 @@ declare function toChatTitleMessages<T>(messages: readonly T[], limit: number | 
   role: string;
   text: string;
 } | null): ChatTitleMessage[];
-//#endregion
-//#region src/question.d.ts
 /**
  * The structured clarifying-question block an agent can end a message with:
  *
@@ -124,8 +121,6 @@ declare function parseQuestionBlock(raw: string): ParsedQuestionText;
  * and any typed text; blank ones are dropped.
  */
 declare function formatQuestionAnswers(items: readonly QuestionItem[], answers: readonly (readonly string[])[]): string;
-//#endregion
-//#region src/controls.d.ts
 /**
  * Shared schema + helpers for the ```agent-controls``` block: the structured
  * parameter panel an agent can emit at the end of a message (mirroring
@@ -203,8 +198,6 @@ interface ParsedControlsText<TSpec extends ControlsSpec = ControlsSpec> {
  */
 declare function parseControlsBlock(raw: string): ParsedControlsText;
 declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, validate: (value: unknown) => TSpec | null): ParsedControlsText<TSpec>;
-//#endregion
-//#region src/view.d.ts
 /**
  * Every component the agent may emit. `prompt` is the exact line VIEW_PROMPT
  * teaches for the entry — keep it terse: shape, then when to use it.
@@ -574,8 +567,6 @@ declare function parseViewBlock(raw: string): ParsedViewText;
  * asserts every catalog entry appears here, so prompt and validator move
  * together. */
 declare const VIEW_PROMPT: string;
-//#endregion
-//#region src/events.d.ts
 /**
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
@@ -1004,6 +995,5 @@ declare function threadTitleSnapshotEvent(state: {
   overarchingTask?: string | null | undefined;
   pivotCandidate?: string | null | undefined;
 }): ThreadTitleEvent;
-//#endregion
 export { SelectControl as A, parseQuestionBlock as B, parseViewBlock as C, ControlValues as D, Control as E, valuesEqual as F, fallbackChatTitle as G, CHAT_TITLE_RECENT_MESSAGE_LIMIT as H, ParsedQuestionText as I, toChatTitleMessages as J, normalizeChatTitle as K, QuestionItem as L, initialControlValues as M, parseControlsBlock as N, ControlsSpec as O, validateControls as P, QuestionSpec as R, ViewSpec as S, ColorControl as T, CHAT_TITLE_TASK_MAX_LENGTH as U, CHAT_TITLE_MAX_LENGTH as V, ChatTitleMessage as W, truncateChatTitle as Y, threadTitleSnapshotEvent as _, ChatStreamEvent as a, VIEW_PROMPT as b, McpServerStatus as c, ThreadTitleEvent as d, ToolCallDetail as f, threadTitleEvent as g, isTerminalEvent as h, BackgroundAgentStatus as i, SliderControl as j, ParsedControlsText as k, PROTOCOL_VERSION as l, ToolTaskMetadata as m, BackgroundAgent as n, McpElicitation as o, ToolPlanItem as p, normalizeTaskSummary as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, PendingMessage as u, ParsedViewText as v, validateViewSpec as w, ViewComponent as x, VIEW_CATALOG as y, formatQuestionAnswers as z };
-//# sourceMappingURL=events-CemOHIZt.d.ts.map
+//# sourceMappingURL=events-BuaIRj80.d.ts.map

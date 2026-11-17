@@ -1,5 +1,4 @@
-import { A as SelectControl, B as parseQuestionBlock, C as parseViewBlock, D as ControlValues, E as Control, F as valuesEqual, G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, I as ParsedQuestionText, J as toChatTitleMessages, K as normalizeChatTitle, L as QuestionItem, M as initialControlValues, N as parseControlsBlock, O as ControlsSpec, P as validateControls, R as QuestionSpec, S as ViewSpec, T as ColorControl, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, b as VIEW_PROMPT, c as McpServerStatus, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, h as isTerminalEvent, i as BackgroundAgentStatus, j as SliderControl, k as ParsedControlsText, l as PROTOCOL_VERSION, m as ToolTaskMetadata, n as BackgroundAgent, o as McpElicitation, p as ToolPlanItem, q as normalizeTaskSummary, r as BackgroundAgentProgress, s as McpElicitationAction, t as AbortReason, u as PendingMessage, v as ParsedViewText, w as validateViewSpec, x as ViewComponent, y as VIEW_CATALOG, z as formatQuestionAnswers } from "./events-CemOHIZt.js";
-//#region src/sse.d.ts
+import { A as SelectControl, B as parseQuestionBlock, C as parseViewBlock, D as ControlValues, E as Control, F as valuesEqual, G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, I as ParsedQuestionText, J as toChatTitleMessages, K as normalizeChatTitle, L as QuestionItem, M as initialControlValues, N as parseControlsBlock, O as ControlsSpec, P as validateControls, R as QuestionSpec, S as ViewSpec, T as ColorControl, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, b as VIEW_PROMPT, c as McpServerStatus, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, h as isTerminalEvent, i as BackgroundAgentStatus, j as SliderControl, k as ParsedControlsText, l as PROTOCOL_VERSION, m as ToolTaskMetadata, n as BackgroundAgent, o as McpElicitation, p as ToolPlanItem, q as normalizeTaskSummary, r as BackgroundAgentProgress, s as McpElicitationAction, t as AbortReason, u as PendingMessage, v as ParsedViewText, w as validateViewSpec, x as ViewComponent, y as VIEW_CATALOG, z as formatQuestionAnswers } from "./events-BuaIRj80.js";
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
 interface SseEvent {
@@ -50,8 +49,6 @@ declare function consumeSseResponse(res: Response, onEvent: (e: ChatStreamEvent)
 declare function consumeSseResponse<TEvent>(res: Response, onEvent: (e: TEvent) => void, options: ConsumeSseOptions<TEvent> & {
   mapEvent: (ev: SseEvent) => TEvent | null;
 }): Promise<void>;
-//#endregion
-//#region src/plan.d.ts
 /**
  * The proposed-plan block a plan-mode agent ends its final message with:
  *
@@ -84,8 +81,6 @@ interface ParsedPlanText {
   plan: PlanSpec | null;
 }
 declare function parseProposedPlan(raw: string): ParsedPlanText;
-//#endregion
-//#region src/html.d.ts
 /**
  * The ```agent-html``` grammar: a freeform generated page, streamed raw and
  * rendered in a sandboxed frame — the escape hatch for layouts and
@@ -150,8 +145,6 @@ interface ParsedHtmlText {
  * left in the prose as plain text, exactly like a rootless view block.
  */
 declare function parseHtmlBlock(raw: string): ParsedHtmlText;
-//#endregion
-//#region src/prompt.d.ts
 /**
  * The emit side of the generative-UI grammar: the prompt section that teaches
  * an agent when and how to end a message with an ```agent-question``` block.
@@ -196,6 +189,5 @@ declare const PLAN_PROMPT: string;
 declare const CHAT_PROMPT: string;
 /** Teaches the clarifying-question block. Framework- and DOM-agnostic. */
 declare const QUESTION_PROMPT: string;
-//#endregion
 export { type AbortReason, BUILD_PROMPT, type BackgroundAgent, type BackgroundAgentProgress, type BackgroundAgentStatus, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, type ChatStreamEvent, type ChatTitleMessage, type ColorControl, type ConsumeSseOptions, type Control, type ControlValues, type ControlsSpec, HTML_BLOCK_NAME, HTML_SEND_MAX, type HtmlFrameToParent, type HtmlHeightMessage, type HtmlParentToFrame, type HtmlReadyMessage, type HtmlSendMessage, type HtmlThemeMessage, type HtmlUpdateMessage, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, type McpElicitation, type McpElicitationAction, type McpServerStatus, PLAN_PROMPT, PROTOCOL_VERSION, type ParsedControlsText, type ParsedHtmlText, type ParsedPlanText, type ParsedQuestionText, type ParsedViewText, type PendingMessage, type PlanSpec, QUESTION_BLOCK_NAME, QUESTION_PROMPT, type QuestionItem, type QuestionSpec, type SelectControl, type SliderControl, type SseEvent, type SseParseResult, type ThreadTitleEvent, type ToolCallDetail, type ToolPlanItem, type ToolTaskMetadata, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, type ViewComponent, type ViewSpec, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatQuestionAnswers, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 //# sourceMappingURL=index.d.ts.map

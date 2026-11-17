@@ -1,6 +1,6 @@
-import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, F as normalizeTaskSummary, I as stripCodeFence, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, _ as LEGACY_QUESTION_BLOCK_NAME, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, u as validateViewComponent, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "../html-DySyLgTO.js";
+import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, F as normalizeTaskSummary, I as stripCodeFence, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, _ as LEGACY_QUESTION_BLOCK_NAME, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, u as validateViewComponent, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "../html-CaHnhy6k.js";
 import * as z from "zod";
-//#region src/server/tool-details.ts
+// src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
 	return value.trim() || void 0;
@@ -138,7 +138,6 @@ function toolCallDetails(info) {
 			case "Skill":
 				add("Skill", input.skill);
 				add("Arguments", input.args);
-				break;
 		}
 	}
 	if (details.length === 0) {
@@ -147,8 +146,7 @@ function toolCallDetails(info) {
 	}
 	return details;
 }
-//#endregion
-//#region src/server/text-stream.ts
+// src/server/text-stream.ts
 /**
 * Fence-aware chunking for streamed assistant prose.
 *
@@ -297,8 +295,7 @@ function createTextDeltaStream() {
 		}
 	};
 }
-//#endregion
-//#region src/server/bridge.ts
+// src/server/bridge.ts
 function createChatEventBridge(emit, options = {}) {
 	let announcedSessionId = options.knownSessionId;
 	let terminal = false;
@@ -523,15 +520,14 @@ function createChatEventBridge(emit, options = {}) {
 		}
 	};
 }
-//#endregion
-//#region src/server/task-store.ts
+// src/server/task-store.ts
 /** The events an in-flight assistant message resolves into. Once one is
 * buffered, every fragment held so far describes content the transcript now
 * owns. */
 function completesAssistantMessage(ev) {
 	return ev.type === "assistant_text" || ev.type === "question" || ev.type === "controls" || ev.type === "plan" || ev.type === "view" || ev.type === "html";
 }
-const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
+const DEFAULT_COMPLETE_TTL_MS = 3e5;
 /** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
 * cause its peers to be skipped, and a broken one can't block the rest. */
 function notify(task, ev) {
@@ -694,8 +690,7 @@ function parseJsonObject(raw) {
 		}
 	}
 }
-//#endregion
-//#region src/server/title.ts
+// src/server/title.ts
 const CHAT_TITLE_MODELS = {
 	claude: "haiku",
 	codex: "gpt-5.6-luna"
@@ -866,8 +861,7 @@ function createChatTitleGenerator(options) {
 		}
 	};
 }
-//#endregion
-//#region src/server/thread-title.ts
+// src/server/thread-title.ts
 const ModelTitle = z.object({
 	title: z.string(),
 	needsRefinement: z.boolean().optional()
@@ -1016,7 +1010,6 @@ function createThreadTitleGenerator(options) {
 		}
 	};
 }
-//#endregion
 export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, createChatEventBridge, createChatTitleGenerator, createTaskStore, createThreadTitleGenerator, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 
 //# sourceMappingURL=index.js.map

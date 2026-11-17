@@ -153,9 +153,21 @@ describe("parseProposedPlan", () => {
     expect(parsed.plan).toBeNull();
   });
 
-  it("rejects a plan over the length ceiling", () => {
-    const parsed = parseProposedPlan(wrap("# T\n" + "x".repeat(120_000)));
+  it("lifts a plan up to the size ceiling, such as an HTML page", () => {
+    const parsed = parseProposedPlan(wrap("# T\n" + "x".repeat(150_000)));
+    expect(parsed.plan?.title).toBe("T");
+  });
+
+  it("rejects a plan over the size ceiling", () => {
+    const parsed = parseProposedPlan(wrap("# T\n" + "x".repeat(300_000)));
     expect(parsed.plan).toBeNull();
+  });
+
+  it("measures the ceiling in bytes", () => {
+    // 100k euro signs: under the ceiling in UTF-16 units, over it in bytes.
+    const raw = wrap("# T\n" + "€".repeat(100_000));
+    expect(raw.length).toBeLessThan(262_144);
+    expect(parseProposedPlan(raw).plan).toBeNull();
   });
 
   it("lifts only the first block; later ones stay as text", () => {
