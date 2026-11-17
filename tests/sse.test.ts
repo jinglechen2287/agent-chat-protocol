@@ -530,6 +530,27 @@ describe("mapSseToChatEvent", () => {
     expect(mapSseToChatEvent({ event: "user_message", data: { ...data, ts: "now" } })).toBeNull();
   });
 
+  it("maps a steer's files, and a steer of files alone", () => {
+    const file = { id: "a1", name: "shot.png", mimeType: "image/png", size: 12 };
+    const steer = {
+      type: "user_message" as const,
+      text: "look at this",
+      steerId: "steer-1",
+      turnId: "turn-1",
+      mode: "edit",
+      ts: 1,
+      attachments: [file],
+    };
+    expect(mapSseToChatEvent(toSseEvent(steer))).toEqual(steer);
+    const filesOnly = { ...steer, text: "" };
+    expect(mapSseToChatEvent(toSseEvent(filesOnly))).toEqual(filesOnly);
+    const { type: _type, ...data } = steer;
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, text: "", attachments: [] } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, attachments: [{ ...file, id: "" }] } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, attachments: [{ ...file, size: -1 }] } })).toBeNull();
+    expect(mapSseToChatEvent({ event: "user_message", data: { ...data, attachments: "a1" } })).toBeNull();
+  });
+
   it("maps a non-empty thread title", () => {
     expect(
       mapSseToChatEvent({ event: "thread_title", data: { title: "Fix login redirect" } }),
@@ -898,6 +919,20 @@ describe("pending_messages", () => {
       revision: 1,
       messages: [{ id: "s1", kind: "steer", text: "hi", mode: "edit", ts: 1, from: { threadId: "t2", title: "P", machineId: 3 } }],
     })).toBeNull();
+  });
+
+  it("keeps a waiting message's files", () => {
+    const file = { id: "a1", name: "notes.pdf", mimeType: "application/pdf", size: 2048 };
+    const ev: ChatStreamEvent = {
+      type: "pending_messages",
+      revision: 2,
+      messages: [{ id: "q1", kind: "queue", text: "", mode: "edit", ts: 1, attachments: [file] }],
+    };
+    expect(roundTrip(ev)).toEqual(ev);
+    const good = { id: "q1", kind: "queue", text: "x", mode: "edit", ts: 1 };
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, attachments: [{ ...file, name: "" }] }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, attachments: [{ ...file, size: 1.5 }] }] })).toBeNull();
+    expect(decode("pending_messages", { revision: 1, messages: [{ ...good, attachments: {} }] })).toBeNull();
   });
 
   it("round-trips an empty snapshot", () => {

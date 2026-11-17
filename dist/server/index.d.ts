@@ -1,4 +1,4 @@
-import { G as fallbackChatTitle, H as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as toChatTitleMessages, K as normalizeChatTitle, O as ControlsSpec, U as CHAT_TITLE_TASK_MAX_LENGTH, V as CHAT_TITLE_MAX_LENGTH, W as ChatTitleMessage, Y as truncateChatTitle, _ as threadTitleSnapshotEvent, a as ChatStreamEvent, d as ThreadTitleEvent, f as ToolCallDetail, g as threadTitleEvent, m as ToolTaskMetadata, q as normalizeTaskSummary } from "../events-BuaIRj80.js";
+import { G as ChatTitleMessage, H as CHAT_TITLE_MAX_LENGTH, J as normalizeTaskSummary, K as fallbackChatTitle, U as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as CHAT_TITLE_TASK_MAX_LENGTH, X as truncateChatTitle, Y as toChatTitleMessages, _ as threadTitleEvent, f as ThreadTitleEvent, h as ToolTaskMetadata, k as ControlsSpec, o as ChatStreamEvent, p as ToolCallDetail, q as normalizeChatTitle, v as threadTitleSnapshotEvent } from "../events-B4lbQ-Ft.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 interface ChatEventBridgeOptions {
   /**

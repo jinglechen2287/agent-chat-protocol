@@ -196,7 +196,10 @@ function mapSseToChatEvent(ev) {
 			const turnId = get("turnId");
 			const mode = get("mode");
 			const ts = get("ts");
-			if (typeof text !== "string" || text.trim() === "") return null;
+			const attachments = attachmentRefs(get("attachments"));
+			if (attachments === null) return null;
+			if (typeof text !== "string") return null;
+			if (text.trim() === "" && attachments.length === 0) return null;
 			if (typeof steerId !== "string" || steerId === "") return null;
 			if (typeof turnId !== "string" || turnId === "") return null;
 			if (typeof mode !== "string" || !Number.isFinite(ts)) return null;
@@ -206,7 +209,8 @@ function mapSseToChatEvent(ev) {
 				steerId,
 				turnId,
 				mode,
-				ts
+				ts,
+				...attachments.length > 0 ? { attachments } : {}
 			};
 		}
 		case "background_agent_updated": {
@@ -362,7 +366,9 @@ function pendingMessages(value) {
 	const messages = [];
 	for (const entry of value) {
 		if (typeof entry !== "object" || entry === null) return null;
-		const { id, kind, text, mode, ts, from } = entry;
+		const { id, kind, text, mode, ts, from, attachments: rawAttachments } = entry;
+		const attachments = attachmentRefs(rawAttachments);
+		if (attachments === null) return null;
 		if (typeof id !== "string" || id === "") return null;
 		if (kind !== "steer" && kind !== "queue") return null;
 		if (typeof text !== "string" || typeof mode !== "string") return null;
@@ -387,10 +393,32 @@ function pendingMessages(value) {
 			text,
 			mode,
 			ts,
-			...sender ? { from: sender } : {}
+			...sender ? { from: sender } : {},
+			...attachments.length > 0 ? { attachments } : {}
 		});
 	}
 	return messages;
+}
+/** A message's files: none when absent, null when any is malformed. */
+function attachmentRefs(value) {
+	if (value === void 0) return [];
+	if (!Array.isArray(value)) return null;
+	const refs = [];
+	for (const entry of value) {
+		if (typeof entry !== "object" || entry === null) return null;
+		const { id, name, mimeType, size } = entry;
+		if (typeof id !== "string" || id === "") return null;
+		if (typeof name !== "string" || name === "") return null;
+		if (typeof mimeType !== "string" || mimeType === "") return null;
+		if (!Number.isSafeInteger(size) || size < 0) return null;
+		refs.push({
+			id,
+			name,
+			mimeType,
+			size
+		});
+	}
+	return refs;
 }
 function mcpServerStatuses(value) {
 	if (!Array.isArray(value)) return null;

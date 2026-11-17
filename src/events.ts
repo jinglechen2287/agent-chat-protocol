@@ -89,6 +89,16 @@ export type McpElicitation = { id: string; serverName: string; message: string }
 
 export type McpElicitationAction = "accept" | "decline" | "cancel";
 
+/** A file the user sent with a message, as the host stores it. `id` names it
+ * to the host's attachment route; the bytes never ride the stream. */
+export interface AttachmentRef {
+  id: string;
+  name: string;
+  mimeType: string;
+  /** Bytes. */
+  size: number;
+}
+
 /** Words the user sent that wait on the host: a `steer` for the running turn
  * the agent hasn't taken yet, or a `queue`d message to run as a turn of its
  * own once the thread is free. `id` is the id the sending client minted. */
@@ -103,6 +113,8 @@ export interface PendingMessage {
   /** Another thread's agent sent it; on another of the host's machines when
    * `machineId` is given. */
   from?: { threadId: string; title: string; machineId?: string; machineName?: string };
+  /** Files sent with it; absent when none. */
+  attachments?: AttachmentRef[];
 }
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
@@ -330,7 +342,8 @@ export type ChatStreamEvent =
    * output before it and after it — and MUST NOT start a new turn for it.
    * `steerId` is the id the sending client minted, so it can retire its own
    * optimistic copy; `turnId` names the turn steered and `mode` the chat mode
-   * the turn runs in (an app-defined string).
+   * the turn runs in (an app-defined string). A steer may carry files, and
+   * then `text` may be blank.
    */
   | {
       type: "user_message";
@@ -340,6 +353,8 @@ export type ChatStreamEvent =
       mode: string;
       /** Unix milliseconds the agent took the message. */
       ts: number;
+      /** Files sent with the steer; absent when none. */
+      attachments?: AttachmentRef[];
     }
   /**
    * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it

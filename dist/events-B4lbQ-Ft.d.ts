@@ -637,6 +637,15 @@ type McpElicitation = {
   url: string;
 });
 type McpElicitationAction = "accept" | "decline" | "cancel";
+/** A file the user sent with a message, as the host stores it. `id` names it
+ * to the host's attachment route; the bytes never ride the stream. */
+interface AttachmentRef {
+  id: string;
+  name: string;
+  mimeType: string;
+  /** Bytes. */
+  size: number;
+}
 /** Words the user sent that wait on the host: a `steer` for the running turn
  * the agent hasn't taken yet, or a `queue`d message to run as a turn of its
  * own once the thread is free. `id` is the id the sending client minted. */
@@ -656,6 +665,8 @@ interface PendingMessage {
     machineId?: string;
     machineName?: string;
   };
+  /** Files sent with it; absent when none. */
+  attachments?: AttachmentRef[];
 }
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
@@ -928,7 +939,8 @@ type ChatStreamEvent =
  * output before it and after it — and MUST NOT start a new turn for it.
  * `steerId` is the id the sending client minted, so it can retire its own
  * optimistic copy; `turnId` names the turn steered and `mode` the chat mode
- * the turn runs in (an app-defined string).
+ * the turn runs in (an app-defined string). A steer may carry files, and
+ * then `text` may be blank.
  */
 {
   type: "user_message";
@@ -938,6 +950,8 @@ type ChatStreamEvent =
   mode: string;
   /** Unix milliseconds the agent took the message. */
   ts: number;
+  /** Files sent with the steer; absent when none. */
+  attachments?: AttachmentRef[];
 } |
 /**
  * Raw stderr from the agent CLI. Diagnostic channel — clients MAY ignore it
@@ -995,5 +1009,5 @@ declare function threadTitleSnapshotEvent(state: {
   overarchingTask?: string | null | undefined;
   pivotCandidate?: string | null | undefined;
 }): ThreadTitleEvent;
-export { SelectControl as A, parseQuestionBlock as B, parseViewBlock as C, ControlValues as D, Control as E, valuesEqual as F, fallbackChatTitle as G, CHAT_TITLE_RECENT_MESSAGE_LIMIT as H, ParsedQuestionText as I, toChatTitleMessages as J, normalizeChatTitle as K, QuestionItem as L, initialControlValues as M, parseControlsBlock as N, ControlsSpec as O, validateControls as P, QuestionSpec as R, ViewSpec as S, ColorControl as T, CHAT_TITLE_TASK_MAX_LENGTH as U, CHAT_TITLE_MAX_LENGTH as V, ChatTitleMessage as W, truncateChatTitle as Y, threadTitleSnapshotEvent as _, ChatStreamEvent as a, VIEW_PROMPT as b, McpServerStatus as c, ThreadTitleEvent as d, ToolCallDetail as f, threadTitleEvent as g, isTerminalEvent as h, BackgroundAgentStatus as i, SliderControl as j, ParsedControlsText as k, PROTOCOL_VERSION as l, ToolTaskMetadata as m, BackgroundAgent as n, McpElicitation as o, ToolPlanItem as p, normalizeTaskSummary as q, BackgroundAgentProgress as r, McpElicitationAction as s, AbortReason as t, PendingMessage as u, ParsedViewText as v, validateViewSpec as w, ViewComponent as x, VIEW_CATALOG as y, formatQuestionAnswers as z };
-//# sourceMappingURL=events-BuaIRj80.d.ts.map
+export { ParsedControlsText as A, formatQuestionAnswers as B, ViewSpec as C, Control as D, ColorControl as E, validateControls as F, ChatTitleMessage as G, CHAT_TITLE_MAX_LENGTH as H, valuesEqual as I, normalizeTaskSummary as J, fallbackChatTitle as K, ParsedQuestionText as L, SliderControl as M, initialControlValues as N, ControlValues as O, parseControlsBlock as P, QuestionItem as R, ViewComponent as S, validateViewSpec as T, CHAT_TITLE_RECENT_MESSAGE_LIMIT as U, parseQuestionBlock as V, CHAT_TITLE_TASK_MAX_LENGTH as W, truncateChatTitle as X, toChatTitleMessages as Y, threadTitleEvent as _, BackgroundAgentStatus as a, VIEW_CATALOG as b, McpElicitationAction as c, PendingMessage as d, ThreadTitleEvent as f, isTerminalEvent as g, ToolTaskMetadata as h, BackgroundAgentProgress as i, SelectControl as j, ControlsSpec as k, McpServerStatus as l, ToolPlanItem as m, AttachmentRef as n, ChatStreamEvent as o, ToolCallDetail as p, normalizeChatTitle as q, BackgroundAgent as r, McpElicitation as s, AbortReason as t, PROTOCOL_VERSION as u, threadTitleSnapshotEvent as v, parseViewBlock as w, VIEW_PROMPT as x, ParsedViewText as y, QuestionSpec as z };
+//# sourceMappingURL=events-B4lbQ-Ft.d.ts.map

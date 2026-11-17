@@ -20,6 +20,7 @@ import type {
   ToolTaskMetadata,
   McpElicitation,
   McpServerStatus,
+  AttachmentRef,
   PendingMessage,
 } from "./events";
 import type { QuestionItem } from "./question";
@@ -239,11 +240,23 @@ export function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null {
       const turnId = get("turnId");
       const mode = get("mode");
       const ts = get("ts");
-      if (typeof text !== "string" || text.trim() === "") return null;
+      const attachments = attachmentRefs(get("attachments"));
+      if (attachments === null) return null;
+      if (typeof text !== "string") return null;
+      // Words, files, or both: a steer of files alone has no text.
+      if (text.trim() === "" && attachments.length === 0) return null;
       if (typeof steerId !== "string" || steerId === "") return null;
       if (typeof turnId !== "string" || turnId === "") return null;
       if (typeof mode !== "string" || !Number.isFinite(ts)) return null;
-      return { type: "user_message", text, steerId, turnId, mode, ts: ts as number };
+      return {
+        type: "user_message",
+        text,
+        steerId,
+        turnId,
+        mode,
+        ts: ts as number,
+        ...(attachments.length > 0 ? { attachments } : {}),
+      };
     }
     case "background_agent_updated": {
       const agent = backgroundAgent(get("agent"));
@@ -411,7 +424,9 @@ function pendingMessages(value: unknown): PendingMessage[] | null {
   const messages: PendingMessage[] = [];
   for (const entry of value) {
     if (typeof entry !== "object" || entry === null) return null;
-    const { id, kind, text, mode, ts, from } = entry as Record<string, unknown>;
+    const { id, kind, text, mode, ts, from, attachments: rawAttachments } = entry as Record<string, unknown>;
+    const attachments = attachmentRefs(rawAttachments);
+    if (attachments === null) return null;
     if (typeof id !== "string" || id === "") return null;
     if (kind !== "steer" && kind !== "queue") return null;
     if (typeof text !== "string" || typeof mode !== "string") return null;
@@ -430,9 +445,34 @@ function pendingMessages(value: unknown): PendingMessage[] | null {
         ...(machineName !== undefined ? { machineName } : {}),
       };
     }
-    messages.push({ id, kind, text, mode, ts, ...(sender ? { from: sender } : {}) });
+    messages.push({
+      id,
+      kind,
+      text,
+      mode,
+      ts,
+      ...(sender ? { from: sender } : {}),
+      ...(attachments.length > 0 ? { attachments } : {}),
+    });
   }
   return messages;
+}
+
+/** A message's files: none when absent, null when any is malformed. */
+function attachmentRefs(value: unknown): AttachmentRef[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const refs: AttachmentRef[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) return null;
+    const { id, name, mimeType, size } = entry as Record<string, unknown>;
+    if (typeof id !== "string" || id === "") return null;
+    if (typeof name !== "string" || name === "") return null;
+    if (typeof mimeType !== "string" || mimeType === "") return null;
+    if (!Number.isSafeInteger(size) || (size as number) < 0) return null;
+    refs.push({ id, name, mimeType, size: size as number });
+  }
+  return refs;
 }
 
 function mcpServerStatuses(value: unknown): McpServerStatus[] | null {

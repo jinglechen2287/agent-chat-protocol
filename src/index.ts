@@ -31,6 +31,7 @@ export {
   type McpElicitation,
   type McpElicitationAction,
   type McpServerStatus,
+  type AttachmentRef,
   type PendingMessage,
   type BackgroundAgentStatus,
   type ChatStreamEvent,
