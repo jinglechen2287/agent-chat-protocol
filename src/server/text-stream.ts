@@ -22,6 +22,7 @@
  * lifts the plan first, so inside one they are text like any other.
  */
 
+import { closingLine } from "../block";
 import {
   CONTROLS_BLOCK_NAME,
   HTML_BLOCK_NAME,
@@ -125,9 +126,12 @@ export function createTextDeltaStream(): TextDeltaStream {
       if (newline === -1) break;
       const line = raw.slice(current.scan, newline).replace(/\r$/, "");
       current.scan = newline + 1;
-      // Only a bare ``` line closes the block: a content line like ```js
-      // (a fenced example inside the page) opens a nested fence instead.
-      if (line.trim() === FENCE) {
+      // The completed parser's closing rule: a bare ``` line closes either
+      // block (a content line like ```js opens a nested fence instead), and a
+      // view also closes at a record that ends in ```.
+      const close = closingLine(line, current.kind === "view");
+      if (close) {
+        if (close.bodyTail.trim()) viewLines.push(close.bodyTail.trimEnd());
         block = null;
         break;
       }

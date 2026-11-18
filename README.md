@@ -144,7 +144,7 @@ import { parseQuestionBlock, parseControlsBlock } from "agent-chat-protocol";
 
 A question block holds one question, `{"question", "options", "multi"?}`, or a list of them, `{"questions": [...]}`, with no limit on how many. Any invalid question leaves the whole block as text.
 
-Canonical fence names are `agent-question` / `agent-controls`; the legacy `carve-question` / `carve-controls` fences are accepted during migration but should not be taught to agents. Malformed blocks are left in the prose as plain text — a slightly raw message beats a dropped one. A valid controls block suppresses its surrounding prose entirely (the panel is the message).
+Canonical fence names are `agent-question` / `agent-controls`; the legacy `carve-question` / `carve-controls` fences are accepted during migration but should not be taught to agents. A block ends at the first line holding only ```` ``` ````; question, controls and view blocks also end at a `}` followed by ```` ``` ```` at the end of a line. Malformed blocks are left in the prose as plain text — a slightly raw message beats a dropped one. A valid controls block suppresses its surrounding prose entirely (the panel is the message).
 
 The core controls schema (`ControlsSpec`) is `{ title?, controls }` — the widgets only — validated defensively (bounded counts and lengths, clamped slider values, duplicate-id rejection). `validateControls` returns the canonical core spec or `null`, ignoring unknown fields.
 

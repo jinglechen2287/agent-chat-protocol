@@ -49,29 +49,84 @@ export function splitPatternFinder(open: RegExp, rest: RegExp): BlockFinder {
   };
 }
 
+const FENCE = "```";
+
+/**
+ * Where one line of a fenced block, its "\r" already stripped, closes the
+ * block, or null when it doesn't. The completed parser and the streamer both
+ * ask this, so they can't disagree about where a block ends.
+ *
+ * - A line holding only ``` closes any block, whitespace around it allowed
+ *   (the whitespace `trim()` removes), and the whole line goes with it.
+ * - With `json`, for blocks whose body is JSON (question, controls, view),
+ *   the first ``` outside a JSON string closes the block too, wherever it sits
+ *   on the line: what precedes it is the last of the body, and what follows
+ *   it stays prose. A ``` inside a string, such as a code fence in a Markdown
+ *   component's value, never closes the block, unless the string is still
+ *   open at the end of the line, which no valid JSON is.
+ *
+ * `bodyTail` is the part of the line that belongs to the body; `end` is where
+ * the block ends within the line.
+ */
+export function closingLine(line: string, json: boolean): { bodyTail: string; end: number } | null {
+  if (line.trim() === FENCE) return { bodyTail: "", end: line.length };
+  if (!json) return null;
+  // JSON strings can't span lines, so string state starts fresh per line.
+  let inString = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (inString) {
+      if (char === "\\") i += 1;
+      else if (char === '"') inString = false;
+    } else if (char === '"') {
+      inString = true;
+    } else if (char === "`" && line.startsWith(FENCE, i)) {
+      const after = i + FENCE.length;
+      return { bodyTail: line.slice(0, i), end: line.slice(after).trim() === "" ? line.length : after };
+    }
+  }
+  // A string still open at the end of the line was never valid JSON, so a
+  // fence ending that line closes the block after all: the malformed record
+  // is skipped and the valid ones before it still render.
+  const trimmed = line.trimEnd();
+  if (inString && trimmed.endsWith(FENCE)) {
+    return { bodyTail: trimmed.slice(0, -FENCE.length), end: line.length };
+  }
+  return null;
+}
+
 /**
  * The finder for the first fenced block whose info string is exactly one of
  * `names` (trailing spaces allowed), so an ordinary ```json block never
- * matches.
- *
- * - `inline`: the closing fence may follow the last body line directly.
- * - `own-line`: the closing fence must sit alone on its line, so backticks
- *   inside the body (a JS template literal, a ```js example) can't end it.
+ * matches. The block ends at the first line {@link closingLine} accepts, read
+ * one line at a time, so a ``` in the middle of a line (a code fence inside a
+ * JSON string, a JS template literal) never ends it early.
  */
-export function fencedPatternFinder(
-  names: readonly string[],
-  close: "inline" | "own-line",
-): BlockFinder {
+export function fencedBlockFinder(names: readonly string[], json: boolean): BlockFinder {
   const info = names.length === 1 ? names[0]! : `(?:${names.join("|")})`;
-  return splitPatternFinder(
-    new RegExp("```" + info + "[^\\S\\r\\n]*\\r?\\n", "g"),
-    new RegExp(
-      close === "inline"
-        ? "([\\s\\S]*?)\\r?\\n?```"
-        : "([\\s\\S]*?)\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)",
-      "y",
-    ),
-  );
+  const open = new RegExp(FENCE + info + "[^\\S\\r\\n]*\\r?\\n", "g");
+  return (raw) => {
+    // A shared regex carries lastIndex between calls.
+    open.lastIndex = 0;
+    const opening = open.exec(raw);
+    if (!opening) return null;
+    const bodyStart = opening.index + opening[0].length;
+    for (let lineStart = bodyStart; ; ) {
+      const newline = raw.indexOf("\n", lineStart);
+      const lineEnd = newline === -1 ? raw.length : newline;
+      const line = raw.slice(lineStart, lineEnd).replace(/\r$/, "");
+      const close = closingLine(line, json);
+      if (close) {
+        // The lines before the closing one, without the line break that ends
+        // them, then whatever part of the closing line is still body.
+        const lines = raw.slice(bodyStart, lineStart);
+        const body = close.bodyTail === "" ? lines.replace(/\r?\n$/, "") : lines + close.bodyTail;
+        return { index: opening.index, end: lineStart + close.end, body };
+      }
+      if (newline === -1) return null;
+      lineStart = newline + 1;
+    }
+  };
 }
 
 /**

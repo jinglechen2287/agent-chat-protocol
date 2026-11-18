@@ -22,7 +22,7 @@
  * The legacy `carve-question` fence is accepted during migration.
  */
 
-import { extractBlock, fencedPatternFinder } from "./block";
+import { extractBlock, fencedBlockFinder } from "./block";
 import { isRecord } from "./guards";
 import { LEGACY_QUESTION_BLOCK_NAME, QUESTION_BLOCK_NAME } from "./prompt";
 
@@ -63,7 +63,7 @@ const MAX_OPTIONS = 8;
 const MAX_QUESTION_LENGTH = 500;
 const MAX_OPTION_LENGTH = 500;
 
-const findBlock = fencedPatternFinder([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], "inline");
+const findBlock = fencedBlockFinder([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], true);
 
 export function parseQuestionBlock(raw: string): ParsedQuestionText {
   const { text, value } = extractBlock(raw, findBlock, parseBlockBody);

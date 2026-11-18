@@ -14,7 +14,7 @@
  * as plain text.
  */
 
-import { extractBlock, fencedPatternFinder, utf8Length } from "./block";
+import { extractBlock, fencedBlockFinder, utf8Length } from "./block";
 import { isRecord } from "./guards";
 import { HTML_BLOCK_NAME } from "./prompt";
 
@@ -94,11 +94,11 @@ export interface ParsedHtmlText {
   html: string | null;
 }
 
-/** Matches the first agent-html fenced block. The closing fence must sit
- * alone on its own line (optional surrounding whitespace) so backticks
- * inside the document — a JS template literal or a ```js example line —
- * cannot end the block early. */
-const findBlock = fencedPatternFinder([HTML_BLOCK_NAME], "own-line");
+/** Finds the first agent-html fenced block. The closing fence must sit alone
+ * on its own line (optional surrounding whitespace) so backticks inside the
+ * document, a JS template literal or a ```js example line, cannot end the
+ * block early. */
+const findBlock = fencedBlockFinder([HTML_BLOCK_NAME], false);
 
 /**
  * Extracts the first ```agent-html``` block. An empty or oversized block is

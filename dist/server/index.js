@@ -1,4 +1,4 @@
-import { B as CHAT_TITLE_TASK_MAX_LENGTH, D as definedProps, E as VIEW_BLOCK_NAME, G as toChatTitleMessages, H as normalizeChatTitle, I as threadTitleEvent, K as truncateChatTitle, L as threadTitleSnapshotEvent, M as isRecord, R as CHAT_TITLE_MAX_LENGTH, S as LEGACY_QUESTION_BLOCK_NAME, U as normalizeTaskSummary, V as fallbackChatTitle, W as stripCodeFence, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as CHAT_TITLE_RECENT_MESSAGE_LIMIT } from "../html-VviOCg__.js";
+import { B as CHAT_TITLE_RECENT_MESSAGE_LIMIT, D as definedProps, E as VIEW_BLOCK_NAME, G as stripCodeFence, H as fallbackChatTitle, K as toChatTitleMessages, L as threadTitleEvent, M as isRecord, P as closingLine, R as threadTitleSnapshotEvent, S as LEGACY_QUESTION_BLOCK_NAME, U as normalizeChatTitle, V as CHAT_TITLE_TASK_MAX_LENGTH, W as normalizeTaskSummary, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, q as truncateChatTitle, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as CHAT_TITLE_MAX_LENGTH } from "../html-jfFyGAKB.js";
 import * as z from "zod";
 // src/server/tool-details.ts
 function text(value) {
@@ -294,7 +294,9 @@ function createTextDeltaStream() {
 			if (newline === -1) break;
 			const line = raw.slice(current.scan, newline).replace(/\r$/, "");
 			current.scan = newline + 1;
-			if (line.trim() === FENCE) {
+			const close = closingLine(line, current.kind === "view");
+			if (close) {
+				if (close.bodyTail.trim()) viewLines.push(close.bodyTail.trimEnd());
 				block = null;
 				break;
 			}
