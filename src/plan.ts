@@ -42,7 +42,9 @@ const MAX_PLAN_BYTES = 262_144;
  * is never mistaken for a block. Non-greedy: stops at the first closing tag. */
 const findBlock = splitPatternFinder(
   /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n/g,
-  /([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/y,
+  // `??`: a closing tag right after the opening line closes an empty block,
+  // which then stays prose, instead of the match running on to a later tag.
+  /(?:([\s\S]*?)\r?\n)??[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*\r?(?=\n|$)/y,
 );
 
 /** The first ATX heading in the plan markdown, used as the card title.

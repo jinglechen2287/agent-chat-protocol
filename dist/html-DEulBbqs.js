@@ -1161,7 +1161,7 @@ const MAX_PLAN_BYTES = 262144;
 /** Matches the first plan block. Both tags must sit on their own line
 * (surrounding whitespace allowed) so an inline mention of the tag in prose
 * is never mistaken for a block. Non-greedy: stops at the first closing tag. */
-const findBlock$1 = splitPatternFinder(/(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n/g, /([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/y);
+const findBlock$1 = splitPatternFinder(/(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n/g, /(?:([\s\S]*?)\r?\n)??[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*\r?(?=\n|$)/y);
 /** The first ATX heading in the plan markdown, used as the card title.
 * Scans line by line so `# comment` lines inside fenced code blocks are never
 * mistaken for headings; per CommonMark, only a closing marker of the same
@@ -1269,4 +1269,4 @@ function parseHtmlBlock(raw) {
 }
 export { isIndex as A, CHAT_TITLE_RECENT_MESSAGE_LIMIT as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, PROTOCOL_VERSION as F, stripCodeFence as G, fallbackChatTitle as H, isTerminalEvent as I, toChatTitleMessages as K, threadTitleEvent as L, isRecord as M, memberOf as N, hasOwn as O, closingLine as P, threadTitleSnapshotEvent as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, normalizeChatTitle as U, CHAT_TITLE_TASK_MAX_LENGTH as V, normalizeTaskSummary as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, truncateChatTitle as q, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, CHAT_TITLE_MAX_LENGTH as z };
 
-//# sourceMappingURL=html-jfFyGAKB.js.map
+//# sourceMappingURL=html-DEulBbqs.js.map

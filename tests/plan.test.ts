@@ -200,3 +200,18 @@ describe("BUILD_PROMPT", () => {
     expect(BUILD_PROMPT).toContain("no longer apply");
   });
 });
+
+describe("a plan block written with CRLF line endings", () => {
+  it("is lifted when a CRLF follows the closing tag", () => {
+    const parsed = parseProposedPlan("Intro\r\n<proposed_plan>\r\n# Plan\r\nStep one\r\n</proposed_plan>\r\nOutro");
+    expect(parsed.plan).toEqual({ planMarkdown: "# Plan\nStep one", title: "Plan" });
+    expect(parsed.text).toBe("Intro\r\nOutro");
+  });
+});
+
+describe("an empty plan block", () => {
+  it("closes at its own closing tag, keeping the prose after it", () => {
+    const parsed = parseProposedPlan("<proposed_plan>\r\n</proposed_plan>\r\nprose\r\n<proposed_plan>\r\n# P\r\n</proposed_plan>");
+    expect(parsed.text).toContain("prose");
+  });
+});
