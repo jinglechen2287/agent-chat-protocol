@@ -20,7 +20,7 @@
 // vitest's ESM/CJS interop resolves to undefined; the star form is stable
 // under both bun and vitest.
 import * as z from "zod";
-import { extractBlock, fencedBlockRe, utf8Length } from "./block";
+import { extractBlock, fencedPatternFinder, utf8Length } from "./block";
 import { hasOwn, isRecord } from "./guards";
 import { VIEW_BLOCK_NAME } from "./prompt";
 
@@ -358,7 +358,7 @@ export interface ParsedViewText {
   view: ViewSpec | null;
 }
 
-const BLOCK_RE = fencedBlockRe([VIEW_BLOCK_NAME], "inline");
+const findBlock = fencedPatternFinder([VIEW_BLOCK_NAME], "inline");
 
 /** One block line as JSON. A line that doesn't parse is reported apart from
  * one that parses to `null`, since only parsed values count toward
@@ -378,7 +378,7 @@ export function parseJsonLine(line: string): { ok: true; value: unknown } | { ok
  * malformed controls block.
  */
 export function parseViewBlock(raw: string): ParsedViewText {
-  const { text, value } = extractBlock(raw, BLOCK_RE, (body) => {
+  const { text, value } = extractBlock(raw, findBlock, (body) => {
     // The ceiling is in bytes: a multi-byte payload can be several times its
     // UTF-16 string length.
     if (utf8Length(body) > MAX_BLOCK_BYTES) return null;

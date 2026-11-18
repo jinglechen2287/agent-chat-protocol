@@ -16,7 +16,7 @@
  * The legacy `carve-controls` fence is accepted during migration.
  */
 
-import { extractBlock, fencedBlockRe } from "./block";
+import { extractBlock, fencedPatternFinder } from "./block";
 import { definedProps, isRecord } from "./guards";
 import { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME } from "./prompt";
 
@@ -207,7 +207,7 @@ export interface ParsedControlsText<TSpec extends ControlsSpec = ControlsSpec> {
   controls: TSpec | null;
 }
 
-const BLOCK_RE = fencedBlockRe([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
+const findBlock = fencedPatternFinder([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
 
 /**
  * Extracts the first controls block. `validate` defaults to the core
@@ -227,7 +227,7 @@ export function parseControlsBlock<TSpec extends ControlsSpec = ControlsSpec>(
     value: unknown,
   ) => TSpec | null,
 ): ParsedControlsText<TSpec> {
-  const { text, value } = extractBlock(raw, BLOCK_RE, (body) => {
+  const { text, value } = extractBlock(raw, findBlock, (body) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(body.trim());

@@ -14,7 +14,7 @@
  * as plain text.
  */
 
-import { extractBlock, fencedBlockRe, utf8Length } from "./block";
+import { extractBlock, fencedPatternFinder, utf8Length } from "./block";
 import { isRecord } from "./guards";
 import { HTML_BLOCK_NAME } from "./prompt";
 
@@ -98,14 +98,14 @@ export interface ParsedHtmlText {
  * alone on its own line (optional surrounding whitespace) so backticks
  * inside the document — a JS template literal or a ```js example line —
  * cannot end the block early. */
-const BLOCK_RE = fencedBlockRe([HTML_BLOCK_NAME], "own-line");
+const findBlock = fencedPatternFinder([HTML_BLOCK_NAME], "own-line");
 
 /**
  * Extracts the first ```agent-html``` block. An empty or oversized block is
  * left in the prose as plain text, exactly like a rootless view block.
  */
 export function parseHtmlBlock(raw: string): ParsedHtmlText {
-  const { text, value } = extractBlock(raw, BLOCK_RE, (rawBody) => {
+  const { text, value } = extractBlock(raw, findBlock, (rawBody) => {
     const body = rawBody.replace(/\r\n/g, "\n");
     const oversized = utf8Length(body) > MAX_HTML_BYTES;
     return oversized || body.trim().length === 0 ? null : body;

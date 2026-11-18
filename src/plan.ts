@@ -17,7 +17,7 @@
  * trained on.
  */
 
-import { extractBlock, utf8Length } from "./block";
+import { extractBlock, splitPatternFinder, utf8Length } from "./block";
 
 export interface PlanSpec {
   /** The plan body, verbatim markdown. */
@@ -40,8 +40,10 @@ const MAX_PLAN_BYTES = 262_144;
 /** Matches the first plan block. Both tags must sit on their own line
  * (surrounding whitespace allowed) so an inline mention of the tag in prose
  * is never mistaken for a block. Non-greedy: stops at the first closing tag. */
-const BLOCK_RE =
-  /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/;
+const findBlock = splitPatternFinder(
+  /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n/g,
+  /([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/y,
+);
 
 /** The first ATX heading in the plan markdown, used as the card title.
  * Scans line by line so `# comment` lines inside fenced code blocks are never
@@ -83,7 +85,7 @@ function planTitle(planMarkdown: string): string | null {
 }
 
 export function parseProposedPlan(raw: string): ParsedPlanText {
-  const { text, value } = extractBlock(raw, BLOCK_RE, (body): PlanSpec | null => {
+  const { text, value } = extractBlock(raw, findBlock, (body): PlanSpec | null => {
     const planMarkdown = body.replace(/\r\n/g, "\n").trim();
     if (!planMarkdown || utf8Length(planMarkdown) > MAX_PLAN_BYTES) return null;
     return { planMarkdown, title: planTitle(planMarkdown) };

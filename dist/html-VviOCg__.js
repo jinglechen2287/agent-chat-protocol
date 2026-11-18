@@ -149,44 +149,70 @@ function utf8Length(text) {
 	return encoder.encode(text).length;
 }
 /**
-* The regex for the first fenced block whose info string is exactly one of
-* `names` (trailing spaces allowed), with the body in group 1, so an ordinary
-* ```json block never matches.
+* A finder from a grammar split at the end of its opening line: `open`
+* (global) finds the opening line, and `rest` (sticky) matches the body,
+* group 1, and the closing line from where the opening ends.
+*
+* Only the first opener is tried. Any closer after a later opener also comes
+* after the first, and the body may span opener lines, so if any opener
+* matches the first one does: the result equals an unanchored search, without
+* the unanchored search's restart at every opener, which made a run of
+* unclosed openers cost time quadratic in the message length.
+*/
+function splitPatternFinder(open, rest) {
+	return (raw) => {
+		open.lastIndex = 0;
+		const opening = open.exec(raw);
+		if (!opening) return null;
+		rest.lastIndex = opening.index + opening[0].length;
+		const tail = rest.exec(raw);
+		if (!tail) return null;
+		return {
+			index: opening.index,
+			end: rest.lastIndex,
+			body: tail[1] ?? ""
+		};
+	};
+}
+/**
+* The finder for the first fenced block whose info string is exactly one of
+* `names` (trailing spaces allowed), so an ordinary ```json block never
+* matches.
 *
 * - `inline`: the closing fence may follow the last body line directly.
 * - `own-line`: the closing fence must sit alone on its line, so backticks
 *   inside the body (a JS template literal, a ```js example) can't end it.
 */
-function fencedBlockRe(names, close) {
-	const open = "```" + (names.length === 1 ? names[0] : `(?:${names.join("|")})`) + "[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)";
-	return new RegExp(close === "inline" ? open + "\\r?\\n?```" : open + "\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)");
+function fencedPatternFinder(names, close) {
+	const info = names.length === 1 ? names[0] : `(?:${names.join("|")})`;
+	return splitPatternFinder(new RegExp("```" + info + "[^\\S\\r\\n]*\\r?\\n", "g"), new RegExp(close === "inline" ? "([\\s\\S]*?)\\r?\\n?```" : "([\\s\\S]*?)\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)", "y"));
 }
 /**
-* `raw` with the matched block cut out. Removing a block from the middle of a
-* message leaves the blank lines that bracketed it stacked together, so those
-* collapse to one blank line and the result is trimmed.
+* `raw` with the block cut out. Removing a block from the middle of a message
+* leaves the blank lines that bracketed it stacked together, so those collapse
+* to one blank line and the result is trimmed.
 */
-function withoutMatch(raw, match) {
-	return (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim();
+function withoutBlock(raw, block) {
+	return (raw.slice(0, block.index) + raw.slice(block.end)).replace(/\n{3,}/g, "\n\n").trim();
 }
 /**
-* Finds the first block `re` matches and decodes its body (group 1). A block
-* that `decode` rejects with null stays in the prose as plain text: a
-* slightly raw message beats a dropped one.
+* Finds the first block and decodes its body. A block that `decode` rejects
+* with null stays in the prose as plain text: a slightly raw message beats a
+* dropped one.
 */
-function extractBlock(raw, re, decode) {
-	const match = re.exec(raw);
-	if (!match) return {
+function extractBlock(raw, find, decode) {
+	const block = find(raw);
+	if (!block) return {
 		text: raw,
 		value: null
 	};
-	const value = decode(match[1] ?? "");
+	const value = decode(block.body);
 	if (value === null) return {
 		text: raw,
 		value: null
 	};
 	return {
-		text: withoutMatch(raw, match),
+		text: withoutBlock(raw, block),
 		value
 	};
 }
@@ -466,9 +492,9 @@ function valuesEqual(a, b) {
 	}
 	return true;
 }
-const BLOCK_RE$4 = fencedBlockRe([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
+const findBlock$4 = fencedPatternFinder([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
 function parseControlsBlock(raw, validate = validateControls) {
-	const { text, value } = extractBlock(raw, BLOCK_RE$4, (body) => {
+	const { text, value } = extractBlock(raw, findBlock$4, (body) => {
 		let parsed;
 		try {
 			parsed = JSON.parse(body.trim());
@@ -882,7 +908,7 @@ function validateViewSpec(value) {
 	visit(root, 1);
 	return { components: ordered };
 }
-const BLOCK_RE$3 = fencedBlockRe([VIEW_BLOCK_NAME], "inline");
+const findBlock$3 = fencedPatternFinder([VIEW_BLOCK_NAME], "inline");
 /** One block line as JSON. A line that doesn't parse is reported apart from
 * one that parses to `null`, since only parsed values count toward
 * {@link MAX_VALIDATED_ENTRIES}. */
@@ -903,7 +929,7 @@ function parseJsonLine(line) {
 * malformed controls block.
 */
 function parseViewBlock(raw) {
-	const { text, value } = extractBlock(raw, BLOCK_RE$3, (body) => {
+	const { text, value } = extractBlock(raw, findBlock$3, (body) => {
 		if (utf8Length(body) > MAX_BLOCK_BYTES) return null;
 		const components = [];
 		for (const line of body.split(/\r?\n/)) {
@@ -969,9 +995,9 @@ const MAX_OPTIONS = 8;
 /** Defensive length ceilings against a runaway block, not a style rule: an option that explains itself in a sentence or two still renders, since cards wrap long labels. Over-length questions invalidate the block; over-length options are skipped. */
 const MAX_QUESTION_LENGTH = 500;
 const MAX_OPTION_LENGTH = 500;
-const BLOCK_RE$2 = fencedBlockRe([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], "inline");
+const findBlock$2 = fencedPatternFinder([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], "inline");
 function parseQuestionBlock(raw) {
-	const { text, value } = extractBlock(raw, BLOCK_RE$2, parseBlockBody);
+	const { text, value } = extractBlock(raw, findBlock$2, parseBlockBody);
 	return {
 		text,
 		question: value
@@ -1069,7 +1095,7 @@ const MAX_PLAN_BYTES = 262144;
 /** Matches the first plan block. Both tags must sit on their own line
 * (surrounding whitespace allowed) so an inline mention of the tag in prose
 * is never mistaken for a block. Non-greedy: stops at the first closing tag. */
-const BLOCK_RE$1 = /(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/;
+const findBlock$1 = splitPatternFinder(/(?:^|\n)[^\S\r\n]*<proposed_plan>[^\S\r\n]*\r?\n/g, /([\s\S]*?)\r?\n[^\S\r\n]*<\/proposed_plan>[^\S\r\n]*(?=\n|$)/y);
 /** The first ATX heading in the plan markdown, used as the card title.
 * Scans line by line so `# comment` lines inside fenced code blocks are never
 * mistaken for headings; per CommonMark, only a closing marker of the same
@@ -1095,7 +1121,7 @@ function planTitle(planMarkdown) {
 	return null;
 }
 function parseProposedPlan(raw) {
-	const { text, value } = extractBlock(raw, BLOCK_RE$1, (body) => {
+	const { text, value } = extractBlock(raw, findBlock$1, (body) => {
 		const planMarkdown = body.replace(/\r\n/g, "\n").trim();
 		if (!planMarkdown || utf8Length(planMarkdown) > MAX_PLAN_BYTES) return null;
 		return {
@@ -1160,13 +1186,13 @@ function parseHtmlFrameMessage(data) {
 * alone on its own line (optional surrounding whitespace) so backticks
 * inside the document — a JS template literal or a ```js example line —
 * cannot end the block early. */
-const BLOCK_RE = fencedBlockRe([HTML_BLOCK_NAME], "own-line");
+const findBlock = fencedPatternFinder([HTML_BLOCK_NAME], "own-line");
 /**
 * Extracts the first ```agent-html``` block. An empty or oversized block is
 * left in the prose as plain text, exactly like a rootless view block.
 */
 function parseHtmlBlock(raw) {
-	const { text, value } = extractBlock(raw, BLOCK_RE, (rawBody) => {
+	const { text, value } = extractBlock(raw, findBlock, (rawBody) => {
 		const body = rawBody.replace(/\r\n/g, "\n");
 		return utf8Length(body) > MAX_HTML_BYTES || body.trim().length === 0 ? null : body;
 	});
@@ -1177,4 +1203,4 @@ function parseHtmlBlock(raw) {
 }
 export { isIndex as A, CHAT_TITLE_TASK_MAX_LENGTH as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, isTerminalEvent as F, toChatTitleMessages as G, normalizeChatTitle as H, threadTitleEvent as I, truncateChatTitle as K, threadTitleSnapshotEvent as L, isRecord as M, memberOf as N, hasOwn as O, PROTOCOL_VERSION as P, CHAT_TITLE_MAX_LENGTH as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, normalizeTaskSummary as U, fallbackChatTitle as V, stripCodeFence as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, CHAT_TITLE_RECENT_MESSAGE_LIMIT as z };
 
-//# sourceMappingURL=html-Dzv78eXr.js.map
+//# sourceMappingURL=html-VviOCg__.js.map
