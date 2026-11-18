@@ -65,15 +65,19 @@ export interface TextDeltaStream {
   reset(): void;
 }
 
+/** A result that carries prose only. */
+function prose(text: string): TextStreamResult {
+  return { text, viewLines: [], htmlLines: [] };
+}
+
 export function createTextDeltaStream(): TextDeltaStream {
   let raw = "";
   let emitted = 0;
   let suppressed = false;
-  /** Inside a view or html block: the scan position for completed lines, or
-   * null when suppression is not line-streamed (question/controls) or the
-   * block has closed. */
-  let blockScan: number | null = null;
-  let blockKind: "view" | "html" | null = null;
+  /** Inside a view or html block: which kind, and the scan position for its
+   * completed lines. Null outside one, inside a question or controls block
+   * (suppressed whole, nothing streamed), or once the block has closed. */
+  let block: { kind: "view" | "html"; scan: number } | null = null;
 
   const lineStartFence = (from: number): number => {
     let at = raw.indexOf(FENCE, from);
@@ -112,23 +116,22 @@ export function createTextDeltaStream(): TextDeltaStream {
   /** Completed lines inside the view or html block since the last push. A
    * line that closes the block ends collection; later content stays
    * suppressed. View lines are trimmed (each is one JSON object); html lines
-   * stay verbatim and newline-terminated — whitespace is content there. */
-  const collectBlockLines = (): { viewLines: string[]; htmlLines: string[] } => {
+   * stay verbatim and newline-terminated, since whitespace is content there. */
+  const collectBlockLines = (): Omit<TextStreamResult, "text"> => {
     const viewLines: string[] = [];
     const htmlLines: string[] = [];
-    while (blockScan !== null) {
-      const newline = raw.indexOf("\n", blockScan);
+    for (let current = block; current; current = block) {
+      const newline = raw.indexOf("\n", current.scan);
       if (newline === -1) break;
-      const line = raw.slice(blockScan, newline).replace(/\r$/, "");
-      blockScan = newline + 1;
-      // Only a bare ``` line closes the block — a content line like ```js
+      const line = raw.slice(current.scan, newline).replace(/\r$/, "");
+      current.scan = newline + 1;
+      // Only a bare ``` line closes the block: a content line like ```js
       // (a fenced example inside the page) opens a nested fence instead.
       if (line.trim() === FENCE) {
-        blockScan = null;
-        blockKind = null;
+        block = null;
         break;
       }
-      if (blockKind === "html") htmlLines.push(`${line}\n`);
+      if (current.kind === "html") htmlLines.push(`${line}\n`);
       else if (line.trim()) viewLines.push(line.trimEnd());
     }
     return { viewLines, htmlLines };
@@ -147,16 +150,15 @@ export function createTextDeltaStream(): TextDeltaStream {
           continue;
         }
         const infoEnd = raw.indexOf("\n", fence + FENCE.length);
-        // The info string is still arriving, so the block's kind is unknown —
+        // The info string is still arriving, so the block's kind is unknown:
         // release everything before the fence and wait.
-        if (infoEnd === -1) return { text: take(fence), viewLines: [], htmlLines: [] };
+        if (infoEnd === -1) return prose(take(fence));
         const info = raw.slice(fence + FENCE.length, infoEnd).trim();
         if (AGENT_BLOCK_NAMES.has(info)) {
           const out = take(fence);
           suppressed = true;
           if (info === VIEW_BLOCK_NAME || info === HTML_BLOCK_NAME) {
-            blockScan = infoEnd + 1;
-            blockKind = info === VIEW_BLOCK_NAME ? "view" : "html";
+            block = { kind: info === VIEW_BLOCK_NAME ? "view" : "html", scan: infoEnd + 1 };
           }
           return { text: out, ...collectBlockLines() };
         }
@@ -164,15 +166,14 @@ export function createTextDeltaStream(): TextDeltaStream {
         // past it in case a generative-UI block follows.
         scan = infoEnd + 1;
       }
-      return { text: take(raw.length - heldTail()), viewLines: [], htmlLines: [] };
+      return prose(take(raw.length - heldTail()));
     },
 
     reset() {
       raw = "";
       emitted = 0;
       suppressed = false;
-      blockScan = null;
-      blockKind = null;
+      block = null;
     },
   };
 }

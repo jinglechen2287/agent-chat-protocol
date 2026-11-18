@@ -7,6 +7,7 @@
 
 import type { ToolUseInfo } from "agent-cli-runner";
 import type { ToolCallDetail, ToolTaskMetadata } from "../events";
+import { definedProps, isRecord } from "../guards";
 
 function text(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
@@ -59,14 +60,11 @@ export function toolTaskMetadata(info: ToolUseInfo): ToolTaskMetadata | undefine
   if (info.name !== "TaskCreate" && info.name !== "TaskUpdate") return undefined;
   const input = info.input;
   if (!input) return undefined;
-  const id = text(input.taskId);
-  const subject = text(input.subject);
-  const status = text(input.status);
-  const task = {
-    ...(id ? { id } : {}),
-    ...(subject ? { subject } : {}),
-    ...(status ? { status } : {}),
-  };
+  const task = definedProps({
+    id: text(input.taskId),
+    subject: text(input.subject),
+    status: text(input.status),
+  });
   return Object.keys(task).length > 0 ? task : undefined;
 }
 
@@ -95,9 +93,8 @@ function codexFileChanges(input: Record<string, unknown>): ToolCallDetail[] {
   ) return [];
   const details: ToolCallDetail[] = [];
   for (const change of input.changes) {
-    if (!change || typeof change !== "object" || Array.isArray(change)) continue;
-    const record = change as Record<string, unknown>;
-    const file = detail(fileChangeLabel(record.kind), record.path);
+    if (!isRecord(change)) continue;
+    const file = detail(fileChangeLabel(change.kind), change.path);
     if (file) details.push(file);
   }
   return details;

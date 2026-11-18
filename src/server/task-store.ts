@@ -50,14 +50,14 @@ type AssistantHtmlDelta = Extract<ChatStreamEvent, { type: "html_delta" }>;
 /** The events an in-flight assistant message resolves into. Once one is
  * buffered, every fragment held so far describes content the transcript now
  * owns. */
-function completesAssistantMessage(ev: ChatStreamEvent): boolean {
-  return ev.type === "assistant_text"
-    || ev.type === "question"
-    || ev.type === "controls"
-    || ev.type === "plan"
-    || ev.type === "view"
-    || ev.type === "html";
-}
+const COMPLETES_MESSAGE: ReadonlySet<ChatStreamEvent["type"]> = new Set([
+  "assistant_text",
+  "question",
+  "controls",
+  "plan",
+  "view",
+  "html",
+]);
 
 export interface TaskStore {
   get(id: string): TurnTask | undefined;
@@ -108,9 +108,31 @@ function notify(task: TurnTask, ev: ChatStreamEvent): void {
   }
 }
 
+/** Drops every in-flight fragment: what they described is now owned by a
+ * buffered event. */
+function clearScratch(task: TurnTask): void {
+  task.partials.clear();
+  task.viewPartials.clear();
+  task.htmlPartials.clear();
+}
+
+function appendText(map: Map<number, string>, index: number, delta: string): void {
+  map.set(index, (map.get(index) ?? "") + delta);
+}
+
+/** Map entries in message-index order. */
+function byIndex<V>(map: Map<number, V>): [number, V][] {
+  return [...map.entries()].sort(([a], [b]) => a - b);
+}
+
 export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
   const defaultTtl = options.completeTtlMs ?? DEFAULT_COMPLETE_TTL_MS;
   const tasks = new Map<string, TurnTask>();
+
+  /** Stale handles (task deleted or replaced) and late callbacks arriving
+   * after completion are ignored: a terminal event must be the last thing in
+   * the buffer, and a replaced id must not receive the old run's events. */
+  const isLive = (task: TurnTask): boolean => !task.done && tasks.get(task.id) === task;
 
   return {
     get(id) {
@@ -135,33 +157,25 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
     },
 
     push(task, ev) {
-      // Ignore stale handles (task deleted or replaced) and late callbacks
-      // arriving after completion — a terminal event must be the last thing
-      // in the buffer, and replaced ids must not receive the old run's events.
-      if (task.done || tasks.get(task.id) !== task) return;
-      if (completesAssistantMessage(ev)) {
-        task.partials.clear();
-        task.viewPartials.clear();
-        task.htmlPartials.clear();
-      }
+      if (!isLive(task)) return;
+      if (COMPLETES_MESSAGE.has(ev.type)) clearScratch(task);
       task.events.push(ev);
       notify(task, ev);
     },
 
     pushPartial(task, ev) {
-      if (task.done || tasks.get(task.id) !== task) return;
-      task.partials.set(ev.index, (task.partials.get(ev.index) ?? "") + ev.delta);
+      if (!isLive(task)) return;
+      appendText(task.partials, ev.index, ev.delta);
       notify(task, ev);
     },
 
     pendingPartials(task) {
-      return [...task.partials.entries()]
-        .sort(([a], [b]) => a - b)
+      return byIndex(task.partials)
         .map(([index, delta]) => ({ type: "assistant_text_delta", index, delta }));
     },
 
     pushViewLine(task, ev) {
-      if (task.done || tasks.get(task.id) !== task) return;
+      if (!isLive(task)) return;
       const lines = task.viewPartials.get(ev.index) ?? [];
       lines.push(ev);
       task.viewPartials.set(ev.index, lines);
@@ -169,20 +183,17 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
     },
 
     pendingViewLines(task) {
-      return [...task.viewPartials.entries()]
-        .sort(([a], [b]) => a - b)
-        .flatMap(([, lines]) => lines);
+      return byIndex(task.viewPartials).flatMap(([, lines]) => lines);
     },
 
     pushHtmlDelta(task, ev) {
-      if (task.done || tasks.get(task.id) !== task) return;
-      task.htmlPartials.set(ev.index, (task.htmlPartials.get(ev.index) ?? "") + ev.delta);
+      if (!isLive(task)) return;
+      appendText(task.htmlPartials, ev.index, ev.delta);
       notify(task, ev);
     },
 
     pendingHtmlDeltas(task) {
-      return [...task.htmlPartials.entries()]
-        .sort(([a], [b]) => a - b)
+      return byIndex(task.htmlPartials)
         .map(([index, delta]) => ({ type: "html_delta", index, delta }));
     },
 
@@ -195,14 +206,12 @@ export function createTaskStore(options: TaskStoreOptions = {}): TaskStore {
 
     complete(task, completeOptions = {}) {
       // A stale handle (task deleted or replaced) must not schedule a TTL
-      // timer — it would reap a live replacement task under the same id.
-      if (task.done || tasks.get(task.id) !== task) return;
+      // timer: it would reap a live replacement task under the same id.
+      if (!isLive(task)) return;
       task.done = true;
       // The buffered terminal event and the persisted transcript are now
       // authoritative; nothing should replay half-written content over them.
-      task.partials.clear();
-      task.viewPartials.clear();
-      task.htmlPartials.clear();
+      clearScratch(task);
       const ttl = completeOptions.ttlMs ?? defaultTtl;
       task.cleanupTimer = setTimeout(() => {
         tasks.delete(task.id);

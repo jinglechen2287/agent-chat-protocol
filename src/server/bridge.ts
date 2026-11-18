@@ -22,10 +22,9 @@ import type {
   McpElicitationResponse,
   McpServerStatusInfo,
   TokenUsage,
-  ToolResultInfo,
   ToolUseInfo,
 } from "agent-cli-runner";
-import { PROTOCOL_VERSION, type ChatStreamEvent } from "../events";
+import { PROTOCOL_VERSION, type ChatStreamEvent, type ToolTaskMetadata } from "../events";
 import { parseQuestionBlock } from "../question";
 import { parseProposedPlan } from "../plan";
 import {
@@ -33,9 +32,11 @@ import {
   validateControls,
   type ControlsSpec,
 } from "../controls";
-import { parseViewBlock, validateViewComponent } from "../view";
+import { parseJsonLine, parseViewBlock, validateViewComponent } from "../view";
 import { parseHtmlBlock } from "../html";
-import { toolCallDetails, toolTaskMetadata } from "./tool-details";
+import { definedProps } from "../guards";
+import { toolCallDetails } from "./tool-details";
+import { createTaskCallTracker } from "./task-tracking";
 import { createTextDeltaStream } from "./text-stream";
 
 export interface ChatEventBridgeOptions {
@@ -72,14 +73,49 @@ export interface ChatEventBridge {
   fail(err: unknown): void;
 }
 
+/**
+ * The events one completed assistant message becomes. The agent may end a
+ * message with structured plan, question, controls, view, or html blocks.
+ * Controls are a complete UI response, so when one is valid all surrounding
+ * prose is suppressed and only the panel is emitted. Views and html pages are
+ * content like prose: their surrounding text stays. The plan block is lifted
+ * first: its body is markdown that may contain any of the fenced blocks, and
+ * those belong to the plan, not the turn.
+ */
+function assistantMessageEvents(
+  text: string,
+  controlsValidator: (value: unknown) => ControlsSpec | null,
+): ChatStreamEvent[] {
+  const parsedPlan = parseProposedPlan(text);
+  const parsedQuestion = parseQuestionBlock(parsedPlan.text);
+  const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
+  const parsedView = parseViewBlock(parsedControls.text);
+  const parsedHtml = parseHtmlBlock(parsedView.text);
+  const events: ChatStreamEvent[] = [];
+  if (!parsedControls.controls && parsedHtml.text) {
+    events.push({ type: "assistant_text", text: parsedHtml.text });
+  }
+  if (parsedPlan.plan) events.push({ type: "plan", ...parsedPlan.plan });
+  if (parsedView.view) events.push({ type: "view", spec: parsedView.view });
+  if (parsedHtml.html) events.push({ type: "html", content: parsedHtml.html });
+  if (parsedQuestion.question) events.push({ type: "question", ...parsedQuestion.question });
+  if (parsedControls.controls) events.push({ type: "controls", spec: parsedControls.controls });
+  return events;
+}
+
 export function createChatEventBridge(
   emit: (ev: ChatStreamEvent) => void,
   options: ChatEventBridgeOptions = {},
 ): ChatEventBridge {
   let announcedSessionId = options.knownSessionId;
   let terminal = false;
-  const pendingTaskCreates = new Map<string, ToolUseInfo>();
-  const taskSubjects = new Map<string, string>();
+
+  /** Drops calls once the turn has ended: late runner callbacks must not
+   * follow the terminal event. */
+  const live = <A extends unknown[]>(fn: (...args: A) => void) =>
+    (...args: A): void => {
+      if (!terminal) fn(...args);
+    };
 
   const announceSession = (sessionId: string): void => {
     if (sessionId === announcedSessionId) return;
@@ -91,7 +127,7 @@ export function createChatEventBridge(
     });
   };
 
-  // The contract promises exactly one terminal event per turn — enforce it
+  // The contract promises exactly one terminal event per turn: enforce it
   // here so a finish/fail race (or a double call) can't corrupt the stream.
   const emitTerminal = (ev: ChatStreamEvent): void => {
     if (terminal) return;
@@ -100,11 +136,6 @@ export function createChatEventBridge(
   };
 
   if (options.presetSessionId) announceSession(options.presetSessionId);
-
-  const onSessionId = (id: string): void => {
-    if (terminal) return;
-    announceSession(id);
-  };
 
   const controlsValidator = options.controlsValidator ?? validateControls;
 
@@ -115,179 +146,76 @@ export function createChatEventBridge(
   let messageIndex = 0;
 
   const onAssistantTextDelta = (chunk: string): void => {
-    if (terminal) return;
     const { text, viewLines, htmlLines } = textStream.push(chunk);
     if (text) emit({ type: "assistant_text_delta", index: messageIndex, delta: text });
     if (htmlLines.length > 0) {
       emit({ type: "html_delta", index: messageIndex, delta: htmlLines.join("") });
     }
     for (const line of viewLines) {
-      // Per-line validation only — graph rules run on the completed view,
+      // Per-line validation only: graph rules run on the completed view,
       // which supersedes these fragments. A bad line is dropped, matching
       // parseViewBlock's skip-and-survive behavior.
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      const component = validateViewComponent(parsed);
+      const parsed = parseJsonLine(line);
+      const component = parsed.ok ? validateViewComponent(parsed.value) : null;
       if (component) emit({ type: "view_line", index: messageIndex, component });
     }
   };
 
   const onAssistantText = (text: string): void => {
-    if (terminal) return;
-    // The agent may end a message with structured plan, question, controls,
-    // view, or html blocks. Controls are a complete UI response, so when one
-    // is valid suppress all surrounding prose and emit only the panel. Views
-    // and html pages are content like prose — their surrounding text stays.
-    // The plan block is lifted first: its body is markdown that may contain
-    // any of the fenced blocks, and those belong to the plan, not the turn.
-    const parsedPlan = parseProposedPlan(text);
-    const parsedQuestion = parseQuestionBlock(parsedPlan.text);
-    const parsedControls = parseControlsBlock(parsedQuestion.text, controlsValidator);
-    const parsedView = parseViewBlock(parsedControls.text);
-    const parsedHtml = parseHtmlBlock(parsedView.text);
-    if (!parsedControls.controls && parsedHtml.text) {
-      emit({ type: "assistant_text", text: parsedHtml.text });
-    }
-    if (parsedPlan.plan) {
-      emit({ type: "plan", ...parsedPlan.plan });
-    }
-    if (parsedView.view) {
-      emit({ type: "view", spec: parsedView.view });
-    }
-    if (parsedHtml.html) {
-      emit({ type: "html", content: parsedHtml.html });
-    }
-    if (parsedQuestion.question) {
-      emit({ type: "question", ...parsedQuestion.question });
-    }
-    if (parsedControls.controls) {
-      emit({ type: "controls", spec: parsedControls.controls });
-    }
+    for (const ev of assistantMessageEvents(text, controlsValidator)) emit(ev);
     // This message is now transcript content; fragments start over for the
     // next one, whether or not this one produced an `assistant_text`.
     textStream.reset();
     messageIndex += 1;
   };
 
-  const emitToolUse = (info: ToolUseInfo): void => {
+  const tasks = createTaskCallTracker((info: ToolUseInfo, task: ToolTaskMetadata | undefined) => {
     const details = toolCallDetails(info);
-    const task = toolTaskMetadata(info);
-    if (task?.id && task.subject) taskSubjects.set(task.id, task.subject);
     emit({
       type: "tool_use",
       name: info.name,
-      ...(info.summary !== undefined ? { summary: info.summary } : {}),
-      ...(details.length > 0 ? { details } : {}),
-      ...(task ? { task } : {}),
-      ...(info.planItems && info.planItems.length > 0 ? { plan: info.planItems } : {}),
+      ...definedProps({
+        summary: info.summary,
+        details: details.length > 0 ? details : undefined,
+        task,
+        plan: info.planItems && info.planItems.length > 0 ? info.planItems : undefined,
+      }),
     });
-  };
-
-  const withKnownTaskSubject = (info: ToolUseInfo): ToolUseInfo => {
-    if (info.name !== "TaskUpdate" || !info.input) return info;
-    // An update carrying its own subject is a rename — let it through (and
-    // emitToolUse re-caches it); only fill in the cache for subject-less ones.
-    if (typeof info.input.subject === "string" && info.input.subject.trim()) return info;
-    const taskId = typeof info.input.taskId === "string" ? info.input.taskId.trim() : "";
-    const subject = taskSubjects.get(taskId);
-    return subject
-      ? { ...info, input: { ...info.input, subject } }
-      : info;
-  };
-
-  const onToolUse = (info: ToolUseInfo): void => {
-    if (terminal) return;
-    if (info.name === "TaskCreate" && info.callId) {
-      pendingTaskCreates.set(info.callId, info);
-      return;
-    }
-    emitToolUse(withKnownTaskSubject(info));
-  };
-
-  const resultText = (content: unknown): string | undefined => {
-    if (typeof content === "string") return content;
-    if (!Array.isArray(content)) return undefined;
-    const parts = content.flatMap((block) => {
-      if (!block || typeof block !== "object" || Array.isArray(block)) return [];
-      const value = (block as Record<string, unknown>).text;
-      return typeof value === "string" ? [value] : [];
-    });
-    return parts.length > 0 ? parts.join("\n") : undefined;
-  };
-
-  const taskIdFromResult = (result: ToolResultInfo): string | undefined => {
-    if (result.isError) return undefined;
-    return resultText(result.content)?.match(/Task #([^\s:]+) created successfully/)?.[1];
-  };
-
-  const onToolResult = (result: ToolResultInfo): void => {
-    if (terminal) return;
-    const pending = pendingTaskCreates.get(result.callId);
-    if (!pending) return;
-    pendingTaskCreates.delete(result.callId);
-    const taskId = taskIdFromResult(result);
-    emitToolUse(taskId
-      ? { ...pending, input: { ...pending.input, taskId } }
-      : pending);
-  };
-
-  const flushPendingTaskCreates = (): void => {
-    for (const pending of pendingTaskCreates.values()) emitToolUse(pending);
-    pendingTaskCreates.clear();
-  };
-
-  const onStderr = (chunk: string): void => {
-    if (terminal) return;
-    emit({ type: "stderr", chunk });
-  };
+  });
 
   const onUsage = (usage: TokenUsage): void => {
-    if (terminal) return;
     emit({
       type: "context_usage",
       contextTokens: usage.contextTokens,
-      ...(usage.contextWindow !== undefined ? { contextWindow: usage.contextWindow } : {}),
-      ...(usage.model !== undefined ? { model: usage.model } : {}),
+      ...definedProps({ contextWindow: usage.contextWindow, model: usage.model }),
     });
-  };
-
-  const onMcpStatus = (servers: McpServerStatusInfo[]): void => {
-    if (terminal) return;
-    emit({ type: "mcp_status", servers });
   };
 
   // Answering needs a client and a way back, which only the host has: it
   // overrides this. Until then, the behaviour the CLIs have with no handler.
   const onMcpElicitation = async (): Promise<McpElicitationResponse> => ({ action: "decline" });
 
-  const onBackgroundAgentUpdate = (agent: BackgroundAgentInfo): void => {
-    if (terminal) return;
-    emit({ type: "background_agent_updated", agent });
-  };
-
   return {
     callbacks: {
-      onSessionId,
-      onAssistantText,
-      onAssistantTextDelta,
-      onToolUse,
-      onToolResult,
-      onBackgroundAgentUpdate,
-      onStderr,
-      onUsage,
-      onMcpStatus,
+      onSessionId: live(announceSession),
+      onAssistantText: live(onAssistantText),
+      onAssistantTextDelta: live(onAssistantTextDelta),
+      onToolUse: live(tasks.toolUse),
+      onToolResult: live(tasks.toolResult),
+      onBackgroundAgentUpdate: live((agent: BackgroundAgentInfo) => {
+        emit({ type: "background_agent_updated", agent });
+      }),
+      onStderr: live((chunk: string) => emit({ type: "stderr", chunk })),
+      onUsage: live(onUsage),
+      onMcpStatus: live((servers: McpServerStatusInfo[]) => emit({ type: "mcp_status", servers })),
       onMcpElicitation,
     },
     finish(result: { exitCode: number }): void {
-      flushPendingTaskCreates();
+      tasks.flush();
       emitTerminal({ type: "done", exitCode: result.exitCode });
     },
     fail(err: unknown): void {
-      flushPendingTaskCreates();
+      tasks.flush();
       const name = (err as { name?: string } | null)?.name;
       if (name === "AbortError") {
         emitTerminal({ type: "aborted", reason: "user" });

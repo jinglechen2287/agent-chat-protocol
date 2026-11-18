@@ -270,3 +270,17 @@ describe("thread title generation", () => {
     });
   });
 });
+
+describe("a runner implemented as a method", () => {
+  it("is called with its object as `this`", async () => {
+    const host = {
+      reply: '{"title":"Fix login button on mobile","needsRefinement":false}',
+      async run(this: { reply: string }) {
+        return { text: this.reply, exitCode: 0 };
+      },
+    };
+    const generate = createThreadTitleGenerator(host);
+    const result = await generate({ mode: "initial", provider: "claude", prompt: "fix login on mobile" });
+    expect(result).toEqual({ title: "Fix login button on mobile", needsRefinement: false, source: "model" });
+  });
+});
