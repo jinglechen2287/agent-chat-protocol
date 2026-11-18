@@ -225,6 +225,9 @@ function createTaskCallTracker(emit) {
 * A `<proposed_plan>` block is the exception to all of it. Its body is markdown
 * that may show any of these fences as examples, and the completed message
 * lifts the plan first, so inside one they are text like any other.
+*
+* The streamer reads one line at a time and keeps only the unfinished line,
+* so each push costs its own length, not the length of the message so far.
 */
 const FENCE = "```";
 /** A plan tag alone on its line, by the line rules of plan.ts's block match. */
@@ -238,115 +241,101 @@ const AGENT_BLOCK_NAMES = /* @__PURE__ */ new Set([
 	LEGACY_QUESTION_BLOCK_NAME,
 	LEGACY_CONTROLS_BLOCK_NAME
 ]);
-/** A result that carries prose only. */
-function prose(text) {
-	return {
-		text,
-		viewLines: [],
-		htmlLines: []
-	};
-}
 function createTextDeltaStream() {
-	let raw = "";
-	let emitted = 0;
-	let suppressed = false;
-	/** Inside a view or html block: which kind, and the scan position for its
-	* completed lines. Null outside one, inside a question or controls block
-	* (suppressed whole, nothing streamed), or once the block has closed. */
-	let block = null;
-	const lineStartFence = (from) => {
-		let at = raw.indexOf(FENCE, from);
-		while (at !== -1) {
-			if (at === 0 || raw[at - 1] === "\n") return at;
-			at = raw.indexOf(FENCE, at + 1);
+	/** What the stream is reading: prose, the lines of a view or html block, or
+	* nothing more (a question or controls block, or a view or html block that
+	* has closed: the rest of the message is suppressed). */
+	let mode = "prose";
+	/** Where the message's first plan block stands, the only one a completed
+	* message lifts. A closing tag after its opening tag closes it for good. */
+	let plan = "before";
+	/** The unfinished line, in the chunks it arrived in; joined once, when its
+	* newline arrives, so a long line costs its length once and not per push. */
+	let line = [];
+	let lineLength = 0;
+	/** The unfinished line's first three characters: enough to tell a fence. */
+	let head = "";
+	/** The part of the unfinished line not emitted yet. */
+	let unemitted = [];
+	const resetLine = () => {
+		line = [];
+		lineLength = 0;
+		head = "";
+		unemitted = [];
+	};
+	/** Whether the unfinished line must be withheld because it may still turn
+	* into a fence that opens a generative-UI block: one or two backticks so
+	* far, or a fence outside the plan whose info string hasn't ended. Inside
+	* the plan a fence is plain text, since the completed message lifts the
+	* plan first. */
+	const withheld = () => head === FENCE ? plan !== "open" : lineLength <= 2 && /^`+$/.test(head);
+	const readPlanTags = (text) => {
+		if (plan === "closed") return;
+		for (const tag of text.matchAll(PLAN_TAG_LINE)) if (tag[1] === "") plan = "open";
+		else if (plan === "open") {
+			plan = "closed";
+			return;
 		}
-		return -1;
 	};
-	/** Whether a line start lies inside the message's plan block: its first, the
-	* only one a completed message lifts. Reads from the top of the message,
-	* since the opening tag has usually been emitted by then. */
-	const insidePlan = (lineStart) => {
-		let open = false;
-		for (const tag of raw.slice(0, lineStart).matchAll(PLAN_TAG_LINE)) if (tag[1] === "") open = true;
-		else if (open) return false;
-		return open;
-	};
-	/** Length of a trailing backtick run that could still grow into a fence. */
-	const heldTail = () => {
-		const tail = raw.slice(raw.lastIndexOf("\n") + 1);
-		return /^`{1,2}$/.test(tail) ? tail.length : 0;
-	};
-	const take = (end) => {
-		if (end <= emitted) return "";
-		const out = raw.slice(emitted, end);
-		emitted = end;
-		return out;
-	};
-	/** Completed lines inside the view or html block since the last push. A
-	* line that closes the block ends collection; later content stays
-	* suppressed. View lines are trimmed (each is one JSON object); html lines
-	* stay verbatim and newline-terminated, since whitespace is content there. */
-	const collectBlockLines = () => {
-		const viewLines = [];
-		const htmlLines = [];
-		for (let current = block; current; current = block) {
-			const newline = raw.indexOf("\n", current.scan);
-			if (newline === -1) break;
-			const line = raw.slice(current.scan, newline).replace(/\r$/, "");
-			current.scan = newline + 1;
-			const close = closingLine(line, current.kind === "view");
-			if (close) {
-				if (close.bodyTail.trim()) viewLines.push(close.bodyTail.trimEnd());
-				block = null;
-				break;
+	/** Handles one completed line, given without its "\n". */
+	const completeLine = (text, out) => {
+		if (mode === "prose") {
+			if (head === FENCE && plan !== "open") {
+				const info = text.slice(3).trim();
+				if (AGENT_BLOCK_NAMES.has(info)) {
+					mode = info === "agent-view" ? "view" : info === "agent-html" ? "html" : "done";
+					return;
+				}
 			}
-			if (current.kind === "html") htmlLines.push(`${line}\n`);
-			else if (line.trim()) viewLines.push(line.trimEnd());
+			out.prose.push(unemitted.join(""), "\n");
+			readPlanTags(text);
+			return;
 		}
-		return {
-			viewLines,
-			htmlLines
-		};
+		const content = text.replace(/\r$/, "");
+		const close = closingLine(content, mode === "view");
+		if (close) {
+			if (close.bodyTail.trim()) out.viewLines.push(close.bodyTail.trimEnd());
+			mode = "done";
+		} else if (mode === "html") out.htmlLines.push(`${content}\n`);
+		else if (content.trim()) out.viewLines.push(content.trimEnd());
 	};
 	return {
 		push(chunk) {
-			raw += chunk;
-			if (suppressed) return {
-				text: "",
-				...collectBlockLines()
+			const out = {
+				prose: [],
+				viewLines: [],
+				htmlLines: []
 			};
-			let scan = emitted;
-			for (;;) {
-				const fence = lineStartFence(scan);
-				if (fence === -1) break;
-				if (insidePlan(fence)) {
-					scan = fence + 3;
-					continue;
+			let at = 0;
+			while (mode !== "done") {
+				const newline = chunk.indexOf("\n", at);
+				const piece = chunk.slice(at, newline === -1 ? chunk.length : newline);
+				if (piece) {
+					line.push(piece);
+					unemitted.push(piece);
+					lineLength += piece.length;
+					if (head.length < 3) head += piece.slice(0, 3 - head.length);
 				}
-				const infoEnd = raw.indexOf("\n", fence + 3);
-				if (infoEnd === -1) return prose(take(fence));
-				const info = raw.slice(fence + 3, infoEnd).trim();
-				if (AGENT_BLOCK_NAMES.has(info)) {
-					const out = take(fence);
-					suppressed = true;
-					if (info === "agent-view" || info === "agent-html") block = {
-						kind: info === "agent-view" ? "view" : "html",
-						scan: infoEnd + 1
-					};
-					return {
-						text: out,
-						...collectBlockLines()
-					};
-				}
-				scan = infoEnd + 1;
+				if (newline === -1) break;
+				completeLine(line.join(""), out);
+				resetLine();
+				at = newline + 1;
 			}
-			return prose(take(raw.length - heldTail()));
+			if (mode === "done") resetLine();
+			else if (mode === "prose" && !withheld()) {
+				out.prose.push(unemitted.join(""));
+				unemitted = [];
+			}
+			return {
+				text: out.prose.join(""),
+				viewLines: out.viewLines,
+				htmlLines: out.htmlLines
+			};
 		},
 		reset() {
-			raw = "";
-			emitted = 0;
-			suppressed = false;
-			block = null;
+			mode = "prose";
+			plan = "before";
+			resetLine();
 		}
 	};
 }

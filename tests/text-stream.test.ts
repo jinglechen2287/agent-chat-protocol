@@ -71,3 +71,11 @@ describe("streamed text does not depend on where chunks split", () => {
     });
   }
 });
+
+describe("a line that arrives in very many pieces", () => {
+  it("streams a fence line split into 200,000 one-character deltas", () => {
+    const fenceLine = "```" + "x".repeat(200_000);
+    const { text } = streamed([...fenceLine.split(""), "\n", "after\n"]);
+    expect(text).toBe(`${fenceLine}\nafter\n`);
+  });
+});
