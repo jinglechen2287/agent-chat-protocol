@@ -25,7 +25,7 @@
  * so each push costs its own length, not the length of the message so far.
  */
 
-import { closingLine } from "../block";
+import { closingLine, fenceInfo } from "../block";
 import {
   CONTROLS_BLOCK_NAME,
   HTML_BLOCK_NAME,
@@ -37,8 +37,10 @@ import {
 
 const FENCE = "```";
 
-/** A plan tag alone on its line, by the line rules of plan.ts's block match. */
-const PLAN_TAG_LINE = /^[^\S\r\n]*<(\/?)proposed_plan>[^\S\r\n]*\r?$/gm;
+/** A plan tag alone on its line, by the line rules of plan.ts's block match:
+ * matched against one LF-terminated line at a time, so only an LF starts a
+ * line (a lone CR or U+2028 doesn't, there either). */
+const PLAN_TAG_LINE = /^[^\S\r\n]*<(\/?)proposed_plan>[^\S\r\n]*\r?$/;
 
 /** Info strings whose block the completed message renders as a card. */
 const AGENT_BLOCK_NAMES: ReadonlySet<string> = new Set([
@@ -88,7 +90,14 @@ export function createTextDeltaStream(): TextDeltaStream {
    * newline arrives, so a long line costs its length once and not per push. */
   let line: string[] = [];
   let lineLength = 0;
-  /** The unfinished line's first three characters: enough to tell a fence. */
+  /** How many spaces and tabs the unfinished line starts with, and whether a
+   * character other than those has arrived yet. An opening fence may be
+   * indented, as it is under a list item, and the completed parser finds it
+   * there, so the streamer must too. */
+  let indent = 0;
+  let indentDone = false;
+  /** The first three characters after the indentation: enough to tell a
+   * fence. */
   let head = "";
   /** The part of the unfinished line not emitted yet. */
   let unemitted: string[] = [];
@@ -96,27 +105,42 @@ export function createTextDeltaStream(): TextDeltaStream {
   const resetLine = (): void => {
     line = [];
     lineLength = 0;
+    indent = 0;
+    indentDone = false;
     head = "";
     unemitted = [];
   };
 
-  /** Whether the unfinished line must be withheld because it may still turn
-   * into a fence that opens a generative-UI block: one or two backticks so
-   * far, or a fence outside the plan whose info string hasn't ended. Inside
-   * the plan a fence is plain text, since the completed message lifts the
-   * plan first. */
-  const withheld = (): boolean =>
-    head === FENCE ? plan !== "open" : lineLength <= 2 && /^`+$/.test(head);
-
-  const readPlanTags = (text: string): void => {
-    if (plan === "closed") return;
-    for (const tag of text.matchAll(PLAN_TAG_LINE)) {
-      if (tag[1] === "") plan = "open";
-      else if (plan === "open") {
-        plan = "closed";
-        return;
+  /** Reads a piece's leading characters into the indentation and the head;
+   * stops as soon as both are settled, so a long line costs nothing here. */
+  const readHead = (piece: string): void => {
+    for (let i = 0; i < piece.length && head.length < FENCE.length; i += 1) {
+      const char = piece[i]!;
+      if (!indentDone && (char === " " || char === "\t")) indent += 1;
+      else {
+        indentDone = true;
+        head += char;
       }
     }
+  };
+
+  /** Whether the unfinished line must be withheld because it may still turn
+   * into a fence that opens a generative-UI block: only indentation so far,
+   * one or two backticks after it, or a fence outside the plan whose info
+   * string hasn't ended. Inside the plan a fence is plain text, since the
+   * completed message lifts the plan first. */
+  const withheld = (): boolean => {
+    if (!indentDone) return true;
+    if (head === FENCE) return plan !== "open";
+    return lineLength - indent <= 2 && /^`+$/.test(head);
+  };
+
+  const readPlanTag = (text: string): void => {
+    if (plan === "closed") return;
+    const tag = PLAN_TAG_LINE.exec(text);
+    if (!tag) return;
+    if (tag[1] === "") plan = "open";
+    else if (plan === "open") plan = "closed";
   };
 
   /** Handles one completed line, given without its "\n". */
@@ -124,7 +148,7 @@ export function createTextDeltaStream(): TextDeltaStream {
     if (mode === "prose") {
       if (head === FENCE && plan !== "open") {
         // The fence line was withheld whole; its info string says what opens.
-        const info = text.slice(FENCE.length).trim();
+        const info = fenceInfo(text.slice(indent + FENCE.length));
         if (AGENT_BLOCK_NAMES.has(info)) {
           mode = info === VIEW_BLOCK_NAME ? "view" : info === HTML_BLOCK_NAME ? "html" : "done";
           return;
@@ -132,7 +156,7 @@ export function createTextDeltaStream(): TextDeltaStream {
         // An ordinary code block streams like any other prose.
       }
       out.prose.push(unemitted.join(""), "\n");
-      readPlanTags(text);
+      readPlanTag(text);
       return;
     }
     const content = text.replace(/\r$/, "");
@@ -141,14 +165,15 @@ export function createTextDeltaStream(): TextDeltaStream {
     // also closes at a record that ends in ```.
     const close = closingLine(content, mode === "view");
     if (close) {
-      if (close.bodyTail.trim()) out.viewLines.push(close.bodyTail.trimEnd());
+      if (close.bodyTail.trim()) out.viewLines.push(close.bodyTail.trim());
       mode = "done";
     } else if (mode === "html") {
       // Whitespace is content in a page: html lines stay verbatim.
       out.htmlLines.push(`${content}\n`);
     } else if (content.trim()) {
-      // Each view line is one JSON object.
-      out.viewLines.push(content.trimEnd());
+      // Each view line is one JSON object, trimmed as the completed parser
+      // trims it.
+      out.viewLines.push(content.trim());
     }
   };
 
@@ -163,7 +188,7 @@ export function createTextDeltaStream(): TextDeltaStream {
           line.push(piece);
           unemitted.push(piece);
           lineLength += piece.length;
-          if (head.length < FENCE.length) head += piece.slice(0, FENCE.length - head.length);
+          readHead(piece);
         }
         if (newline === -1) break;
         completeLine(line.join(""), out);

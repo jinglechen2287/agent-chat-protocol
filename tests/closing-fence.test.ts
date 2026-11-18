@@ -93,6 +93,19 @@ describe("a fenced block closes at its own closing line", () => {
   });
 });
 
+describe("an opening fence starts a line", () => {
+  it("leaves an inline mention of a block fence in the prose", () => {
+    const raw = "Example: ```agent-html\n<p>x</p>\n```\nAfter";
+    expect(parseHtmlBlock(raw).text).toBe(raw);
+  });
+
+  it("finds an indented opening fence", () => {
+    const parsed = parseViewBlock(["Intro:", "  ```agent-view", `  ${record({ id: "root", type: "Text", value: "v" })}`, "  ```"].join("\n"));
+    expect(parsed.view?.components.map((c) => c.id)).toEqual(["root"]);
+    expect(parsed.text).toBe("Intro:");
+  });
+});
+
 describe("the first ``` outside a JSON string closes a JSON block", () => {
   it("leaves the rest of the closing line, and what follows, in the prose", () => {
     const parsed = parseViewBlock(

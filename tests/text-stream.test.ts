@@ -52,7 +52,15 @@ const FIXTURES: Record<string, string> = {
   "plan containing fences": PLAN_WITH_FENCES,
   "plan followed by a view": `${PLAN_WITH_FENCES}\`\`\`agent-view\n${viewLine("root", "real")}\n\`\`\`\n`,
   "CRLF view block": `Line\r\n\`\`\`agent-view\r\n${viewLine("root", "crlf")}\r\n\`\`\`\r\n`,
-  "CRLF plan tags": "<proposed_plan>\r\n```agent-question\r\n{}\r\n```\r\n</proposed_plan>\r\nafter\n",
+  "indented view block": [
+    "Intro, as a list item:",
+    "  ```agent-view",
+    `  ${viewLine("root", "indented")}`,
+    "  ```",
+    "",
+  ].join("\n"),
+  "indented ordinary fence": "Steps:\n   ```sh\n   bun test\n   ```\n  done\n",
+    "CRLF plan tags": "<proposed_plan>\r\n```agent-question\r\n{}\r\n```\r\n</proposed_plan>\r\nafter\n",
 };
 
 describe("streamed text does not depend on where chunks split", () => {
@@ -77,5 +85,42 @@ describe("a line that arrives in very many pieces", () => {
     const fenceLine = "```" + "x".repeat(200_000);
     const { text } = streamed([...fenceLine.split(""), "\n", "after\n"]);
     expect(text).toBe(`${fenceLine}\nafter\n`);
+  });
+});
+
+describe("an indented opening fence", () => {
+  it("streams the block's components instead of its markup", () => {
+    const message = ["Intro:", "  ```agent-view", `  ${viewLine("root", "indented")}`, "  ```", ""].join("\n");
+    const result = streamed(message.match(/[\s\S]{1,5}/g) ?? []);
+    expect(result.views).toEqual([{ id: "root", type: "Text", value: "indented" }]);
+    expect(result.text).toBe("Intro:\n");
+  });
+});
+
+describe("the opening-fence rule streaming shares with the completed parser", () => {
+  for (const indent of ["", "  "]) {
+    it(`streams ${indent ? "an indented" : "a"} fence with a space before the block name as prose`, () => {
+      const message = `Intro\n${indent}\`\`\` agent-html\n<p>x</p>\n${indent}\`\`\`\nafter\n`;
+      expect(streamed(message.match(/[\s\S]{1,4}/g) ?? []).text).toBe(message);
+    });
+  }
+});
+
+describe("plan tags follow the completed parser's line rule", () => {
+  it("streams a view whose fence follows a plan tag that shares its line with text", () => {
+    const message = `x\r<proposed_plan>\n\`\`\`agent-view\n${viewLine("root", "lifted")}\n\`\`\`\n`;
+    expect(streamed(message.match(/[\s\S]{1,3}/g) ?? []).views).toEqual([
+      { id: "root", type: "Text", value: "lifted" },
+    ]);
+  });
+});
+
+describe("streamed view records are trimmed like completed ones", () => {
+  it("streams records that start with a non-breaking space", () => {
+    const message = `\`\`\`agent-view\n ${viewLine("root", "a")}\n ${viewLine("b", "b")}\`\`\`\n`;
+    expect(streamed(message.match(/[\s\S]{1,4}/g) ?? []).views).toEqual([
+      { id: "root", type: "Text", value: "a" },
+      { id: "b", type: "Text", value: "b" },
+    ]);
   });
 });

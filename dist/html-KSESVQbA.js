@@ -221,15 +221,34 @@ function closingLine(line, json) {
 	return null;
 }
 /**
+* The info string of an opening fence line, by the completed parser's rule:
+* the text right after the ``` up to trailing whitespace. Leading whitespace
+* stays, so "``` agent-view" names no agent block in either the parser or the
+* streamer.
+*/
+function fenceInfo(afterFence) {
+	let end = afterFence.length;
+	if (afterFence[end - 1] === "\r") end -= 1;
+	while (end > 0 && isLineSpace(afterFence[end - 1])) end -= 1;
+	return afterFence.slice(0, end);
+}
+/** Whitespace that doesn't end a line. */
+function isLineSpace(char) {
+	return char !== "\r" && char !== "\n" && /\s/.test(char);
+}
+/**
 * The finder for the first fenced block whose info string is exactly one of
 * `names` (trailing spaces allowed), so an ordinary ```json block never
-* matches. The block ends at the first line {@link closingLine} accepts, read
-* one line at a time, so a ``` in the middle of a line (a code fence inside a
-* JSON string, a JS template literal) never ends it early.
+* matches. The opening fence starts a line, after optional spaces or tabs (an
+* indented list item), as the streamer requires too; a fence mentioned
+* mid-sentence stays prose. The block ends at the first line
+* {@link closingLine} accepts, read one line at a time, so a ``` in the
+* middle of a line (a code fence inside a JSON string, a JS template literal)
+* never ends it early.
 */
 function fencedBlockFinder(names, json) {
 	const info = names.length === 1 ? names[0] : `(?:${names.join("|")})`;
-	const open = new RegExp(FENCE + info + "[^\\S\\r\\n]*\\r?\\n", "g");
+	const open = new RegExp("(^|\\n)([ \\t]*)```" + info + "[^\\S\\r\\n]*\\r?\\n", "g");
 	return (raw) => {
 		open.lastIndex = 0;
 		const opening = open.exec(raw);
@@ -243,7 +262,7 @@ function fencedBlockFinder(names, json) {
 				const lines = raw.slice(bodyStart, lineStart);
 				const body = close.bodyTail === "" ? lines.replace(/\r?\n$/, "") : lines + close.bodyTail;
 				return {
-					index: opening.index,
+					index: opening.index + opening[1].length + opening[2].length,
 					end: lineStart + close.end,
 					body
 				};
@@ -1267,6 +1286,6 @@ function parseHtmlBlock(raw) {
 		html: value
 	};
 }
-export { isIndex as A, CHAT_TITLE_RECENT_MESSAGE_LIMIT as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, PROTOCOL_VERSION as F, stripCodeFence as G, fallbackChatTitle as H, isTerminalEvent as I, toChatTitleMessages as K, threadTitleEvent as L, isRecord as M, memberOf as N, hasOwn as O, closingLine as P, threadTitleSnapshotEvent as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, normalizeChatTitle as U, CHAT_TITLE_TASK_MAX_LENGTH as V, normalizeTaskSummary as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, truncateChatTitle as q, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, CHAT_TITLE_MAX_LENGTH as z };
+export { isIndex as A, CHAT_TITLE_MAX_LENGTH as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, fenceInfo as F, normalizeTaskSummary as G, CHAT_TITLE_TASK_MAX_LENGTH as H, PROTOCOL_VERSION as I, truncateChatTitle as J, stripCodeFence as K, isTerminalEvent as L, isRecord as M, memberOf as N, hasOwn as O, closingLine as P, threadTitleEvent as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, fallbackChatTitle as U, CHAT_TITLE_RECENT_MESSAGE_LIMIT as V, normalizeChatTitle as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, toChatTitleMessages as q, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, threadTitleSnapshotEvent as z };
 
-//# sourceMappingURL=html-DEulBbqs.js.map
+//# sourceMappingURL=html-KSESVQbA.js.map

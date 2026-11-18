@@ -96,15 +96,40 @@ export function closingLine(line: string, json: boolean): { bodyTail: string; en
 }
 
 /**
+ * The info string of an opening fence line, by the completed parser's rule:
+ * the text right after the ``` up to trailing whitespace. Leading whitespace
+ * stays, so "``` agent-view" names no agent block in either the parser or the
+ * streamer.
+ */
+export function fenceInfo(afterFence: string): string {
+  // Scanned from the end: the same rule as a trailing [^\S\r\n]*\r? regex,
+  // without that regex's retry at every space of a long run.
+  let end = afterFence.length;
+  if (afterFence[end - 1] === "\r") end -= 1;
+  while (end > 0 && isLineSpace(afterFence[end - 1]!)) end -= 1;
+  return afterFence.slice(0, end);
+}
+
+/** Whitespace that doesn't end a line. */
+function isLineSpace(char: string): boolean {
+  return char !== "\r" && char !== "\n" && /\s/.test(char);
+}
+
+/**
  * The finder for the first fenced block whose info string is exactly one of
  * `names` (trailing spaces allowed), so an ordinary ```json block never
- * matches. The block ends at the first line {@link closingLine} accepts, read
- * one line at a time, so a ``` in the middle of a line (a code fence inside a
- * JSON string, a JS template literal) never ends it early.
+ * matches. The opening fence starts a line, after optional spaces or tabs (an
+ * indented list item), as the streamer requires too; a fence mentioned
+ * mid-sentence stays prose. The block ends at the first line
+ * {@link closingLine} accepts, read one line at a time, so a ``` in the
+ * middle of a line (a code fence inside a JSON string, a JS template literal)
+ * never ends it early.
  */
 export function fencedBlockFinder(names: readonly string[], json: boolean): BlockFinder {
   const info = names.length === 1 ? names[0]! : `(?:${names.join("|")})`;
-  const open = new RegExp(FENCE + info + "[^\\S\\r\\n]*\\r?\\n", "g");
+  // Groups 1 and 2 are the line break and indentation before the fence: they
+  // stay in the prose, so the block starts at the fence itself.
+  const open = new RegExp("(^|\\n)([ \\t]*)" + FENCE + info + "[^\\S\\r\\n]*\\r?\\n", "g");
   return (raw) => {
     // A shared regex carries lastIndex between calls.
     open.lastIndex = 0;
@@ -121,7 +146,8 @@ export function fencedBlockFinder(names: readonly string[], json: boolean): Bloc
         // them, then whatever part of the closing line is still body.
         const lines = raw.slice(bodyStart, lineStart);
         const body = close.bodyTail === "" ? lines.replace(/\r?\n$/, "") : lines + close.bodyTail;
-        return { index: opening.index, end: lineStart + close.end, body };
+        const index = opening.index + opening[1]!.length + opening[2]!.length;
+        return { index, end: lineStart + close.end, body };
       }
       if (newline === -1) return null;
       lineStart = newline + 1;
