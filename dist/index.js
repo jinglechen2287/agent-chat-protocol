@@ -222,7 +222,9 @@ function listOf(value, parse) {
 /**
 * Reads optional fields off a record. Absent and `null` both read as absent;
 * a present value the guard rejects reads as absent too but clears `ok`, so
-* the caller can reject the whole payload once at the end.
+* the caller can reject the whole payload once at the end. Free text is
+* looser: a blank string carries nothing, so it reads as absent without
+* costing the payload (the runner forwards a CLI's empty strings as they are).
 */
 function optionalFields(record) {
 	let ok = true;
@@ -238,7 +240,18 @@ function optionalFields(record) {
 			return ok;
 		},
 		parse,
-		get: (key, guard) => parse(key, (value) => guard(value) ? value : null)
+		get: (key, guard) => parse(key, (value) => guard(value) ? value : null),
+		/** Optional free text. Absent, null, "" and whitespace-only read as absent;
+		* a non-string still clears `ok`, as every other malformed field does. */
+		text: (key) => {
+			const value = record[key];
+			if (value === void 0 || value === null) return void 0;
+			if (typeof value !== "string") {
+				ok = false;
+				return;
+			}
+			return value.trim() === "" ? void 0 : value;
+		}
 	};
 }
 /** Options as `QuestionSpec` holds them: all strings, at least one real. */
@@ -265,7 +278,7 @@ function backgroundAgentProgress(value) {
 		totalTokens: fields.get("totalTokens", isIndex),
 		toolUses: fields.get("toolUses", isIndex),
 		durationMs: fields.get("durationMs", isIndex),
-		lastToolName: fields.get("lastToolName", hasText)
+		lastToolName: fields.text("lastToolName")
 	});
 	return fields.ok ? progress : null;
 }
@@ -276,11 +289,11 @@ function backgroundAgent(value) {
 	if (!isIndex(startedAt) || !isIndex(updatedAt)) return null;
 	const fields = optionalFields(value);
 	const optional = definedProps({
-		parentToolCallId: fields.get("parentToolCallId", hasText),
-		description: fields.get("description", hasText),
-		agentType: fields.get("agentType", hasText),
-		summary: fields.get("summary", hasText),
-		error: fields.get("error", hasText),
+		parentToolCallId: fields.text("parentToolCallId"),
+		description: fields.text("description"),
+		agentType: fields.text("agentType"),
+		summary: fields.text("summary"),
+		error: fields.text("error"),
 		progress: fields.parse("progress", backgroundAgentProgress),
 		endedAt: fields.get("endedAt", isIndex)
 	});

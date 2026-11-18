@@ -496,6 +496,54 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
+  describe("blank optional background-agent text", () => {
+    const base = {
+      id: "task-1",
+      provider: "claude",
+      status: "completed",
+      startedAt: 1_000,
+      updatedAt: 2_000,
+      endedAt: 2_000,
+    };
+    const decode = (agent: Record<string, unknown>) =>
+      mapSseToChatEvent({ event: "background_agent_updated", data: { agent } });
+
+    it("keeps a completed update whose description is empty, without the field", () => {
+      expect(decode({ ...base, description: "" })).toEqual({
+        type: "background_agent_updated",
+        agent: base,
+      });
+    });
+
+    for (const field of ["parentToolCallId", "description", "agentType", "summary", "error"]) {
+      for (const blank of ["", "   "]) {
+        it(`keeps the status and other fields when ${field} is ${JSON.stringify(blank)}`, () => {
+          const decoded = decode({
+            ...base,
+            description: "Review the diff",
+            progress: { totalTokens: 1_200, toolUses: 3, durationMs: 900, lastToolName: "Read" },
+            [field]: blank,
+          });
+          expect(decoded).toEqual({
+            type: "background_agent_updated",
+            agent: {
+              ...base,
+              ...(field === "description" ? {} : { description: "Review the diff" }),
+              progress: { totalTokens: 1_200, toolUses: 3, durationMs: 900, lastToolName: "Read" },
+            },
+          });
+        });
+      }
+    }
+
+    it("keeps the progress counts when lastToolName is blank", () => {
+      expect(decode({ ...base, progress: { toolUses: 4, lastToolName: " " } })).toEqual({
+        type: "background_agent_updated",
+        agent: { ...base, progress: { toolUses: 4 } },
+      });
+    });
+  });
+
   it("maps context_usage with optional window and model", () => {
     expect(
       mapSseToChatEvent({
