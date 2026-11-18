@@ -857,6 +857,65 @@ describe("consumeSseResponse", () => {
   });
 });
 
+describe("consumeSseResponse with hostile or failing input", () => {
+  const frame = (event: string, data: unknown): string =>
+    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+
+  for (const type of ["constructor", "__proto__", "toString"]) {
+    it(`delivers the events around a view_line whose component type is ${type}`, async () => {
+      const wire = frame("view_line", { index: 0, component: { id: "a", type } })
+        + frame("assistant_text", { text: "after" });
+      const seen: ChatStreamEvent[] = [];
+      await consumeSseResponse(new Response(wire, { status: 200 }), (ev) => seen.push(ev));
+      expect(seen).toEqual([{ type: "assistant_text", text: "after" }]);
+    });
+
+    it(`delivers the events around a frame named ${type}`, async () => {
+      const wire = frame(type, { text: "x" }) + frame("assistant_text", { text: "after" });
+      const seen: ChatStreamEvent[] = [];
+      await consumeSseResponse(new Response(wire, { status: 200 }), (ev) => seen.push(ev));
+      expect(seen).toEqual([{ type: "assistant_text", text: "after" }]);
+    });
+  }
+
+  const streamOf = (wire: string, onCancel: (reason: unknown) => Promise<void> | void) => {
+    const bytes = new TextEncoder().encode(wire);
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+      },
+      cancel: onCancel,
+    });
+  };
+
+  it("cancels and unlocks the body when the handler throws, rejecting with the handler's error", async () => {
+    const cancelled: unknown[] = [];
+    const body = streamOf(frame("assistant_text", { text: "hi" }), (reason) => {
+      cancelled.push(reason);
+    });
+    const boom = new Error("handler failed");
+    await expect(consumeSseResponse(new Response(body, { status: 200 }), () => {
+      throw boom;
+    })).rejects.toBe(boom);
+    expect(cancelled).toEqual([boom]);
+    expect(body.locked).toBe(false);
+  });
+
+  it("rejects with the handler's error even when cancelling never settles", async () => {
+    const body = streamOf(frame("assistant_text", { text: "hi" }), () => new Promise<void>(() => {}));
+    const boom = new Error("handler failed");
+    await expect(consumeSseResponse(new Response(body, { status: 200 }), () => {
+      throw boom;
+    })).rejects.toBe(boom);
+  });
+
+  it("unlocks the body when the stream ends normally", async () => {
+    const body = new Response(frame("assistant_text", { text: "hi" })).body!;
+    await consumeSseResponse(new Response(body, { status: 200 }), () => {});
+    expect(body.locked).toBe(false);
+  });
+});
+
 describe("html events over SSE", () => {
   it("round-trips html and html_delta through encode and map", () => {
     const html = { type: "html", content: "<!doctype html>\n<p>x</p>" } as const;

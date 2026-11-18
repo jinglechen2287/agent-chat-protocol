@@ -624,16 +624,26 @@ export async function consumeSseResponse<TEvent = ChatStreamEvent>(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const result = parseSseBuffer(buffer);
-    buffer = result.remainder;
-    for (const ev of result.events) {
-      const mapped = mapEvent(ev);
-      if (mapped) onEvent(mapped);
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const result = parseSseBuffer(buffer);
+      buffer = result.remainder;
+      for (const ev of result.events) {
+        const mapped = mapEvent(ev);
+        if (mapped) onEvent(mapped);
+      }
     }
+  } catch (err) {
+    // A throwing mapper or handler ends the read; close the connection
+    // instead of leaving it open. Not awaited, so a cancel that never
+    // settles cannot hold back the caller's rejection.
+    reader.cancel(err).catch(() => {});
+    throw err;
+  } finally {
+    reader.releaseLock();
   }
 }
 

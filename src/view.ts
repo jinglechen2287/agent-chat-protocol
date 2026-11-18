@@ -20,6 +20,7 @@
 // vitest's ESM/CJS interop resolves to undefined; the star form is stable
 // under both bun and vitest.
 import * as z from "zod";
+import { hasOwn } from "./guards";
 import { VIEW_BLOCK_NAME } from "./prompt";
 
 const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
@@ -278,8 +279,11 @@ function validateComponent(value: unknown): ViewComponent | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const type = (value as Record<string, unknown>).type;
   if (typeof type !== "string") return null;
-  const entry = (VIEW_CATALOG as Record<string, { schema: z.ZodType }>)[type];
-  if (!entry) return null;
+  // Own keys only: the catalog is a plain object, so a `type` such as
+  // "constructor" or "__proto__" would otherwise resolve to an inherited
+  // member that has no schema.
+  if (!hasOwn(VIEW_CATALOG, type)) return null;
+  const entry = (VIEW_CATALOG as Record<string, { schema: z.ZodType }>)[type]!;
   const parsed = entry.schema.safeParse(value);
   return parsed.success ? (parsed.data as ViewComponent) : null;
 }

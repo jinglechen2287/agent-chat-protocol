@@ -230,3 +230,18 @@ describe("VIEW_PROMPT", () => {
     expect(VIEW_PROMPT).toContain("Never invent data");
   });
 });
+
+describe("component types named like Object.prototype members", () => {
+  for (const type of ["constructor", "__proto__", "toString"]) {
+    it(`renders the rest of a view around a ${type} component`, () => {
+      const parsed = parseViewBlock([
+        "```agent-view",
+        JSON.stringify(stack("root", ["a", "b"])),
+        JSON.stringify({ id: "a", type }),
+        JSON.stringify(text("b", "still here")),
+        "```",
+      ].join("\n"));
+      expect(parsed.view?.components.map((c) => c.id)).toEqual(["root", "b"]);
+    });
+  }
+});

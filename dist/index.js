@@ -1,4 +1,4 @@
-import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-CaHnhy6k.js";
+import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-BaveMrgg.js";
 // src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -531,16 +531,23 @@ async function consumeSseResponse(res, onEvent, options = {}) {
 	const reader = res.body.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
-	for (;;) {
-		const { value, done } = await reader.read();
-		if (done) break;
-		buffer += decoder.decode(value, { stream: true });
-		const result = parseSseBuffer(buffer);
-		buffer = result.remainder;
-		for (const ev of result.events) {
-			const mapped = mapEvent(ev);
-			if (mapped) onEvent(mapped);
+	try {
+		for (;;) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			buffer += decoder.decode(value, { stream: true });
+			const result = parseSseBuffer(buffer);
+			buffer = result.remainder;
+			for (const ev of result.events) {
+				const mapped = mapEvent(ev);
+				if (mapped) onEvent(mapped);
+			}
 		}
+	} catch (err) {
+		reader.cancel(err).catch(() => {});
+		throw err;
+	} finally {
+		reader.releaseLock();
 	}
 }
 function isToolCallDetails(value) {

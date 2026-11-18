@@ -284,6 +284,20 @@ function parseControlsBlock(raw, validate = validateControls) {
 		controls
 	};
 }
+// src/guards.ts
+/**
+* Type guards and object helpers shared by the validators. Internal: not
+* re-exported from either entry.
+*/
+/**
+* Whether `key` is an own property of `object`, so a lookup by an untrusted
+* key can't land on an inherited member such as `constructor` or
+* `__proto__`. Spelled out instead of `Object.hasOwn`, which the client entry
+* can't assume: it runs in browsers older than Safari 15.4 and Chrome 93.
+*/
+function hasOwn(object, key) {
+	return Object.prototype.hasOwnProperty.call(object, key);
+}
 // src/prompt.ts
 /**
 * The emit side of the generative-UI grammar: the prompt section that teaches
@@ -701,9 +715,8 @@ function validateComponent(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 	const type = value.type;
 	if (typeof type !== "string") return null;
-	const entry = VIEW_CATALOG[type];
-	if (!entry) return null;
-	const parsed = entry.schema.safeParse(value);
+	if (!hasOwn(VIEW_CATALOG, type)) return null;
+	const parsed = VIEW_CATALOG[type].schema.safeParse(value);
 	return parsed.success ? parsed.data : null;
 }
 /** The ids a component renders as children, in slot order. */
@@ -1054,4 +1067,4 @@ function parseHtmlBlock(raw) {
 }
 export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
 
-//# sourceMappingURL=html-CaHnhy6k.js.map
+//# sourceMappingURL=html-BaveMrgg.js.map
