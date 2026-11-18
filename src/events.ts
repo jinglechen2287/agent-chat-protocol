@@ -379,6 +379,13 @@ export function isTerminalEvent(ev: ChatStreamEvent): boolean {
  * build, store, or apply title state. */
 export type ThreadTitleEvent = Extract<ChatStreamEvent, { type: "thread_title" }>;
 
+/** Title state as a generator or host holds it, before it becomes an event. */
+type ThreadTitleState = {
+  title: string;
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+};
+
 /**
  * Builds a sparse `thread_title` event: a non-empty string is stated, an
  * explicit `null` clears, and an empty or missing field is left off the event
@@ -387,11 +394,7 @@ export type ThreadTitleEvent = Extract<ChatStreamEvent, { type: "thread_title" }
  * client owns the state needs {@link threadTitleSnapshotEvent} instead: a
  * sparse event would strand a dropped field on the client forever.
  */
-export function threadTitleEvent(state: {
-  title: string;
-  overarchingTask?: string | null | undefined;
-  pivotCandidate?: string | null | undefined;
-}): ThreadTitleEvent {
+export function threadTitleEvent(state: ThreadTitleState): ThreadTitleEvent {
   return {
     type: "thread_title",
     title: state.title,
@@ -410,11 +413,7 @@ export function threadTitleEvent(state: {
  * or empty one stated as an explicit `null` so the client clears it. Accepts
  * a `ChatTitleResult` directly.
  */
-export function threadTitleSnapshotEvent(state: {
-  title: string;
-  overarchingTask?: string | null | undefined;
-  pivotCandidate?: string | null | undefined;
-}): ThreadTitleEvent {
+export function threadTitleSnapshotEvent(state: ThreadTitleState): ThreadTitleEvent {
   return {
     type: "thread_title",
     title: state.title,

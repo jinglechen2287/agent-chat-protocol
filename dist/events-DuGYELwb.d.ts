@@ -985,6 +985,12 @@ declare function isTerminalEvent(ev: ChatStreamEvent): boolean;
 type ThreadTitleEvent = Extract<ChatStreamEvent, {
   type: "thread_title";
 }>;
+/** Title state as a generator or host holds it, before it becomes an event. */
+type ThreadTitleState = {
+  title: string;
+  overarchingTask?: string | null | undefined;
+  pivotCandidate?: string | null | undefined;
+};
 /**
  * Builds a sparse `thread_title` event: a non-empty string is stated, an
  * explicit `null` clears, and an empty or missing field is left off the event
@@ -993,21 +999,13 @@ type ThreadTitleEvent = Extract<ChatStreamEvent, {
  * client owns the state needs {@link threadTitleSnapshotEvent} instead: a
  * sparse event would strand a dropped field on the client forever.
  */
-declare function threadTitleEvent(state: {
-  title: string;
-  overarchingTask?: string | null | undefined;
-  pivotCandidate?: string | null | undefined;
-}): ThreadTitleEvent;
+declare function threadTitleEvent(state: ThreadTitleState): ThreadTitleEvent;
 /**
  * Builds the complete `thread_title` snapshot a server MUST emit when its
  * client owns the title state: both task fields are always present, a dropped
  * or empty one stated as an explicit `null` so the client clears it. Accepts
  * a `ChatTitleResult` directly.
  */
-declare function threadTitleSnapshotEvent(state: {
-  title: string;
-  overarchingTask?: string | null | undefined;
-  pivotCandidate?: string | null | undefined;
-}): ThreadTitleEvent;
+declare function threadTitleSnapshotEvent(state: ThreadTitleState): ThreadTitleEvent;
 export { ParsedControlsText as A, formatQuestionAnswers as B, ViewSpec as C, Control as D, ColorControl as E, validateControls as F, ChatTitleMessage as G, CHAT_TITLE_MAX_LENGTH as H, valuesEqual as I, normalizeTaskSummary as J, fallbackChatTitle as K, ParsedQuestionText as L, SliderControl as M, initialControlValues as N, ControlValues as O, parseControlsBlock as P, QuestionItem as R, ViewComponent as S, validateViewSpec as T, CHAT_TITLE_RECENT_MESSAGE_LIMIT as U, parseQuestionBlock as V, CHAT_TITLE_TASK_MAX_LENGTH as W, truncateChatTitle as X, toChatTitleMessages as Y, threadTitleEvent as _, BackgroundAgentStatus as a, VIEW_CATALOG as b, McpElicitationAction as c, PendingMessage as d, ThreadTitleEvent as f, isTerminalEvent as g, ToolTaskMetadata as h, BackgroundAgentProgress as i, SelectControl as j, ControlsSpec as k, McpServerStatus as l, ToolPlanItem as m, AttachmentRef as n, ChatStreamEvent as o, ToolCallDetail as p, normalizeChatTitle as q, BackgroundAgent as r, McpElicitation as s, AbortReason as t, PROTOCOL_VERSION as u, threadTitleSnapshotEvent as v, parseViewBlock as w, VIEW_PROMPT as x, ParsedViewText as y, QuestionSpec as z };
-//# sourceMappingURL=events-B4lbQ-Ft.d.ts.map
+//# sourceMappingURL=events-DuGYELwb.d.ts.map

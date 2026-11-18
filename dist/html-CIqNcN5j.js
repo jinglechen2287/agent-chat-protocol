@@ -19,6 +19,17 @@ function truncateAt(value, max) {
 	const splitsPair = lead >= 55296 && lead <= 56319 && trail >= 56320 && trail <= 57343;
 	return `${value.slice(0, splitsPair ? cut - 1 : cut).trimEnd()}…`;
 }
+/** The first line of `text` with content, trimmed, or `undefined`. */
+function firstLine(text) {
+	return text.split("\n").map((line) => line.trim()).find(Boolean);
+}
+/** Wrapping quote pairs a model puts around a title. */
+const QUOTE_PAIRS = [
+	["\"", "\""],
+	["'", "'"],
+	["`", "`"],
+	["“", "”"]
+];
 /** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
 * deriving its own offline title (the first line of a message, say) lands on
 * the same width as a generated one instead of re-deriving the bound. */
@@ -38,14 +49,9 @@ function stripCodeFence(raw) {
 * when nothing usable is left. */
 function normalizeChatTitle(raw) {
 	let title = stripCodeFence(raw);
-	title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+	title = firstLine(title) ?? "";
 	title = title.replace(/^title\s*:\s*/i, "").trim();
-	for (const [open, close] of [
-		["\"", "\""],
-		["'", "'"],
-		["`", "`"],
-		["“", "”"]
-	]) if (title.startsWith(open) && title.endsWith(close)) {
+	for (const [open, close] of QUOTE_PAIRS) if (title.startsWith(open) && title.endsWith(close)) {
 		title = title.slice(open.length, -close.length).trim();
 		break;
 	}
@@ -69,8 +75,8 @@ function normalizeTaskSummary(raw) {
 /** The title shown before (or instead of) a generated one: the first non-empty
 * line of the request, an image name, or a constant. */
 function fallbackChatTitle(prompt, attachmentNames = []) {
-	const firstLine = prompt.split("\n").map((line) => line.trim()).find(Boolean);
-	if (firstLine) return truncateChatTitle(firstLine);
+	const line = firstLine(prompt);
+	if (line) return truncateChatTitle(line);
 	return attachmentNames[0] ? truncateChatTitle(`Image: ${attachmentNames[0]}`) : "New thread";
 }
 function toChatTitleMessages(messages, limit = 12, project) {
@@ -128,160 +134,60 @@ function threadTitleSnapshotEvent(state) {
 		pivotCandidate: state.pivotCandidate || null
 	};
 }
-// src/controls.ts
-/** Defensive ceilings — the agent is asked for less; a runaway block should
-* degrade to plain text rather than flood the client. */
-const MAX_CONTROLS = 12;
-const MAX_SELECT_OPTIONS = 12;
-const MAX_LABEL_LENGTH = 40;
-const MAX_TITLE_LENGTH = 60;
-const ID_RE$1 = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+// src/block.ts
 /**
-* Validates an unknown JSON value into the core ControlsSpec. Any violation
-* returns null — malformed blocks are left in the message as plain text.
-* Unknown fields (app extensions) are ignored, not rejected: extension
-* validation belongs to the app validator layered on top.
+* The steps every generative-UI block parser shares: find the first block,
+* decode its body, and cut it out of the surrounding prose. Internal: not
+* re-exported from either entry.
 */
-function validateControls(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const obj = value;
-	let title;
-	if (obj.title !== void 0) {
-		if (typeof obj.title !== "string" || obj.title.length > MAX_TITLE_LENGTH) return null;
-		const trimmed = obj.title.trim();
-		if (trimmed) title = trimmed;
-	}
-	if (!Array.isArray(obj.controls)) return null;
-	if (obj.controls.length < 1 || obj.controls.length > MAX_CONTROLS) return null;
-	const controls = [];
-	const ids = /* @__PURE__ */ new Set();
-	for (const entry of obj.controls) {
-		const control = validateControl(entry);
-		if (!control || ids.has(control.id)) return null;
-		ids.add(control.id);
-		controls.push(control);
-	}
-	return {
-		...title === void 0 ? {} : { title },
-		controls
-	};
+let encoder;
+/** Size of `text` in UTF-8 bytes, the unit every block ceiling is set in. The
+* encoder is made on first use, so importing the package doesn't need a global
+* `TextEncoder` until a parser measures something. */
+function utf8Length(text) {
+	if (!encoder) encoder = new TextEncoder();
+	return encoder.encode(text).length;
 }
-function validateControl(value) {
-	if (!value || typeof value !== "object") return null;
-	const obj = value;
-	if (typeof obj.id !== "string" || !ID_RE$1.test(obj.id)) return null;
-	if (typeof obj.label !== "string") return null;
-	const label = obj.label.trim();
-	if (!label || label.length > MAX_LABEL_LENGTH) return null;
-	switch (obj.type) {
-		case "slider": {
-			const { min, max, step, value: initial } = obj;
-			if (typeof min !== "number" || !Number.isFinite(min)) return null;
-			if (typeof max !== "number" || !Number.isFinite(max)) return null;
-			if (min >= max) return null;
-			let stepOut;
-			if (step !== void 0) {
-				if (typeof step !== "number" || !Number.isFinite(step) || step <= 0) return null;
-				stepOut = step;
-			}
-			let unit;
-			if (obj.unit !== void 0) {
-				if (typeof obj.unit !== "string") return null;
-				const trimmed = obj.unit.trim();
-				if (trimmed) unit = trimmed;
-			}
-			if (typeof initial !== "number" || !Number.isFinite(initial)) return null;
-			const clamped = Math.min(max, Math.max(min, initial));
-			return {
-				id: obj.id,
-				type: "slider",
-				label,
-				min,
-				max,
-				...stepOut !== void 0 ? { step: stepOut } : {},
-				...unit !== void 0 ? { unit } : {},
-				value: clamped
-			};
-		}
-		case "color": {
-			if (typeof obj.value !== "string") return null;
-			const color = obj.value.trim();
-			if (!color) return null;
-			return {
-				id: obj.id,
-				type: "color",
-				label,
-				value: color
-			};
-		}
-		case "select": {
-			if (!Array.isArray(obj.options)) return null;
-			const options = [];
-			for (const opt of obj.options) {
-				if (typeof opt !== "string") return null;
-				const trimmed = opt.trim();
-				if (!trimmed) return null;
-				options.push(trimmed);
-			}
-			if (options.length < 2 || options.length > MAX_SELECT_OPTIONS) return null;
-			if (typeof obj.value !== "string" || !options.includes(obj.value.trim())) return null;
-			return {
-				id: obj.id,
-				type: "select",
-				label,
-				options,
-				value: obj.value.trim()
-			};
-		}
-		default: return null;
-	}
+/**
+* The regex for the first fenced block whose info string is exactly one of
+* `names` (trailing spaces allowed), with the body in group 1, so an ordinary
+* ```json block never matches.
+*
+* - `inline`: the closing fence may follow the last body line directly.
+* - `own-line`: the closing fence must sit alone on its line, so backticks
+*   inside the body (a JS template literal, a ```js example) can't end it.
+*/
+function fencedBlockRe(names, close) {
+	const open = "```" + (names.length === 1 ? names[0] : `(?:${names.join("|")})`) + "[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)";
+	return new RegExp(close === "inline" ? open + "\\r?\\n?```" : open + "\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)");
 }
-/** Initial values keyed by control id — the panel's starting state. */
-function initialControlValues(spec) {
-	const values = {};
-	for (const control of spec.controls) values[control.id] = control.value;
-	return values;
+/**
+* `raw` with the matched block cut out. Removing a block from the middle of a
+* message leaves the blank lines that bracketed it stacked together, so those
+* collapse to one blank line and the result is trimmed.
+*/
+function withoutMatch(raw, match) {
+	return (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim();
 }
-/** Loose equality over value maps: `4` and `"4"` compare equal because range
-* inputs report strings while specs carry numbers. */
-function valuesEqual(a, b) {
-	if (a === void 0 || b === void 0) return a === b;
-	const aKeys = Object.keys(a);
-	const bKeys = Object.keys(b);
-	if (aKeys.length !== bKeys.length) return false;
-	for (const key of aKeys) {
-		if (!(key in b)) return false;
-		if (String(a[key]) !== String(b[key])) return false;
-	}
-	return true;
-}
-/** Matches the first controls fenced block. The info string must be exactly
-* the block name (optionally followed by trailing spaces) so plain ```json
-* blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE$4 = /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
-function parseControlsBlock(raw, validate = validateControls) {
-	const match = BLOCK_RE$4.exec(raw);
+/**
+* Finds the first block `re` matches and decodes its body (group 1). A block
+* that `decode` rejects with null stays in the prose as plain text: a
+* slightly raw message beats a dropped one.
+*/
+function extractBlock(raw, re, decode) {
+	const match = re.exec(raw);
 	if (!match) return {
 		text: raw,
-		controls: null
+		value: null
 	};
-	let parsed;
-	try {
-		parsed = JSON.parse((match[1] ?? "").trim());
-	} catch {
-		return {
-			text: raw,
-			controls: null
-		};
-	}
-	const controls = validate(parsed);
-	if (!controls) return {
+	const value = decode(match[1] ?? "");
+	if (value === null) return {
 		text: raw,
-		controls: null
+		value: null
 	};
 	return {
-		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
-		controls
+		text: withoutMatch(raw, match),
+		value
 	};
 }
 // src/guards.ts
@@ -297,6 +203,40 @@ function parseControlsBlock(raw, validate = validateControls) {
 */
 function hasOwn(object, key) {
 	return Object.prototype.hasOwnProperty.call(object, key);
+}
+/** A plain object: not null, not an array. */
+function isRecord(value) {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** A string with at least one non-whitespace character. */
+function hasText(value) {
+	return typeof value === "string" && value.trim() !== "";
+}
+/** A string other than `""`. Whitespace counts. */
+function isNonEmptyString(value) {
+	return typeof value === "string" && value !== "";
+}
+/** A non-negative safe integer: a message index, a count, a byte size. */
+function isIndex(value) {
+	return Number.isSafeInteger(value) && value >= 0;
+}
+/**
+* A guard for one member of a string union. Taking a `Record` instead of a
+* list makes the compiler demand every member, so the guard cannot fall
+* behind the union it checks.
+*/
+function memberOf(members) {
+	return (value) => typeof value === "string" && hasOwn(members, value);
+}
+/**
+* Copies `props` without its `undefined`-valued keys, in the same order. Under
+* `exactOptionalPropertyTypes` an optional field must be absent rather than
+* `undefined`; this states that once instead of a conditional spread per field.
+*/
+function definedProps(props) {
+	const out = {};
+	for (const key of Object.keys(props)) if (props[key] !== void 0) out[key] = props[key];
+	return out;
 }
 // src/prompt.ts
 /**
@@ -380,6 +320,168 @@ const QUESTION_PROMPT = [
 	"  The user can also type their own answer to any question. The answers arrive together as the next message, one numbered line per question, such as `1. First question? → A`, with `(skipped)` for one they left.",
 	"- Emit at most one block, as the very last thing in the message, with 1–6 short option labels per question. If an answer isn't a small fixed set of choices, just ask in plain text."
 ].join("\n");
+// src/controls.ts
+/**
+* Shared schema + helpers for the ```agent-controls``` block: the structured
+* parameter panel an agent can emit at the end of a message (mirroring
+* ```agent-question```).
+*
+* The shared contract covers the *widgets*: typed controls (slider / color /
+* select), their validation, and the current-values model. Anything beyond
+* that — carve's CSS style bindings and scopes, for example — is an app
+* extension: extra fields on the block that the core validator ignores, and
+* that an app-supplied validator (the `validate` parameter of
+* `parseControlsBlock`, the bridge's `controlsValidator` option, the
+* `mapEvent` option of `consumeSseResponse`) lifts into a richer spec. A
+* client that doesn't understand an extension renders the widgets and the
+* Apply round-trip and ignores the rest.
+*
+* The legacy `carve-controls` fence is accepted during migration.
+*/
+/** Defensive ceilings — the agent is asked for less; a runaway block should
+* degrade to plain text rather than flood the client. */
+const MAX_CONTROLS = 12;
+const MAX_SELECT_OPTIONS = 12;
+const MAX_LABEL_LENGTH = 40;
+const MAX_TITLE_LENGTH = 60;
+const ID_RE$1 = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+/**
+* Validates an unknown JSON value into the core ControlsSpec. Any violation
+* returns null — malformed blocks are left in the message as plain text.
+* Unknown fields (app extensions) are ignored, not rejected: extension
+* validation belongs to the app validator layered on top.
+*/
+function validateControls(value) {
+	if (!isRecord(value)) return null;
+	const obj = value;
+	let title;
+	if (obj.title !== void 0) {
+		if (typeof obj.title !== "string" || obj.title.length > MAX_TITLE_LENGTH) return null;
+		const trimmed = obj.title.trim();
+		if (trimmed) title = trimmed;
+	}
+	if (!Array.isArray(obj.controls)) return null;
+	if (obj.controls.length < 1 || obj.controls.length > MAX_CONTROLS) return null;
+	const controls = [];
+	const ids = /* @__PURE__ */ new Set();
+	for (const entry of obj.controls) {
+		const control = validateControl(entry);
+		if (!control || ids.has(control.id)) return null;
+		ids.add(control.id);
+		controls.push(control);
+	}
+	return {
+		...title === void 0 ? {} : { title },
+		controls
+	};
+}
+function validateControl(value) {
+	if (!isRecord(value)) return null;
+	const obj = value;
+	if (typeof obj.id !== "string" || !ID_RE$1.test(obj.id)) return null;
+	if (typeof obj.label !== "string") return null;
+	const label = obj.label.trim();
+	if (!label || label.length > MAX_LABEL_LENGTH) return null;
+	switch (obj.type) {
+		case "slider": {
+			const { min, max, step, value: initial } = obj;
+			if (typeof min !== "number" || !Number.isFinite(min)) return null;
+			if (typeof max !== "number" || !Number.isFinite(max)) return null;
+			if (min >= max) return null;
+			let stepOut;
+			if (step !== void 0) {
+				if (typeof step !== "number" || !Number.isFinite(step) || step <= 0) return null;
+				stepOut = step;
+			}
+			let unit;
+			if (obj.unit !== void 0) {
+				if (typeof obj.unit !== "string") return null;
+				const trimmed = obj.unit.trim();
+				if (trimmed) unit = trimmed;
+			}
+			if (typeof initial !== "number" || !Number.isFinite(initial)) return null;
+			const clamped = Math.min(max, Math.max(min, initial));
+			return {
+				id: obj.id,
+				type: "slider",
+				label,
+				min,
+				max,
+				...definedProps({
+					step: stepOut,
+					unit
+				}),
+				value: clamped
+			};
+		}
+		case "color": {
+			if (typeof obj.value !== "string") return null;
+			const color = obj.value.trim();
+			if (!color) return null;
+			return {
+				id: obj.id,
+				type: "color",
+				label,
+				value: color
+			};
+		}
+		case "select": {
+			if (!Array.isArray(obj.options)) return null;
+			const options = [];
+			for (const opt of obj.options) {
+				if (typeof opt !== "string") return null;
+				const trimmed = opt.trim();
+				if (!trimmed) return null;
+				options.push(trimmed);
+			}
+			if (options.length < 2 || options.length > MAX_SELECT_OPTIONS) return null;
+			if (typeof obj.value !== "string" || !options.includes(obj.value.trim())) return null;
+			return {
+				id: obj.id,
+				type: "select",
+				label,
+				options,
+				value: obj.value.trim()
+			};
+		}
+		default: return null;
+	}
+}
+/** Initial values keyed by control id — the panel's starting state. */
+function initialControlValues(spec) {
+	const values = {};
+	for (const control of spec.controls) values[control.id] = control.value;
+	return values;
+}
+/** Loose equality over value maps: `4` and `"4"` compare equal because range
+* inputs report strings while specs carry numbers. */
+function valuesEqual(a, b) {
+	if (a === void 0 || b === void 0) return a === b;
+	const aKeys = Object.keys(a);
+	const bKeys = Object.keys(b);
+	if (aKeys.length !== bKeys.length) return false;
+	for (const key of aKeys) {
+		if (!(key in b)) return false;
+		if (String(a[key]) !== String(b[key])) return false;
+	}
+	return true;
+}
+const BLOCK_RE$4 = fencedBlockRe([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
+function parseControlsBlock(raw, validate = validateControls) {
+	const { text, value } = extractBlock(raw, BLOCK_RE$4, (body) => {
+		let parsed;
+		try {
+			parsed = JSON.parse(body.trim());
+		} catch {
+			return null;
+		}
+		return validate(parsed);
+	});
+	return {
+		text,
+		controls: value
+	};
+}
 // src/view.ts
 /**
 * The ```agent-view``` grammar: a generative-UI view composed from a fixed
@@ -402,7 +504,9 @@ const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 /** Client-local state variables: `$region`, `$granularity`. */
 const BIND_RE = /^\$[a-zA-Z][a-zA-Z0-9_]*$/;
 const id = z.string().regex(ID_RE).max(40);
-const ref = z.string().regex(ID_RE).max(40);
+/** A child reference: the same shape as the id it points at. */
+const ref = id;
+const bind = z.string().regex(BIND_RE);
 const children = z.array(ref).max(40);
 const label = z.string().min(1).max(80);
 const shortText = z.string().max(500);
@@ -648,7 +752,7 @@ const VIEW_CATALOG = {
 	},
 	Input: {
 		schema: component("Input", {
-			bind: z.string().regex(BIND_RE),
+			bind,
 			label,
 			placeholder: shortText.optional(),
 			value: shortText.optional()
@@ -657,7 +761,7 @@ const VIEW_CATALOG = {
 	},
 	Select: {
 		schema: component("Select", {
-			bind: z.string().regex(BIND_RE),
+			bind,
 			label,
 			options: z.array(z.string().min(1).max(80)).min(2).max(24),
 			value: z.string().max(80)
@@ -666,7 +770,7 @@ const VIEW_CATALOG = {
 	},
 	Slider: {
 		schema: component("Slider", {
-			bind: z.string().regex(BIND_RE),
+			bind,
 			label,
 			min: z.number(),
 			max: z.number(),
@@ -677,7 +781,7 @@ const VIEW_CATALOG = {
 	},
 	Checkbox: {
 		schema: component("Checkbox", {
-			bind: z.string().regex(BIND_RE),
+			bind,
 			label,
 			checked: z.boolean().optional()
 		}),
@@ -685,7 +789,7 @@ const VIEW_CATALOG = {
 	},
 	DateRange: {
 		schema: component("DateRange", {
-			bind: z.string().regex(BIND_RE),
+			bind,
 			label,
 			start: z.string().max(20).optional(),
 			end: z.string().max(20).optional()
@@ -709,11 +813,8 @@ const MAX_VALIDATED_ENTRIES = 400;
 * {@link validateViewSpec}, exported for streamed `view_line` delivery where
 * whole-graph validation cannot run yet. */
 function validateViewComponent(value) {
-	return validateComponent(value);
-}
-function validateComponent(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const type = value.type;
+	if (!isRecord(value)) return null;
+	const { type } = value;
 	if (typeof type !== "string") return null;
 	if (!hasOwn(VIEW_CATALOG, type)) return null;
 	const parsed = VIEW_CATALOG[type].schema.safeParse(value);
@@ -725,35 +826,26 @@ function childRefs(c) {
 	if (c.type === "Tabs") return c.items.flatMap((item) => item.children);
 	return [];
 }
-/** Returns a copy of the component keeping only child refs in `keep`, in the
-* order `keep` lists them (which is first-occurrence order per slot). */
+/** Returns a copy of the component keeping only child refs in `keep`, each
+* once across all of its slots, in first-occurrence order. */
 function withPrunedRefs(c, keep) {
-	if ("children" in c) {
-		const seen = /* @__PURE__ */ new Set();
-		const pruned = c.children.filter((child) => {
-			if (seen.has(child) || !keep(child)) return false;
-			seen.add(child);
-			return true;
-		});
-		return {
-			...c,
-			children: pruned
-		};
-	}
-	if (c.type === "Tabs") {
-		const seen = /* @__PURE__ */ new Set();
-		return {
-			...c,
-			items: c.items.map((item) => ({
-				...item,
-				children: item.children.filter((child) => {
-					if (seen.has(child) || !keep(child)) return false;
-					seen.add(child);
-					return true;
-				})
-			}))
-		};
-	}
+	const seen = /* @__PURE__ */ new Set();
+	const prune = (refs) => refs.filter((child) => {
+		if (seen.has(child) || !keep(child)) return false;
+		seen.add(child);
+		return true;
+	});
+	if ("children" in c) return {
+		...c,
+		children: prune(c.children)
+	};
+	if (c.type === "Tabs") return {
+		...c,
+		items: c.items.map((item) => ({
+			...item,
+			children: prune(item.children)
+		}))
+	};
 	return c;
 }
 /**
@@ -764,12 +856,12 @@ function withPrunedRefs(c, keep) {
 * Returns null when no valid `root` component exists.
 */
 function validateViewSpec(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	if (!isRecord(value)) return null;
 	const raw = value.components;
 	if (!Array.isArray(raw)) return null;
 	const byId = /* @__PURE__ */ new Map();
 	for (const entry of raw.slice(0, MAX_VALIDATED_ENTRIES)) {
-		const parsed = validateComponent(entry);
+		const parsed = validateViewComponent(entry);
 		if (parsed && !byId.has(parsed.id)) byId.set(parsed.id, parsed);
 	}
 	const root = byId.get("root");
@@ -790,9 +882,20 @@ function validateViewSpec(value) {
 	visit(root, 1);
 	return { components: ordered };
 }
-/** Matches the first agent-view fenced block; the info string must be exactly
-* the block name so ordinary ```json blocks are ignored. */
-const BLOCK_RE$3 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```");
+const BLOCK_RE$3 = fencedBlockRe([VIEW_BLOCK_NAME], "inline");
+/** One block line as JSON. A line that doesn't parse is reported apart from
+* one that parses to `null`, since only parsed values count toward
+* {@link MAX_VALIDATED_ENTRIES}. */
+function parseJsonLine(line) {
+	try {
+		return {
+			ok: true,
+			value: JSON.parse(line)
+		};
+	} catch {
+		return { ok: false };
+	}
+}
 /**
 * Extracts the first ```agent-view``` block: one JSON component per line.
 * Malformed or unknown lines are skipped; a block with no valid root (or one
@@ -800,31 +903,20 @@ const BLOCK_RE$3 = /* @__PURE__ */ new RegExp("```agent-view[^\\S\\r\\n]*\\r?\\n
 * malformed controls block.
 */
 function parseViewBlock(raw) {
-	const match = BLOCK_RE$3.exec(raw);
-	if (!match) return {
-		text: raw,
-		view: null
-	};
-	const body = match[1] ?? "";
-	let view = null;
-	if (new TextEncoder().encode(body).length <= MAX_BLOCK_BYTES) {
+	const { text, value } = extractBlock(raw, BLOCK_RE$3, (body) => {
+		if (utf8Length(body) > MAX_BLOCK_BYTES) return null;
 		const components = [];
 		for (const line of body.split(/\r?\n/)) {
 			const trimmed = line.trim();
 			if (!trimmed) continue;
-			try {
-				components.push(JSON.parse(trimmed));
-			} catch {}
+			const parsed = parseJsonLine(trimmed);
+			if (parsed.ok) components.push(parsed.value);
 		}
-		view = validateViewSpec({ components });
-	}
-	if (!view) return {
-		text: raw,
-		view: null
-	};
+		return validateViewSpec({ components });
+	});
 	return {
-		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
-		view
+		text,
+		view: value
 	};
 }
 /** The prompt section that teaches the view grammar. Injected alongside
@@ -848,30 +940,41 @@ const VIEW_PROMPT = [
 	...Object.entries(VIEW_CATALOG).map(([name, entry]) => `  - ${name}: ${entry.prompt.replace(`${name} `, "")}`)
 ].join("\n");
 // src/question.ts
+/**
+* The structured clarifying-question block an agent can end a message with:
+*
+*   ```agent-question
+*   {"question": "Which nav style?", "options": ["Sidebar", "Top bar"]}
+*   ```
+*
+* or, to ask several things at once, a list of them — each may set
+* `"multi": true` to take more than one option:
+*
+*   ```agent-question
+*   {"questions": [
+*     {"question": "Which nav style?", "options": ["Sidebar", "Top bar"]},
+*     {"question": "Which pages?", "options": ["Home", "Docs"], "multi": true}
+*   ]}
+*   ```
+*
+* When present and well-formed the block is lifted into a `QuestionSpec` and
+* stripped from the surrounding prose. A malformed block is left untouched as
+* plain text — showing the user a slightly raw message beats dropping it.
+*
+* The legacy `carve-question` fence is accepted during migration.
+*/
 /** Upper bound on rendered option chips — the agent is asked for 2–6; this is
 * a defensive ceiling so a runaway block can't flood the client. */
 const MAX_OPTIONS = 8;
 /** Defensive length ceilings against a runaway block, not a style rule: an option that explains itself in a sentence or two still renders, since cards wrap long labels. Over-length questions invalidate the block; over-length options are skipped. */
 const MAX_QUESTION_LENGTH = 500;
 const MAX_OPTION_LENGTH = 500;
-/** Matches the first question fenced block. The info string must be exactly
-* the block name (optionally followed by trailing spaces) so plain ```json
-* blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE$2 = /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE$2 = fencedBlockRe([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], "inline");
 function parseQuestionBlock(raw) {
-	const match = BLOCK_RE$2.exec(raw);
-	if (!match) return {
-		text: raw,
-		question: null
-	};
-	const question = parseBlockBody(match[1] ?? "");
-	if (!question) return {
-		text: raw,
-		question: null
-	};
+	const { text, value } = extractBlock(raw, BLOCK_RE$2, parseBlockBody);
 	return {
-		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
-		question
+		text,
+		question: value
 	};
 }
 function parseBlockBody(body) {
@@ -881,7 +984,7 @@ function parseBlockBody(body) {
 	} catch {
 		return null;
 	}
-	if (!parsed || typeof parsed !== "object") return null;
+	if (!isRecord(parsed)) return null;
 	const obj = parsed;
 	const raw = "questions" in obj ? obj.questions : [obj];
 	if (!Array.isArray(raw) || raw.length === 0) return null;
@@ -898,7 +1001,7 @@ function parseBlockBody(body) {
 	} : first;
 }
 function parseItem(entry) {
-	if (!entry || typeof entry !== "object") return null;
+	if (!isRecord(entry)) return null;
 	const obj = entry;
 	if (typeof obj.question !== "string") return null;
 	const question = obj.question.trim();
@@ -943,6 +1046,24 @@ function formatQuestionAnswers(items, answers) {
 	}).join("\n");
 }
 // src/plan.ts
+/**
+* The proposed-plan block a plan-mode agent ends its final message with:
+*
+*   <proposed_plan>
+*   # Add subtract to a.ts
+*   ...markdown...
+*   </proposed_plan>
+*
+* When present and well-formed the block is lifted into a `PlanSpec` and
+* stripped from the surrounding prose. A malformed or unclosed block is left
+* untouched as plain text — a raw plan in the transcript beats dropping it.
+*
+* Tags, not a fenced block, deliberately: plan markdown legitimately contains
+* code fences, and an inner ``` would close an outer fence. XML-ish tags have
+* no such collision, stream invisibly through markdown renderers that drop
+* unknown HTML, and match the `<proposed_plan>` convention Codex is already
+* trained on.
+*/
 /** Defensive ceiling on the plan body, in UTF-8 bytes. Plans are long-form documents, and a host may ask for one as a complete HTML page, so this matches the html block's ceiling; it only exists so a runaway generation can't flood clients through one event. */
 const MAX_PLAN_BYTES = 262144;
 /** Matches the first plan block. Both tags must sit on their own line
@@ -974,22 +1095,17 @@ function planTitle(planMarkdown) {
 	return null;
 }
 function parseProposedPlan(raw) {
-	const match = BLOCK_RE$1.exec(raw);
-	if (!match) return {
-		text: raw,
-		plan: null
-	};
-	const planMarkdown = (match[1] ?? "").replace(/\r\n/g, "\n").trim();
-	if (!planMarkdown || new TextEncoder().encode(planMarkdown).length > MAX_PLAN_BYTES) return {
-		text: raw,
-		plan: null
-	};
-	return {
-		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
-		plan: {
+	const { text, value } = extractBlock(raw, BLOCK_RE$1, (body) => {
+		const planMarkdown = body.replace(/\r\n/g, "\n").trim();
+		if (!planMarkdown || utf8Length(planMarkdown) > MAX_PLAN_BYTES) return null;
+		return {
 			planMarkdown,
 			title: planTitle(planMarkdown)
-		}
+		};
+	});
+	return {
+		text,
+		plan: value
 	};
 }
 // src/html.ts
@@ -1019,7 +1135,7 @@ const HTML_SEND_MAX = 1e3;
 * non-finite heights, and over-long send texts are rejected.
 */
 function parseHtmlFrameMessage(data) {
-	if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+	if (!isRecord(data)) return null;
 	const { type } = data;
 	if (type === "agent-html:ready") return { type };
 	if (type === "agent-html:height") {
@@ -1044,27 +1160,21 @@ function parseHtmlFrameMessage(data) {
 * alone on its own line (optional surrounding whitespace) so backticks
 * inside the document — a JS template literal or a ```js example line —
 * cannot end the block early. */
-const BLOCK_RE = /* @__PURE__ */ new RegExp("```agent-html[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)");
+const BLOCK_RE = fencedBlockRe([HTML_BLOCK_NAME], "own-line");
 /**
 * Extracts the first ```agent-html``` block. An empty or oversized block is
 * left in the prose as plain text, exactly like a rootless view block.
 */
 function parseHtmlBlock(raw) {
-	const match = BLOCK_RE.exec(raw);
-	if (!match) return {
-		text: raw,
-		html: null
-	};
-	const body = (match[1] ?? "").replace(/\r\n/g, "\n");
-	if (new TextEncoder().encode(body).length > MAX_HTML_BYTES || body.trim().length === 0) return {
-		text: raw,
-		html: null
-	};
+	const { text, value } = extractBlock(raw, BLOCK_RE, (rawBody) => {
+		const body = rawBody.replace(/\r\n/g, "\n");
+		return utf8Length(body) > MAX_HTML_BYTES || body.trim().length === 0 ? null : body;
+	});
 	return {
-		text: (raw.slice(0, match.index) + raw.slice(match.index + match[0].length)).replace(/\n{3,}/g, "\n\n").trim(),
-		html: body
+		text,
+		html: value
 	};
 }
-export { CHAT_TITLE_MAX_LENGTH as A, parseControlsBlock as C, isTerminalEvent as D, PROTOCOL_VERSION as E, normalizeTaskSummary as F, stripCodeFence as I, toChatTitleMessages as L, CHAT_TITLE_TASK_MAX_LENGTH as M, fallbackChatTitle as N, threadTitleEvent as O, normalizeChatTitle as P, truncateChatTitle as R, initialControlValues as S, valuesEqual as T, LEGACY_QUESTION_BLOCK_NAME as _, formatQuestionAnswers as a, QUESTION_PROMPT as b, VIEW_PROMPT as c, validateViewSpec as d, BUILD_PROMPT as f, LEGACY_CONTROLS_BLOCK_NAME as g, HTML_BLOCK_NAME as h, parseProposedPlan as i, CHAT_TITLE_RECENT_MESSAGE_LIMIT as j, threadTitleSnapshotEvent as k, parseViewBlock as l, CONTROLS_BLOCK_NAME as m, parseHtmlBlock as n, parseQuestionBlock as o, CHAT_PROMPT as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, PLAN_PROMPT as v, validateControls as w, VIEW_BLOCK_NAME as x, QUESTION_BLOCK_NAME as y };
+export { isNonEmptyString as A, fallbackChatTitle as B, QUESTION_BLOCK_NAME as C, hasOwn as D, definedProps as E, threadTitleEvent as F, truncateChatTitle as G, normalizeTaskSummary as H, threadTitleSnapshotEvent as I, CHAT_TITLE_MAX_LENGTH as L, memberOf as M, PROTOCOL_VERSION as N, hasText as O, isTerminalEvent as P, CHAT_TITLE_RECENT_MESSAGE_LIMIT as R, PLAN_PROMPT as S, VIEW_BLOCK_NAME as T, stripCodeFence as U, normalizeChatTitle as V, toChatTitleMessages as W, CHAT_PROMPT as _, formatQuestionAnswers as a, LEGACY_CONTROLS_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewSpec as d, initialControlValues as f, BUILD_PROMPT as g, valuesEqual as h, parseProposedPlan as i, isRecord as j, isIndex as k, parseViewBlock as l, validateControls as m, parseHtmlBlock as n, parseQuestionBlock as o, parseControlsBlock as p, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, validateViewComponent as u, CONTROLS_BLOCK_NAME as v, QUESTION_PROMPT as w, LEGACY_QUESTION_BLOCK_NAME as x, HTML_BLOCK_NAME as y, CHAT_TITLE_TASK_MAX_LENGTH as z };
 
-//# sourceMappingURL=html-BaveMrgg.js.map
+//# sourceMappingURL=html-CIqNcN5j.js.map

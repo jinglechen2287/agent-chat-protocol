@@ -14,6 +14,8 @@
  * as plain text.
  */
 
+import { extractBlock, fencedBlockRe, utf8Length } from "./block";
+import { isRecord } from "./guards";
 import { HTML_BLOCK_NAME } from "./prompt";
 
 /** Byte ceiling for a block; larger ones degrade to prose. */
@@ -67,16 +69,16 @@ export type HtmlFrameToParent = HtmlReadyMessage | HtmlHeightMessage | HtmlSendM
  * non-finite heights, and over-long send texts are rejected.
  */
 export function parseHtmlFrameMessage(data: unknown): HtmlFrameToParent | null {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  const { type } = data as Record<string, unknown>;
+  if (!isRecord(data)) return null;
+  const { type } = data;
   if (type === "agent-html:ready") return { type };
   if (type === "agent-html:height") {
-    const { height } = data as Record<string, unknown>;
+    const { height } = data;
     if (typeof height !== "number" || !Number.isFinite(height) || height < 0) return null;
     return { type, height };
   }
   if (type === "agent-html:send") {
-    const { text } = data as Record<string, unknown>;
+    const { text } = data;
     if (typeof text !== "string" || text.length === 0 || text.length > HTML_SEND_MAX) return null;
     return { type, text };
   }
@@ -96,24 +98,17 @@ export interface ParsedHtmlText {
  * alone on its own line (optional surrounding whitespace) so backticks
  * inside the document — a JS template literal or a ```js example line —
  * cannot end the block early. */
-const BLOCK_RE = new RegExp(
-  "```" + HTML_BLOCK_NAME + "[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n[ \\t]*```[ \\t]*(?=\\r?\\n|$)",
-);
+const BLOCK_RE = fencedBlockRe([HTML_BLOCK_NAME], "own-line");
 
 /**
  * Extracts the first ```agent-html``` block. An empty or oversized block is
  * left in the prose as plain text, exactly like a rootless view block.
  */
 export function parseHtmlBlock(raw: string): ParsedHtmlText {
-  const match = BLOCK_RE.exec(raw);
-  if (!match) return { text: raw, html: null };
-
-  const body = (match[1] ?? "").replace(/\r\n/g, "\n");
-  const oversized = new TextEncoder().encode(body).length > MAX_HTML_BYTES;
-  if (oversized || body.trim().length === 0) return { text: raw, html: null };
-
-  const text = (raw.slice(0, match.index) + raw.slice(match.index + match[0].length))
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, html: body };
+  const { text, value } = extractBlock(raw, BLOCK_RE, (rawBody) => {
+    const body = rawBody.replace(/\r\n/g, "\n");
+    const oversized = utf8Length(body) > MAX_HTML_BYTES;
+    return oversized || body.trim().length === 0 ? null : body;
+  });
+  return { text, html: value };
 }

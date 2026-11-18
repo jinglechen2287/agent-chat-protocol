@@ -17,6 +17,8 @@
  * trained on.
  */
 
+import { extractBlock, utf8Length } from "./block";
+
 export interface PlanSpec {
   /** The plan body, verbatim markdown. */
   planMarkdown: string;
@@ -81,19 +83,10 @@ function planTitle(planMarkdown: string): string | null {
 }
 
 export function parseProposedPlan(raw: string): ParsedPlanText {
-  const match = BLOCK_RE.exec(raw);
-  if (!match) return { text: raw, plan: null };
-
-  const planMarkdown = (match[1] ?? "").replace(/\r\n/g, "\n").trim();
-  if (!planMarkdown || new TextEncoder().encode(planMarkdown).length > MAX_PLAN_BYTES) {
-    return { text: raw, plan: null };
-  }
-
-  // Removing the block from the middle of a message leaves the blank lines
-  // that bracketed it stacked together — collapse those so the prose reads
-  // naturally either side of the seam.
-  const text = (raw.slice(0, match.index) + raw.slice(match.index + match[0].length))
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, plan: { planMarkdown, title: planTitle(planMarkdown) } };
+  const { text, value } = extractBlock(raw, BLOCK_RE, (body): PlanSpec | null => {
+    const planMarkdown = body.replace(/\r\n/g, "\n").trim();
+    if (!planMarkdown || utf8Length(planMarkdown) > MAX_PLAN_BYTES) return null;
+    return { planMarkdown, title: planTitle(planMarkdown) };
+  });
+  return { text, plan: value };
 }

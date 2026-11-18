@@ -1,4 +1,405 @@
-import { A as CHAT_TITLE_MAX_LENGTH, C as parseControlsBlock, D as isTerminalEvent, E as PROTOCOL_VERSION, F as normalizeTaskSummary, L as toChatTitleMessages, M as CHAT_TITLE_TASK_MAX_LENGTH, N as fallbackChatTitle, O as threadTitleEvent, P as normalizeChatTitle, R as truncateChatTitle, S as initialControlValues, T as valuesEqual, _ as LEGACY_QUESTION_BLOCK_NAME, a as formatQuestionAnswers, b as QUESTION_PROMPT, c as VIEW_PROMPT, d as validateViewSpec, f as BUILD_PROMPT, g as LEGACY_CONTROLS_BLOCK_NAME, h as HTML_BLOCK_NAME, i as parseProposedPlan, j as CHAT_TITLE_RECENT_MESSAGE_LIMIT, k as threadTitleSnapshotEvent, l as parseViewBlock, m as CONTROLS_BLOCK_NAME, n as parseHtmlBlock, o as parseQuestionBlock, p as CHAT_PROMPT, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as PLAN_PROMPT, w as validateControls, x as VIEW_BLOCK_NAME, y as QUESTION_BLOCK_NAME } from "./html-BaveMrgg.js";
+import { A as isNonEmptyString, B as fallbackChatTitle, C as QUESTION_BLOCK_NAME, D as hasOwn, E as definedProps, F as threadTitleEvent, G as truncateChatTitle, H as normalizeTaskSummary, I as threadTitleSnapshotEvent, L as CHAT_TITLE_MAX_LENGTH, M as memberOf, N as PROTOCOL_VERSION, O as hasText, P as isTerminalEvent, R as CHAT_TITLE_RECENT_MESSAGE_LIMIT, S as PLAN_PROMPT, T as VIEW_BLOCK_NAME, V as normalizeChatTitle, W as toChatTitleMessages, _ as CHAT_PROMPT, a as formatQuestionAnswers, b as LEGACY_CONTROLS_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewSpec, f as initialControlValues, g as BUILD_PROMPT, h as valuesEqual, i as parseProposedPlan, j as isRecord, k as isIndex, l as parseViewBlock, m as validateControls, n as parseHtmlBlock, o as parseQuestionBlock, p as parseControlsBlock, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as validateViewComponent, v as CONTROLS_BLOCK_NAME, w as QUESTION_PROMPT, x as LEGACY_QUESTION_BLOCK_NAME, y as HTML_BLOCK_NAME, z as CHAT_TITLE_TASK_MAX_LENGTH } from "./html-CIqNcN5j.js";
+// src/decode.ts
+const isProvider = memberOf({
+	claude: true,
+	codex: true
+});
+const isBackgroundAgentStatus = memberOf({
+	pending: true,
+	running: true,
+	completed: true,
+	failed: true,
+	interrupted: true
+});
+const isMcpServerState = memberOf({
+	connecting: true,
+	connected: true,
+	failed: true,
+	"needs-auth": true,
+	disabled: true
+});
+const isElicitationAction = memberOf({
+	accept: true,
+	decline: true,
+	cancel: true
+});
+const isPendingKind = memberOf({
+	steer: true,
+	queue: true
+});
+const isAbortReason = memberOf({
+	user: true,
+	timeout: true
+});
+const DECODERS = {
+	session_started: ({ sessionId, protocolVersion }) => {
+		if (typeof sessionId !== "string") return null;
+		return {
+			type: "session_started",
+			sessionId,
+			...typeof protocolVersion === "number" ? { protocolVersion } : {}
+		};
+	},
+	assistant_text: ({ text }) => typeof text === "string" ? {
+		type: "assistant_text",
+		text
+	} : null,
+	assistant_text_delta: ({ index, delta }) => isIndex(index) && typeof delta === "string" ? {
+		type: "assistant_text_delta",
+		index,
+		delta
+	} : null,
+	tool_use: ({ name, summary, details, task, plan }) => {
+		if (typeof name !== "string") return null;
+		return {
+			type: "tool_use",
+			name,
+			...definedProps({
+				summary: typeof summary === "string" ? summary : void 0,
+				details: isToolCallDetails(details) ? details : void 0,
+				task: toolTaskMetadata(task),
+				plan: toolPlanItems(plan)
+			})
+		};
+	},
+	question: ({ question, options, multi, questions }) => {
+		if (typeof question !== "string" || !hasRealOptions(options)) return null;
+		return {
+			type: "question",
+			question,
+			options,
+			...definedProps({
+				multi: typeof multi === "boolean" ? multi : void 0,
+				questions: isQuestionList(questions) ? questions : void 0
+			})
+		};
+	},
+	plan: ({ planMarkdown, title }) => hasText(planMarkdown) ? {
+		type: "plan",
+		planMarkdown,
+		title: typeof title === "string" ? title : null
+	} : null,
+	controls: (d) => {
+		const spec = validateControls(d);
+		return spec ? {
+			type: "controls",
+			spec
+		} : null;
+	},
+	view: (d) => {
+		const spec = validateViewSpec(d);
+		return spec ? {
+			type: "view",
+			spec
+		} : null;
+	},
+	view_line: ({ index, component }) => {
+		if (!isIndex(index)) return null;
+		const valid = validateViewComponent(component);
+		return valid ? {
+			type: "view_line",
+			index,
+			component: valid
+		} : null;
+	},
+	html: ({ content }) => typeof content === "string" ? {
+		type: "html",
+		content
+	} : null,
+	html_delta: ({ index, delta }) => isIndex(index) && typeof delta === "string" ? {
+		type: "html_delta",
+		index,
+		delta
+	} : null,
+	context_usage: ({ contextTokens, contextWindow, model }) => {
+		if (!isIndex(contextTokens)) return null;
+		return {
+			type: "context_usage",
+			contextTokens,
+			...definedProps({
+				contextWindow: isIndex(contextWindow) && contextWindow > 0 ? contextWindow : void 0,
+				model: hasText(model) ? model : void 0
+			})
+		};
+	},
+	thread_title: ({ title, overarchingTask, pivotCandidate }) => {
+		if (!hasText(title)) return null;
+		return threadTitleEvent({
+			title,
+			overarchingTask: titleStatementValue(overarchingTask),
+			pivotCandidate: titleStatementValue(pivotCandidate)
+		});
+	},
+	background_agent_updated: ({ agent }) => {
+		const valid = backgroundAgent(agent);
+		return valid ? {
+			type: "background_agent_updated",
+			agent: valid
+		} : null;
+	},
+	mcp_status: ({ servers }) => {
+		const valid = listOf(servers, mcpServerStatus);
+		return valid ? {
+			type: "mcp_status",
+			servers: valid
+		} : null;
+	},
+	mcp_elicitation: ({ request }) => {
+		const valid = mcpElicitation(request);
+		return valid ? {
+			type: "mcp_elicitation",
+			request: valid
+		} : null;
+	},
+	mcp_elicitation_resolved: ({ id, action }) => isNonEmptyString(id) && isElicitationAction(action) ? {
+		type: "mcp_elicitation_resolved",
+		id,
+		action
+	} : null,
+	pending_messages: ({ revision, messages }) => {
+		if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) return null;
+		const valid = listOf(messages, pendingMessage);
+		return valid ? {
+			type: "pending_messages",
+			revision,
+			messages: valid
+		} : null;
+	},
+	user_message: ({ text, steerId, turnId, mode, ts, attachments: rawAttachments }) => {
+		const attachments = attachmentRefs(rawAttachments);
+		if (attachments === null || typeof text !== "string") return null;
+		if (text.trim() === "" && attachments.length === 0) return null;
+		if (!isNonEmptyString(steerId) || !isNonEmptyString(turnId)) return null;
+		if (typeof mode !== "string" || typeof ts !== "number" || !Number.isFinite(ts)) return null;
+		return {
+			type: "user_message",
+			text,
+			steerId,
+			turnId,
+			mode,
+			ts,
+			...attachments.length > 0 ? { attachments } : {}
+		};
+	},
+	stderr: ({ chunk }) => typeof chunk === "string" ? {
+		type: "stderr",
+		chunk
+	} : null,
+	done: ({ exitCode }) => ({
+		type: "done",
+		exitCode: typeof exitCode === "number" ? exitCode : -1
+	}),
+	aborted: ({ reason }) => ({
+		type: "aborted",
+		...isAbortReason(reason) ? { reason } : {}
+	}),
+	error: ({ message }) => ({
+		type: "error",
+		message: typeof message === "string" ? message : "unknown error"
+	})
+};
+/**
+* Validates a decoded SSE frame into the typed event union. Returns null for
+* unknown event names and malformed payloads; clients skip those frames.
+*/
+function mapSseToChatEvent(ev) {
+	if (typeof ev.event !== "string" || !hasOwn(DECODERS, ev.event)) return null;
+	const decode = DECODERS[ev.event];
+	return decode(typeof ev.data === "object" && ev.data !== null ? ev.data : {});
+}
+/** Every entry parsed, or null when the value isn't an array or any entry is
+* malformed: a list is accepted whole or not at all. */
+function listOf(value, parse) {
+	if (!Array.isArray(value)) return null;
+	const out = [];
+	for (const entry of value) {
+		const parsed = parse(entry);
+		if (parsed === null) return null;
+		out.push(parsed);
+	}
+	return out;
+}
+/**
+* Reads optional fields off a record. Absent and `null` both read as absent;
+* a present value the guard rejects reads as absent too but clears `ok`, so
+* the caller can reject the whole payload once at the end.
+*/
+function optionalFields(record) {
+	let ok = true;
+	const parse = (key, parser) => {
+		const value = record[key];
+		if (value === void 0 || value === null) return void 0;
+		const parsed = parser(value);
+		if (parsed !== null) return parsed;
+		ok = false;
+	};
+	return {
+		get ok() {
+			return ok;
+		},
+		parse,
+		get: (key, guard) => parse(key, (value) => guard(value) ? value : null)
+	};
+}
+/** Options as `QuestionSpec` holds them: all strings, at least one real. */
+function hasRealOptions(value) {
+	return Array.isArray(value) && value.every((option) => typeof option === "string") && value.some(hasText);
+}
+/** A form question's list as `QuestionSpec.questions` holds it: at least one
+* question, each a string with at least one real option and, when set, a
+* boolean `multi`. */
+function isQuestionList(value) {
+	return Array.isArray(value) && value.length > 0 && value.every((item) => isRecord(item) && typeof item.question === "string" && hasRealOptions(item.options) && (item.multi === void 0 || typeof item.multi === "boolean"));
+}
+/** Tri-state title statement: `null` stays an explicit clear, a non-empty
+* string stays a statement, anything else folds to `undefined`: absent, no
+* statement. */
+function titleStatementValue(value) {
+	if (value === null) return null;
+	return hasText(value) ? value : void 0;
+}
+function backgroundAgentProgress(value) {
+	if (!isRecord(value)) return null;
+	const fields = optionalFields(value);
+	const progress = definedProps({
+		totalTokens: fields.get("totalTokens", isIndex),
+		toolUses: fields.get("toolUses", isIndex),
+		durationMs: fields.get("durationMs", isIndex),
+		lastToolName: fields.get("lastToolName", hasText)
+	});
+	return fields.ok ? progress : null;
+}
+function backgroundAgent(value) {
+	if (!isRecord(value)) return null;
+	const { id, provider, status, startedAt, updatedAt } = value;
+	if (!hasText(id) || !isProvider(provider) || !isBackgroundAgentStatus(status)) return null;
+	if (!isIndex(startedAt) || !isIndex(updatedAt)) return null;
+	const fields = optionalFields(value);
+	const optional = definedProps({
+		parentToolCallId: fields.get("parentToolCallId", hasText),
+		description: fields.get("description", hasText),
+		agentType: fields.get("agentType", hasText),
+		summary: fields.get("summary", hasText),
+		error: fields.get("error", hasText),
+		progress: fields.parse("progress", backgroundAgentProgress),
+		endedAt: fields.get("endedAt", isIndex)
+	});
+	if (!fields.ok) return null;
+	return {
+		id,
+		provider,
+		status,
+		startedAt,
+		updatedAt,
+		...optional
+	};
+}
+function pendingMessage(entry) {
+	if (!isRecord(entry)) return null;
+	const { id, kind, text, mode, ts, from } = entry;
+	const attachments = attachmentRefs(entry.attachments);
+	if (attachments === null || !isNonEmptyString(id) || !isPendingKind(kind)) return null;
+	if (typeof text !== "string" || typeof mode !== "string") return null;
+	if (typeof ts !== "number" || !Number.isFinite(ts)) return null;
+	const sender = from === void 0 ? void 0 : pendingSender(from);
+	if (sender === null) return null;
+	return {
+		id,
+		kind,
+		text,
+		mode,
+		ts,
+		...sender ? { from: sender } : {},
+		...attachments.length > 0 ? { attachments } : {}
+	};
+}
+function pendingSender(value) {
+	if (!isRecord(value)) return null;
+	const { threadId, title, machineId, machineName } = value;
+	if (!isNonEmptyString(threadId) || typeof title !== "string") return null;
+	if (machineId !== void 0 && typeof machineId !== "string") return null;
+	if (machineName !== void 0 && typeof machineName !== "string") return null;
+	return {
+		threadId,
+		title,
+		...definedProps({
+			machineId,
+			machineName
+		})
+	};
+}
+/** A message's files: none when absent, null when any is malformed. */
+function attachmentRefs(value) {
+	return value === void 0 ? [] : listOf(value, attachmentRef);
+}
+function attachmentRef(entry) {
+	if (!isRecord(entry)) return null;
+	const { id, name, mimeType, size } = entry;
+	if (!isNonEmptyString(id) || !isNonEmptyString(name) || !isNonEmptyString(mimeType)) return null;
+	return isIndex(size) ? {
+		id,
+		name,
+		mimeType,
+		size
+	} : null;
+}
+function mcpServerStatus(entry) {
+	if (!isRecord(entry)) return null;
+	const { name, status, error } = entry;
+	if (!isNonEmptyString(name) || !isMcpServerState(status)) return null;
+	if (error !== void 0 && typeof error !== "string") return null;
+	return {
+		name,
+		status,
+		...error ? { error } : {}
+	};
+}
+function mcpElicitation(value) {
+	if (!isRecord(value)) return null;
+	const { id, serverName, message, mode, requestedSchema, url } = value;
+	if (!isNonEmptyString(id) || !isNonEmptyString(serverName)) return null;
+	if (typeof message !== "string") return null;
+	if (mode === "form") return isRecord(requestedSchema) ? {
+		id,
+		serverName,
+		message,
+		mode,
+		requestedSchema
+	} : null;
+	if (mode === "url") return isNonEmptyString(url) ? {
+		id,
+		serverName,
+		message,
+		mode,
+		url
+	} : null;
+	return null;
+}
+function toolPlanItems(value) {
+	if (!Array.isArray(value) || value.length === 0) return void 0;
+	return listOf(value, toolPlanItem) ?? void 0;
+}
+function toolPlanItem(item) {
+	if (!isRecord(item)) return null;
+	const { text, status } = item;
+	return hasText(text) && hasText(status) ? {
+		text,
+		status
+	} : null;
+}
+function toolTaskMetadata(value) {
+	if (!isRecord(value)) return void 0;
+	const textOf = (candidate) => hasText(candidate) ? candidate : void 0;
+	const task = definedProps({
+		id: textOf(value.id),
+		subject: textOf(value.subject),
+		status: textOf(value.status)
+	});
+	return Object.keys(task).length > 0 ? task : void 0;
+}
+function isToolCallDetails(value) {
+	return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item.label === "string" && typeof item.value === "string");
+}
 // src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
@@ -19,9 +420,10 @@ function parseSseBuffer(buffer) {
 			dataLines.push(value.startsWith(" ") ? value.slice(1) : value);
 		}
 		if (dataLines.length === 0) continue;
-		let data = dataLines.join("\n");
+		const text = dataLines.join("\n");
+		let data = text;
 		try {
-			data = JSON.parse(dataLines.join("\n"));
+			data = JSON.parse(text);
 		} catch {}
 		events.push({
 			event,
@@ -32,469 +434,6 @@ function parseSseBuffer(buffer) {
 		events,
 		remainder
 	};
-}
-/** A form question's list as `QuestionSpec.questions` holds it: at least one
-* question, each a string with at least one real option and, when set, a
-* boolean `multi`. */
-function isQuestionList(value) {
-	return Array.isArray(value) && value.length > 0 && value.every((item) => {
-		if (!item || typeof item !== "object") return false;
-		const { question, options, multi } = item;
-		return typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "") && (multi === void 0 || typeof multi === "boolean");
-	});
-}
-/**
-* Validates a decoded SSE frame into the typed event union. Returns null for
-* unknown event names and malformed payloads — clients skip those frames.
-*/
-function mapSseToChatEvent(ev) {
-	const d = ev.data;
-	const get = (k) => typeof d === "object" && d !== null ? d[k] : void 0;
-	switch (ev.event) {
-		case "session_started": {
-			const sessionId = get("sessionId");
-			if (typeof sessionId !== "string") return null;
-			const protocolVersion = get("protocolVersion");
-			return {
-				type: "session_started",
-				sessionId,
-				...typeof protocolVersion === "number" ? { protocolVersion } : {}
-			};
-		}
-		case "assistant_text": {
-			const text = get("text");
-			if (typeof text === "string") return {
-				type: "assistant_text",
-				text
-			};
-			return null;
-		}
-		case "assistant_text_delta": {
-			const index = get("index");
-			const delta = get("delta");
-			if (!Number.isSafeInteger(index) || index < 0) return null;
-			if (typeof delta !== "string") return null;
-			return {
-				type: "assistant_text_delta",
-				index,
-				delta
-			};
-		}
-		case "tool_use": {
-			const name = get("name");
-			if (typeof name !== "string") return null;
-			const summary = get("summary");
-			const rawDetails = get("details");
-			const details = isToolCallDetails(rawDetails) ? rawDetails : void 0;
-			const task = toolTaskMetadata(get("task"));
-			const plan = toolPlanItems(get("plan"));
-			return {
-				type: "tool_use",
-				name,
-				...typeof summary === "string" ? { summary } : {},
-				...details ? { details } : {},
-				...task ? { task } : {},
-				...plan ? { plan } : {}
-			};
-		}
-		case "question": {
-			const question = get("question");
-			const options = get("options");
-			if (typeof question === "string" && Array.isArray(options) && options.every((o) => typeof o === "string") && options.some((o) => o.trim() !== "")) {
-				const multi = get("multi");
-				const questions = get("questions");
-				return {
-					type: "question",
-					question,
-					options,
-					...typeof multi === "boolean" ? { multi } : {},
-					...isQuestionList(questions) ? { questions } : {}
-				};
-			}
-			return null;
-		}
-		case "plan": {
-			const planMarkdown = get("planMarkdown");
-			const title = get("title");
-			if (typeof planMarkdown === "string" && planMarkdown.trim() !== "") return {
-				type: "plan",
-				planMarkdown,
-				title: typeof title === "string" ? title : null
-			};
-			return null;
-		}
-		case "controls": {
-			const spec = validateControls(d);
-			if (spec) return {
-				type: "controls",
-				spec
-			};
-			return null;
-		}
-		case "view": {
-			const spec = validateViewSpec(d);
-			if (spec) return {
-				type: "view",
-				spec
-			};
-			return null;
-		}
-		case "view_line": {
-			const index = get("index");
-			if (!Number.isSafeInteger(index) || index < 0) return null;
-			const component = validateViewComponent(get("component"));
-			if (!component) return null;
-			return {
-				type: "view_line",
-				index,
-				component
-			};
-		}
-		case "html": {
-			const content = get("content");
-			if (typeof content !== "string") return null;
-			return {
-				type: "html",
-				content
-			};
-		}
-		case "html_delta": {
-			const index = get("index");
-			const delta = get("delta");
-			if (!Number.isSafeInteger(index) || index < 0) return null;
-			if (typeof delta !== "string") return null;
-			return {
-				type: "html_delta",
-				index,
-				delta
-			};
-		}
-		case "context_usage": {
-			const contextTokens = get("contextTokens");
-			if (!Number.isSafeInteger(contextTokens) || contextTokens < 0) return null;
-			const contextWindow = get("contextWindow");
-			const model = get("model");
-			return {
-				type: "context_usage",
-				contextTokens,
-				...Number.isSafeInteger(contextWindow) && contextWindow > 0 ? { contextWindow } : {},
-				...typeof model === "string" && model.trim() !== "" ? { model } : {}
-			};
-		}
-		case "thread_title": {
-			const title = get("title");
-			if (typeof title !== "string" || title.trim() === "") return null;
-			return threadTitleEvent({
-				title,
-				overarchingTask: titleStatementValue(get("overarchingTask")),
-				pivotCandidate: titleStatementValue(get("pivotCandidate"))
-			});
-		}
-		case "user_message": {
-			const text = get("text");
-			const steerId = get("steerId");
-			const turnId = get("turnId");
-			const mode = get("mode");
-			const ts = get("ts");
-			const attachments = attachmentRefs(get("attachments"));
-			if (attachments === null) return null;
-			if (typeof text !== "string") return null;
-			if (text.trim() === "" && attachments.length === 0) return null;
-			if (typeof steerId !== "string" || steerId === "") return null;
-			if (typeof turnId !== "string" || turnId === "") return null;
-			if (typeof mode !== "string" || !Number.isFinite(ts)) return null;
-			return {
-				type: "user_message",
-				text,
-				steerId,
-				turnId,
-				mode,
-				ts,
-				...attachments.length > 0 ? { attachments } : {}
-			};
-		}
-		case "background_agent_updated": {
-			const agent = backgroundAgent(get("agent"));
-			return agent ? {
-				type: "background_agent_updated",
-				agent
-			} : null;
-		}
-		case "mcp_status": {
-			const servers = mcpServerStatuses(get("servers"));
-			return servers ? {
-				type: "mcp_status",
-				servers
-			} : null;
-		}
-		case "pending_messages": {
-			const revision = get("revision");
-			if (typeof revision !== "number" || !Number.isInteger(revision) || revision < 0) return null;
-			const messages = pendingMessages(get("messages"));
-			return messages ? {
-				type: "pending_messages",
-				revision,
-				messages
-			} : null;
-		}
-		case "mcp_elicitation": {
-			const request = mcpElicitation(get("request"));
-			return request ? {
-				type: "mcp_elicitation",
-				request
-			} : null;
-		}
-		case "mcp_elicitation_resolved": {
-			const id = get("id");
-			const action = get("action");
-			if (typeof id !== "string" || id === "") return null;
-			if (action !== "accept" && action !== "decline" && action !== "cancel") return null;
-			return {
-				type: "mcp_elicitation_resolved",
-				id,
-				action
-			};
-		}
-		case "stderr": {
-			const chunk = get("chunk");
-			if (typeof chunk === "string") return {
-				type: "stderr",
-				chunk
-			};
-			return null;
-		}
-		case "done": {
-			const exitCode = get("exitCode");
-			return {
-				type: "done",
-				exitCode: typeof exitCode === "number" ? exitCode : -1
-			};
-		}
-		case "aborted": {
-			const reason = get("reason");
-			return {
-				type: "aborted",
-				...reason === "user" || reason === "timeout" ? { reason } : {}
-			};
-		}
-		case "error": {
-			const message = get("message");
-			return {
-				type: "error",
-				message: typeof message === "string" ? message : "unknown error"
-			};
-		}
-		default: return null;
-	}
-}
-/** Tri-state title statement: `null` stays an explicit clear, a non-empty
-* string stays a statement, anything else folds to `undefined` — absent, no
-* statement. */
-function titleStatementValue(value) {
-	if (value === null) return null;
-	return typeof value === "string" && value.trim() !== "" ? value : void 0;
-}
-/** `undefined` when the field is absent, `null` when present but unusable. */
-function optionalNonEmptyStringValue(value) {
-	if (value === void 0 || value === null) return void 0;
-	return typeof value === "string" && value.trim() !== "" ? value : null;
-}
-function optionalNonEmptyString(record, key) {
-	return optionalNonEmptyStringValue(record[key]);
-}
-function optionalNonNegativeInteger(record, key) {
-	const value = record[key];
-	if (value === void 0 || value === null) return void 0;
-	return Number.isSafeInteger(value) && value >= 0 ? value : null;
-}
-function backgroundAgentProgress(value) {
-	if (value === void 0 || value === null) return void 0;
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const record = value;
-	const totalTokens = optionalNonNegativeInteger(record, "totalTokens");
-	const toolUses = optionalNonNegativeInteger(record, "toolUses");
-	const durationMs = optionalNonNegativeInteger(record, "durationMs");
-	const lastToolName = optionalNonEmptyString(record, "lastToolName");
-	if (totalTokens === null || toolUses === null || durationMs === null || lastToolName === null) return null;
-	return {
-		...totalTokens !== void 0 ? { totalTokens } : {},
-		...toolUses !== void 0 ? { toolUses } : {},
-		...durationMs !== void 0 ? { durationMs } : {},
-		...lastToolName !== void 0 ? { lastToolName } : {}
-	};
-}
-function backgroundAgent(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const record = value;
-	const id = optionalNonEmptyString(record, "id");
-	const provider = record.provider;
-	const status = record.status;
-	const startedAt = optionalNonNegativeInteger(record, "startedAt");
-	const updatedAt = optionalNonNegativeInteger(record, "updatedAt");
-	if (!id || provider !== "claude" && provider !== "codex" || ![
-		"pending",
-		"running",
-		"completed",
-		"failed",
-		"interrupted"
-	].includes(typeof status === "string" ? status : "") || startedAt === void 0 || startedAt === null || updatedAt === void 0 || updatedAt === null) return null;
-	const parentToolCallId = optionalNonEmptyString(record, "parentToolCallId");
-	const description = optionalNonEmptyString(record, "description");
-	const agentType = optionalNonEmptyString(record, "agentType");
-	const summary = optionalNonEmptyString(record, "summary");
-	const error = optionalNonEmptyString(record, "error");
-	const endedAt = optionalNonNegativeInteger(record, "endedAt");
-	const progress = backgroundAgentProgress(record.progress);
-	if (parentToolCallId === null || description === null || agentType === null || summary === null || error === null || endedAt === null || progress === null) return null;
-	return {
-		id,
-		provider,
-		status,
-		startedAt,
-		updatedAt,
-		...parentToolCallId !== void 0 ? { parentToolCallId } : {},
-		...description !== void 0 ? { description } : {},
-		...agentType !== void 0 ? { agentType } : {},
-		...summary !== void 0 ? { summary } : {},
-		...error !== void 0 ? { error } : {},
-		...progress !== void 0 ? { progress } : {},
-		...endedAt !== void 0 ? { endedAt } : {}
-	};
-}
-function pendingMessages(value) {
-	if (!Array.isArray(value)) return null;
-	const messages = [];
-	for (const entry of value) {
-		if (typeof entry !== "object" || entry === null) return null;
-		const { id, kind, text, mode, ts, from, attachments: rawAttachments } = entry;
-		const attachments = attachmentRefs(rawAttachments);
-		if (attachments === null) return null;
-		if (typeof id !== "string" || id === "") return null;
-		if (kind !== "steer" && kind !== "queue") return null;
-		if (typeof text !== "string" || typeof mode !== "string") return null;
-		if (typeof ts !== "number" || !Number.isFinite(ts)) return null;
-		let sender;
-		if (from !== void 0) {
-			if (typeof from !== "object" || from === null) return null;
-			const { threadId, title, machineId, machineName } = from;
-			if (typeof threadId !== "string" || threadId === "" || typeof title !== "string") return null;
-			if (machineId !== void 0 && typeof machineId !== "string") return null;
-			if (machineName !== void 0 && typeof machineName !== "string") return null;
-			sender = {
-				threadId,
-				title,
-				...machineId !== void 0 ? { machineId } : {},
-				...machineName !== void 0 ? { machineName } : {}
-			};
-		}
-		messages.push({
-			id,
-			kind,
-			text,
-			mode,
-			ts,
-			...sender ? { from: sender } : {},
-			...attachments.length > 0 ? { attachments } : {}
-		});
-	}
-	return messages;
-}
-/** A message's files: none when absent, null when any is malformed. */
-function attachmentRefs(value) {
-	if (value === void 0) return [];
-	if (!Array.isArray(value)) return null;
-	const refs = [];
-	for (const entry of value) {
-		if (typeof entry !== "object" || entry === null) return null;
-		const { id, name, mimeType, size } = entry;
-		if (typeof id !== "string" || id === "") return null;
-		if (typeof name !== "string" || name === "") return null;
-		if (typeof mimeType !== "string" || mimeType === "") return null;
-		if (!Number.isSafeInteger(size) || size < 0) return null;
-		refs.push({
-			id,
-			name,
-			mimeType,
-			size
-		});
-	}
-	return refs;
-}
-function mcpServerStatuses(value) {
-	if (!Array.isArray(value)) return null;
-	const servers = [];
-	for (const entry of value) {
-		if (typeof entry !== "object" || entry === null) return null;
-		const { name, status, error } = entry;
-		if (typeof name !== "string" || name === "") return null;
-		if (status !== "connecting" && status !== "connected" && status !== "failed" && status !== "needs-auth" && status !== "disabled") return null;
-		if (error !== void 0 && typeof error !== "string") return null;
-		servers.push({
-			name,
-			status,
-			...error ? { error } : {}
-		});
-	}
-	return servers;
-}
-function mcpElicitation(value) {
-	if (typeof value !== "object" || value === null) return null;
-	const { id, serverName, message, mode, requestedSchema, url } = value;
-	if (typeof id !== "string" || id === "") return null;
-	if (typeof serverName !== "string" || serverName === "") return null;
-	if (typeof message !== "string") return null;
-	if (mode === "form") {
-		if (typeof requestedSchema !== "object" || requestedSchema === null || Array.isArray(requestedSchema)) return null;
-		return {
-			id,
-			serverName,
-			message,
-			mode,
-			requestedSchema
-		};
-	}
-	if (mode === "url") {
-		if (typeof url !== "string" || url === "") return null;
-		return {
-			id,
-			serverName,
-			message,
-			mode,
-			url
-		};
-	}
-	return null;
-}
-function toolPlanItems(value) {
-	if (!Array.isArray(value) || value.length === 0) return void 0;
-	const items = [];
-	for (const item of value) {
-		if (!item || typeof item !== "object" || Array.isArray(item)) return void 0;
-		const record = item;
-		if (typeof record.text !== "string" || record.text.trim() === "" || typeof record.status !== "string" || record.status.trim() === "") return;
-		items.push({
-			text: record.text,
-			status: record.status
-		});
-	}
-	return items;
-}
-function toolTaskMetadata(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-	const record = value;
-	const field = (key) => {
-		const candidate = record[key];
-		return typeof candidate === "string" && candidate.trim() !== "" ? candidate : void 0;
-	};
-	const id = field("id");
-	const subject = field("subject");
-	const status = field("status");
-	const task = {
-		...id ? { id } : {},
-		...subject ? { subject } : {},
-		...status ? { status } : {}
-	};
-	return Object.keys(task).length > 0 ? task : void 0;
 }
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
 * the SSE event name; the rest becomes the data payload. The `controls` and
@@ -549,9 +488,6 @@ async function consumeSseResponse(res, onEvent, options = {}) {
 	} finally {
 		reader.releaseLock();
 	}
-}
-function isToolCallDetails(value) {
-	return Array.isArray(value) && value.every((item) => item !== null && typeof item === "object" && !Array.isArray(item) && typeof item.label === "string" && typeof item.value === "string");
 }
 export { BUILD_PROMPT, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatQuestionAnswers, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 

@@ -40,11 +40,12 @@ export {
   type ToolTaskMetadata,
 } from "./events";
 
+export { mapSseToChatEvent } from "./decode";
+
 export {
   consumeSseResponse,
   encodeChatEvent,
   formatSseEvent,
-  mapSseToChatEvent,
   parseSseBuffer,
   toSseEvent,
   type ConsumeSseOptions,

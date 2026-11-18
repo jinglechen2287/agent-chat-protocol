@@ -1,4 +1,4 @@
-import { A as ParsedControlsText, B as formatQuestionAnswers, C as ViewSpec, D as Control, E as ColorControl, F as validateControls, G as ChatTitleMessage, H as CHAT_TITLE_MAX_LENGTH, I as valuesEqual, J as normalizeTaskSummary, K as fallbackChatTitle, L as ParsedQuestionText, M as SliderControl, N as initialControlValues, O as ControlValues, P as parseControlsBlock, R as QuestionItem, S as ViewComponent, T as validateViewSpec, U as CHAT_TITLE_RECENT_MESSAGE_LIMIT, V as parseQuestionBlock, W as CHAT_TITLE_TASK_MAX_LENGTH, X as truncateChatTitle, Y as toChatTitleMessages, _ as threadTitleEvent, a as BackgroundAgentStatus, b as VIEW_CATALOG, c as McpElicitationAction, d as PendingMessage, f as ThreadTitleEvent, g as isTerminalEvent, h as ToolTaskMetadata, i as BackgroundAgentProgress, j as SelectControl, k as ControlsSpec, l as McpServerStatus, m as ToolPlanItem, n as AttachmentRef, o as ChatStreamEvent, p as ToolCallDetail, q as normalizeChatTitle, r as BackgroundAgent, s as McpElicitation, t as AbortReason, u as PROTOCOL_VERSION, v as threadTitleSnapshotEvent, w as parseViewBlock, x as VIEW_PROMPT, y as ParsedViewText, z as QuestionSpec } from "./events-B4lbQ-Ft.js";
+import { A as ParsedControlsText, B as formatQuestionAnswers, C as ViewSpec, D as Control, E as ColorControl, F as validateControls, G as ChatTitleMessage, H as CHAT_TITLE_MAX_LENGTH, I as valuesEqual, J as normalizeTaskSummary, K as fallbackChatTitle, L as ParsedQuestionText, M as SliderControl, N as initialControlValues, O as ControlValues, P as parseControlsBlock, R as QuestionItem, S as ViewComponent, T as validateViewSpec, U as CHAT_TITLE_RECENT_MESSAGE_LIMIT, V as parseQuestionBlock, W as CHAT_TITLE_TASK_MAX_LENGTH, X as truncateChatTitle, Y as toChatTitleMessages, _ as threadTitleEvent, a as BackgroundAgentStatus, b as VIEW_CATALOG, c as McpElicitationAction, d as PendingMessage, f as ThreadTitleEvent, g as isTerminalEvent, h as ToolTaskMetadata, i as BackgroundAgentProgress, j as SelectControl, k as ControlsSpec, l as McpServerStatus, m as ToolPlanItem, n as AttachmentRef, o as ChatStreamEvent, p as ToolCallDetail, q as normalizeChatTitle, r as BackgroundAgent, s as McpElicitation, t as AbortReason, u as PROTOCOL_VERSION, v as threadTitleSnapshotEvent, w as parseViewBlock, x as VIEW_PROMPT, y as ParsedViewText, z as QuestionSpec } from "./events-DuGYELwb.js";
 /** One decoded SSE frame: the `event:` name and the JSON-parsed `data:`
  * payload (left as a string when it isn't valid JSON). */
 interface SseEvent {
@@ -15,11 +15,6 @@ interface SseParseResult {
  * the parsed frames and the trailing incomplete remainder to carry forward.
  */
 declare function parseSseBuffer(buffer: string): SseParseResult;
-/**
- * Validates a decoded SSE frame into the typed event union. Returns null for
- * unknown event names and malformed payloads — clients skip those frames.
- */
-declare function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null;
 /** Converts a typed event into its wire frame: the `type` discriminant becomes
  * the SSE event name; the rest becomes the data payload. The `controls` and
  * `view` specs are sent directly as the payload (not wrapped in `{spec}`). */
@@ -49,6 +44,11 @@ declare function consumeSseResponse(res: Response, onEvent: (e: ChatStreamEvent)
 declare function consumeSseResponse<TEvent>(res: Response, onEvent: (e: TEvent) => void, options: ConsumeSseOptions<TEvent> & {
   mapEvent: (ev: SseEvent) => TEvent | null;
 }): Promise<void>;
+/**
+ * Validates a decoded SSE frame into the typed event union. Returns null for
+ * unknown event names and malformed payloads; clients skip those frames.
+ */
+declare function mapSseToChatEvent(ev: SseEvent): ChatStreamEvent | null;
 /**
  * The proposed-plan block a plan-mode agent ends its final message with:
  *

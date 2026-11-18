@@ -21,6 +21,11 @@
  *
  * The legacy `carve-question` fence is accepted during migration.
  */
+
+import { extractBlock, fencedBlockRe } from "./block";
+import { isRecord } from "./guards";
+import { LEGACY_QUESTION_BLOCK_NAME, QUESTION_BLOCK_NAME } from "./prompt";
+
 /** One question: what to ask and the labels the user can pick from. */
 export interface QuestionItem {
   /** The clarifying question to put to the user. */
@@ -58,26 +63,11 @@ const MAX_OPTIONS = 8;
 const MAX_QUESTION_LENGTH = 500;
 const MAX_OPTION_LENGTH = 500;
 
-/** Matches the first question fenced block. The info string must be exactly
- * the block name (optionally followed by trailing spaces) so plain ```json
- * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE =
-  /```(?:agent-question|carve-question)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE = fencedBlockRe([QUESTION_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME], "inline");
 
 export function parseQuestionBlock(raw: string): ParsedQuestionText {
-  const match = BLOCK_RE.exec(raw);
-  if (!match) return { text: raw, question: null };
-
-  const question = parseBlockBody(match[1] ?? "");
-  if (!question) return { text: raw, question: null };
-
-  // Removing the block from the middle of a message leaves the blank lines
-  // that bracketed it stacked together — collapse those so the prose reads
-  // naturally either side of the seam.
-  const text = (raw.slice(0, match.index) + raw.slice(match.index + match[0].length))
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, question };
+  const { text, value } = extractBlock(raw, BLOCK_RE, parseBlockBody);
+  return { text, question: value };
 }
 
 function parseBlockBody(body: string): QuestionSpec | null {
@@ -87,9 +77,9 @@ function parseBlockBody(body: string): QuestionSpec | null {
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object") return null;
+  if (!isRecord(parsed)) return null;
 
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed;
   const raw = "questions" in obj ? obj.questions : [obj];
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const items: QuestionItem[] = [];
@@ -106,8 +96,8 @@ function parseBlockBody(body: string): QuestionSpec | null {
 }
 
 function parseItem(entry: unknown): QuestionItem | null {
-  if (!entry || typeof entry !== "object") return null;
-  const obj = entry as Record<string, unknown>;
+  if (!isRecord(entry)) return null;
+  const obj = entry;
   if (typeof obj.question !== "string") return null;
   const question = obj.question.trim();
   if (!question || question.length > MAX_QUESTION_LENGTH) return null;

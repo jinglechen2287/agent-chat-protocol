@@ -20,7 +20,8 @@
 // vitest's ESM/CJS interop resolves to undefined; the star form is stable
 // under both bun and vitest.
 import * as z from "zod";
-import { hasOwn } from "./guards";
+import { extractBlock, fencedBlockRe, utf8Length } from "./block";
+import { hasOwn, isRecord } from "./guards";
 import { VIEW_BLOCK_NAME } from "./prompt";
 
 const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
@@ -28,7 +29,9 @@ const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 const BIND_RE = /^\$[a-zA-Z][a-zA-Z0-9_]*$/;
 
 const id = z.string().regex(ID_RE).max(40);
-const ref = z.string().regex(ID_RE).max(40);
+/** A child reference: the same shape as the id it points at. */
+const ref = id;
+const bind = z.string().regex(BIND_RE);
 const children = z.array(ref).max(40);
 const label = z.string().min(1).max(80);
 const shortText = z.string().max(500);
@@ -199,7 +202,7 @@ export const VIEW_CATALOG = {
   // Inputs — write $vars; inert until a Button template reads them
   Input: {
     schema: component("Input", {
-      bind: z.string().regex(BIND_RE),
+      bind,
       label,
       placeholder: shortText.optional(),
       value: shortText.optional(),
@@ -208,7 +211,7 @@ export const VIEW_CATALOG = {
   },
   Select: {
     schema: component("Select", {
-      bind: z.string().regex(BIND_RE),
+      bind,
       label,
       options: z.array(z.string().min(1).max(80)).min(2).max(24),
       value: z.string().max(80),
@@ -217,7 +220,7 @@ export const VIEW_CATALOG = {
   },
   Slider: {
     schema: component("Slider", {
-      bind: z.string().regex(BIND_RE),
+      bind,
       label,
       min: z.number(),
       max: z.number(),
@@ -228,7 +231,7 @@ export const VIEW_CATALOG = {
   },
   Checkbox: {
     schema: component("Checkbox", {
-      bind: z.string().regex(BIND_RE),
+      bind,
       label,
       checked: z.boolean().optional(),
     }),
@@ -236,7 +239,7 @@ export const VIEW_CATALOG = {
   },
   DateRange: {
     schema: component("DateRange", {
-      bind: z.string().regex(BIND_RE),
+      bind,
       label,
       start: z.string().max(20).optional(),
       end: z.string().max(20).optional(),
@@ -272,12 +275,8 @@ const MAX_VALIDATED_ENTRIES = MAX_COMPONENTS * 4;
  * {@link validateViewSpec}, exported for streamed `view_line` delivery where
  * whole-graph validation cannot run yet. */
 export function validateViewComponent(value: unknown): ViewComponent | null {
-  return validateComponent(value);
-}
-
-function validateComponent(value: unknown): ViewComponent | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const type = (value as Record<string, unknown>).type;
+  if (!isRecord(value)) return null;
+  const { type } = value;
   if (typeof type !== "string") return null;
   // Own keys only: the catalog is a plain object, so a `type` such as
   // "constructor" or "__proto__" would otherwise resolve to an inherited
@@ -295,31 +294,19 @@ function childRefs(c: ViewComponent): string[] {
   return [];
 }
 
-/** Returns a copy of the component keeping only child refs in `keep`, in the
- * order `keep` lists them (which is first-occurrence order per slot). */
+/** Returns a copy of the component keeping only child refs in `keep`, each
+ * once across all of its slots, in first-occurrence order. */
 function withPrunedRefs(c: ViewComponent, keep: (id: string) => boolean): ViewComponent {
-  if ("children" in c) {
-    const seen = new Set<string>();
-    const pruned = c.children.filter((child) => {
+  const seen = new Set<string>();
+  const prune = (refs: string[]): string[] =>
+    refs.filter((child) => {
       if (seen.has(child) || !keep(child)) return false;
       seen.add(child);
       return true;
     });
-    return { ...c, children: pruned };
-  }
+  if ("children" in c) return { ...c, children: prune(c.children) };
   if (c.type === "Tabs") {
-    const seen = new Set<string>();
-    return {
-      ...c,
-      items: c.items.map((item) => ({
-        ...item,
-        children: item.children.filter((child) => {
-          if (seen.has(child) || !keep(child)) return false;
-          seen.add(child);
-          return true;
-        }),
-      })),
-    };
+    return { ...c, items: c.items.map((item) => ({ ...item, children: prune(item.children) })) };
   }
   return c;
 }
@@ -332,13 +319,13 @@ function withPrunedRefs(c: ViewComponent, keep: (id: string) => boolean): ViewCo
  * Returns null when no valid `root` component exists.
  */
 export function validateViewSpec(value: unknown): ViewSpec | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const raw = (value as Record<string, unknown>).components;
+  if (!isRecord(value)) return null;
+  const raw = value.components;
   if (!Array.isArray(raw)) return null;
 
   const byId = new Map<string, ViewComponent>();
   for (const entry of raw.slice(0, MAX_VALIDATED_ENTRIES)) {
-    const parsed = validateComponent(entry);
+    const parsed = validateViewComponent(entry);
     if (parsed && !byId.has(parsed.id)) byId.set(parsed.id, parsed);
   }
   const root = byId.get("root");
@@ -371,11 +358,18 @@ export interface ParsedViewText {
   view: ViewSpec | null;
 }
 
-/** Matches the first agent-view fenced block; the info string must be exactly
- * the block name so ordinary ```json blocks are ignored. */
-const BLOCK_RE = new RegExp(
-  "```" + VIEW_BLOCK_NAME + "[^\\S\\r\\n]*\\r?\\n([\\s\\S]*?)\\r?\\n?```",
-);
+const BLOCK_RE = fencedBlockRe([VIEW_BLOCK_NAME], "inline");
+
+/** One block line as JSON. A line that doesn't parse is reported apart from
+ * one that parses to `null`, since only parsed values count toward
+ * {@link MAX_VALIDATED_ENTRIES}. */
+export function parseJsonLine(line: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(line) };
+  } catch {
+    return { ok: false };
+  }
+}
 
 /**
  * Extracts the first ```agent-view``` block: one JSON component per line.
@@ -384,32 +378,21 @@ const BLOCK_RE = new RegExp(
  * malformed controls block.
  */
 export function parseViewBlock(raw: string): ParsedViewText {
-  const match = BLOCK_RE.exec(raw);
-  if (!match) return { text: raw, view: null };
-
-  const body = match[1] ?? "";
-  let view: ViewSpec | null = null;
-  // The ceiling is in bytes: measure the encoded length, since a multi-byte
-  // payload can be several times its UTF-16 string length.
-  if (new TextEncoder().encode(body).length <= MAX_BLOCK_BYTES) {
+  const { text, value } = extractBlock(raw, BLOCK_RE, (body) => {
+    // The ceiling is in bytes: a multi-byte payload can be several times its
+    // UTF-16 string length.
+    if (utf8Length(body) > MAX_BLOCK_BYTES) return null;
     const components: unknown[] = [];
     for (const line of body.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      try {
-        components.push(JSON.parse(trimmed));
-      } catch {
-        // Skipped: a bad line must not take the view down with it.
-      }
+      // A bad line is skipped: it must not take the view down with it.
+      const parsed = parseJsonLine(trimmed);
+      if (parsed.ok) components.push(parsed.value);
     }
-    view = validateViewSpec({ components });
-  }
-  if (!view) return { text: raw, view: null };
-
-  const text = (raw.slice(0, match.index) + raw.slice(match.index + match[0].length))
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, view };
+    return validateViewSpec({ components });
+  });
+  return { text, view: value };
 }
 
 /** The prompt section that teaches the view grammar. Injected alongside

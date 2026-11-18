@@ -16,6 +16,10 @@
  * The legacy `carve-controls` fence is accepted during migration.
  */
 
+import { extractBlock, fencedBlockRe } from "./block";
+import { definedProps, isRecord } from "./guards";
+import { CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME } from "./prompt";
+
 export interface SliderControl {
   id: string;
   type: "slider";
@@ -70,8 +74,8 @@ const ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
  * validation belongs to the app validator layered on top.
  */
 export function validateControls(value: unknown): ControlsSpec | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const obj = value as Record<string, unknown>;
+  if (!isRecord(value)) return null;
+  const obj = value;
 
   let title: string | undefined;
   if (obj.title !== undefined) {
@@ -100,8 +104,8 @@ export function validateControls(value: unknown): ControlsSpec | null {
 }
 
 function validateControl(value: unknown): Control | null {
-  if (!value || typeof value !== "object") return null;
-  const obj = value as Record<string, unknown>;
+  if (!isRecord(value)) return null;
+  const obj = value;
 
   if (typeof obj.id !== "string" || !ID_RE.test(obj.id)) return null;
   if (typeof obj.label !== "string") return null;
@@ -135,8 +139,7 @@ function validateControl(value: unknown): Control | null {
         label,
         min,
         max,
-        ...(stepOut !== undefined ? { step: stepOut } : {}),
-        ...(unit !== undefined ? { unit } : {}),
+        ...definedProps({ step: stepOut, unit }),
         value: clamped,
       };
     }
@@ -204,11 +207,7 @@ export interface ParsedControlsText<TSpec extends ControlsSpec = ControlsSpec> {
   controls: TSpec | null;
 }
 
-/** Matches the first controls fenced block. The info string must be exactly
- * the block name (optionally followed by trailing spaces) so plain ```json
- * blocks the agent emits for other reasons are ignored. */
-const BLOCK_RE =
-  /```(?:agent-controls|carve-controls)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n?```/;
+const BLOCK_RE = fencedBlockRe([CONTROLS_BLOCK_NAME, LEGACY_CONTROLS_BLOCK_NAME], "inline");
 
 /**
  * Extracts the first controls block. `validate` defaults to the core
@@ -228,23 +227,14 @@ export function parseControlsBlock<TSpec extends ControlsSpec = ControlsSpec>(
     value: unknown,
   ) => TSpec | null,
 ): ParsedControlsText<TSpec> {
-  const match = BLOCK_RE.exec(raw);
-  if (!match) return { text: raw, controls: null };
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse((match[1] ?? "").trim());
-  } catch {
-    return { text: raw, controls: null };
-  }
-  const controls = validate(parsed);
-  if (!controls) return { text: raw, controls: null };
-
-  // Removing the block from the middle of a message leaves the blank lines
-  // that bracketed it stacked together — collapse those so the prose reads
-  // naturally either side of the seam.
-  const text = (raw.slice(0, match.index) + raw.slice(match.index + match[0].length))
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, controls };
+  const { text, value } = extractBlock(raw, BLOCK_RE, (body) => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body.trim());
+    } catch {
+      return null;
+    }
+    return validate(parsed);
+  });
+  return { text, controls: value };
 }

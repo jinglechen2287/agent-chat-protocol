@@ -37,6 +37,19 @@ function truncateAt(value: string, max: number): string {
   return `${value.slice(0, splitsPair ? cut - 1 : cut).trimEnd()}…`;
 }
 
+/** The first line of `text` with content, trimmed, or `undefined`. */
+function firstLine(text: string): string | undefined {
+  return text.split("\n").map((line) => line.trim()).find(Boolean);
+}
+
+/** Wrapping quote pairs a model puts around a title. */
+const QUOTE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['"', '"'],
+  ["'", "'"],
+  ["`", "`"],
+  ["“", "”"],
+];
+
 /** Bounds a chat title to {@link CHAT_TITLE_MAX_LENGTH}. Exported so a host
  * deriving its own offline title (the first line of a message, say) lands on
  * the same width as a generated one instead of re-deriving the bound. */
@@ -62,15 +75,9 @@ export function stripCodeFence(raw: string): string {
  * when nothing usable is left. */
 export function normalizeChatTitle(raw: string): string | undefined {
   let title = stripCodeFence(raw);
-  title = title.split("\n").map((line) => line.trim()).find(Boolean) ?? "";
+  title = firstLine(title) ?? "";
   title = title.replace(/^title\s*:\s*/i, "").trim();
-  const quotePairs: ReadonlyArray<readonly [string, string]> = [
-    ['"', '"'],
-    ["'", "'"],
-    ["`", "`"],
-    ["“", "”"],
-  ];
-  for (const [open, close] of quotePairs) {
+  for (const [open, close] of QUOTE_PAIRS) {
     if (title.startsWith(open) && title.endsWith(close)) {
       title = title.slice(open.length, -close.length).trim();
       break;
@@ -101,8 +108,8 @@ export function fallbackChatTitle(
   prompt: string,
   attachmentNames: readonly string[] = [],
 ): string {
-  const firstLine = prompt.split("\n").map((line) => line.trim()).find(Boolean);
-  if (firstLine) return truncateChatTitle(firstLine);
+  const line = firstLine(prompt);
+  if (line) return truncateChatTitle(line);
   return attachmentNames[0]
     ? truncateChatTitle(`Image: ${attachmentNames[0]}`)
     : "New thread";

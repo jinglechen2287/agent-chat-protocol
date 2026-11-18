@@ -245,3 +245,18 @@ describe("component types named like Object.prototype members", () => {
     });
   }
 });
+
+describe("the validated-entry ceiling", () => {
+  const block = (lines: string[]): string => ["```agent-view", ...lines, "```"].join("\n");
+  const root = JSON.stringify(text("root", "found"));
+
+  it("counts lines that parse, even to null, so a root right after 399 of them still renders", () => {
+    const parsed = parseViewBlock(block([...Array(399).fill("null"), root]));
+    expect(parsed.view?.components.map((c) => c.id)).toEqual(["root"]);
+  });
+
+  it("does not count lines that fail to parse", () => {
+    const parsed = parseViewBlock(block([...Array(500).fill("{not json"), root]));
+    expect(parsed.view?.components.map((c) => c.id)).toEqual(["root"]);
+  });
+});
