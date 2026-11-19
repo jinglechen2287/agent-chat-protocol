@@ -19,6 +19,9 @@
 import type {
   AgentCallbacks,
   BackgroundAgentInfo,
+  CompactionFailureInfo,
+  CompactionInfo,
+  CompactionStartInfo,
   McpElicitationResponse,
   McpServerStatusInfo,
   TokenUsage,
@@ -183,7 +186,52 @@ export function createChatEventBridge(
     });
   });
 
+  // Compaction attempts. The runner reports a start and an end with no id, so the bridge numbers them; an end without a start still gets its own id.
+  let compactionCount = 0;
+  let openCompactionId: string | undefined;
+  /** The last size reported, which a start carries as the context before compacting. */
+  let lastUsage: TokenUsage | undefined;
+  const nextCompactionId = (): string => {
+    compactionCount += 1;
+    return `compaction-${compactionCount}`;
+  };
+  const closeCompaction = (): string => {
+    const id = openCompactionId ?? nextCompactionId();
+    openCompactionId = undefined;
+    return id;
+  };
+
+  const onCompactionStart = (info: CompactionStartInfo): void => {
+    // A start repeated while the attempt is open is the same attempt: a second id would leave the first open for the rest of the turn.
+    if (openCompactionId !== undefined) return;
+    openCompactionId = nextCompactionId();
+    emit({
+      type: "compaction",
+      id: openCompactionId,
+      phase: "started",
+      trigger: info.trigger,
+      ...definedProps({ contextTokens: lastUsage?.contextTokens, contextWindow: lastUsage?.contextWindow }),
+    });
+  };
+
+  const onCompaction = (info: CompactionInfo): void => {
+    // The size measured so far describes the history just replaced.
+    lastUsage = undefined;
+    emit({ type: "compaction", id: closeCompaction(), phase: "finished", trigger: info.trigger });
+  };
+
+  const onCompactionFailed = (info: CompactionFailureInfo): void => {
+    emit({
+      type: "compaction",
+      id: closeCompaction(),
+      phase: "failed",
+      trigger: info.trigger,
+      ...definedProps({ error: info.error }),
+    });
+  };
+
   const onUsage = (usage: TokenUsage): void => {
+    lastUsage = usage;
     emit({
       type: "context_usage",
       contextTokens: usage.contextTokens,
@@ -207,6 +255,9 @@ export function createChatEventBridge(
       }),
       onStderr: live((chunk: string) => emit({ type: "stderr", chunk })),
       onUsage: live(onUsage),
+      onCompactionStart: live(onCompactionStart),
+      onCompaction: live(onCompaction),
+      onCompactionFailed: live(onCompactionFailed),
       onMcpStatus: live((servers: McpServerStatusInfo[]) => emit({ type: "mcp_status", servers })),
       onMcpElicitation,
     },

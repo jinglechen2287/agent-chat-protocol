@@ -35,6 +35,8 @@ export {
   type PendingMessage,
   type BackgroundAgentStatus,
   type ChatStreamEvent,
+  type CompactionPhase,
+  type CompactionTrigger,
   type ToolCallDetail,
   type ToolPlanItem,
   type ToolTaskMetadata,

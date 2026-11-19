@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -116,6 +116,12 @@ export interface PendingMessage {
   /** Files sent with it; absent when none. */
   attachments?: AttachmentRef[];
 }
+
+/** One compaction attempt's step: it began, it replaced the history with a summary, or it gave up and left the history as it was. */
+export type CompactionPhase = "started" | "finished" | "failed";
+
+/** `manual` when the user asked for the compaction, `auto` when the agent CLI decided on it. */
+export type CompactionTrigger = "manual" | "auto";
 
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
@@ -266,6 +272,21 @@ export type ChatStreamEvent =
       contextWindow?: number;
       /** Model that produced the usage, when known. */
       model?: string;
+    }
+  /**
+   * The agent CLI is compacting the conversation: replacing its history with a summary so the context window has room again. Non-terminal and replayable, and not transcript content. Each attempt has an `id` and arrives as `started`, then `finished` or `failed` under the same id; a turn that ends first ends the attempt too, so clients MUST close an attempt still open at the turn's terminal event. A `finished` or `failed` may arrive with no `started` before it. Clients MAY show an open attempt as in progress, and SHOULD treat the size on `started` as the context before compacting: the size after it arrives as a later `context_usage`.
+   */
+  | {
+      type: "compaction";
+      /** One attempt, unique within the turn ("compaction-1", …). */
+      id: string;
+      phase: CompactionPhase;
+      trigger: CompactionTrigger;
+      /** started only: the context as last measured before compacting. */
+      contextTokens?: number;
+      contextWindow?: number;
+      /** failed only: the agent CLI's reason, when it gave one. */
+      error?: string;
     }
   /**
    * The canonical title state for the chat containing this turn. Non-terminal

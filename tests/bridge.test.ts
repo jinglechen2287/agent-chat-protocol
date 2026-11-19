@@ -911,3 +911,89 @@ describe("createChatEventBridge MCP", () => {
     )).resolves.toEqual({ action: "decline" });
   });
 });
+
+describe("createChatEventBridge compaction", () => {
+  const usage = (contextTokens: number) => ({
+    contextTokens,
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    outputTokens: 0,
+    contextWindow: 200_000,
+  });
+  const compactions = (events: ChatStreamEvent[]) => events.filter((ev) => ev.type === "compaction");
+
+  it("opens an attempt with the size before it and closes it under the same id", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onUsage(usage(150_000));
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompaction({ trigger: "auto", preTokens: 150_000 });
+    expect(compactions(events)).toEqual([
+      { type: "compaction", id: "compaction-1", phase: "started", trigger: "auto", contextTokens: 150_000, contextWindow: 200_000 },
+      { type: "compaction", id: "compaction-1", phase: "finished", trigger: "auto" },
+    ]);
+  });
+
+  it("leaves the size off a start when no usage came before it", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onCompactionStart({ trigger: "manual" });
+    expect(compactions(events)).toEqual([
+      { type: "compaction", id: "compaction-1", phase: "started", trigger: "manual" },
+    ]);
+  });
+
+  it("carries the CLI's error on a failed attempt", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompactionFailed({ trigger: "auto", error: "Conversation too long" });
+    expect(compactions(events)).toEqual([
+      { type: "compaction", id: "compaction-1", phase: "started", trigger: "auto" },
+      { type: "compaction", id: "compaction-1", phase: "failed", trigger: "auto", error: "Conversation too long" },
+    ]);
+  });
+
+  it("gives each attempt its own id, and no size left from before the last one", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onUsage(usage(150_000));
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompaction({ trigger: "auto" });
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompaction({ trigger: "auto" });
+    expect(compactions(events)).toEqual([
+      { type: "compaction", id: "compaction-1", phase: "started", trigger: "auto", contextTokens: 150_000, contextWindow: 200_000 },
+      { type: "compaction", id: "compaction-1", phase: "finished", trigger: "auto" },
+      { type: "compaction", id: "compaction-2", phase: "started", trigger: "auto" },
+      { type: "compaction", id: "compaction-2", phase: "finished", trigger: "auto" },
+    ]);
+  });
+
+  it("reads a start repeated while the attempt is open as the same attempt", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompactionStart({ trigger: "auto" });
+    bridge.callbacks.onCompaction({ trigger: "auto" });
+    expect(compactions(events)).toEqual([
+      { type: "compaction", id: "compaction-1", phase: "started", trigger: "auto" },
+      { type: "compaction", id: "compaction-1", phase: "finished", trigger: "auto" },
+    ]);
+  });
+
+  it("names a failure that had no start, and no reason, with a fresh id", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onCompactionFailed({ trigger: "auto" });
+    expect(compactions(events)).toEqual([{ type: "compaction", id: "compaction-1", phase: "failed", trigger: "auto" }]);
+  });
+
+  it("names a finish that had no start with a fresh id", () => {
+    const { events, emit } = collect();
+    const bridge = createChatEventBridge(emit);
+    bridge.callbacks.onCompaction({ trigger: "manual" });
+    bridge.callbacks.onCompaction({ trigger: "manual" });
+    expect(compactions(events).map((ev) => ev.id)).toEqual(["compaction-1", "compaction-2"]);
+  });
+});
