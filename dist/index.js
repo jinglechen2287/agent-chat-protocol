@@ -1,5 +1,5 @@
-import { A as isIndex, B as CHAT_TITLE_MAX_LENGTH, C as PLAN_PROMPT, D as definedProps, E as VIEW_BLOCK_NAME, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, I as PROTOCOL_VERSION, J as truncateChatTitle, L as isTerminalEvent, M as isRecord, N as memberOf, O as hasOwn, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, T as QUESTION_PROMPT, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, _ as BUILD_PROMPT, a as formatQuestionAnswers, b as HTML_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewComponent, f as validateViewSpec, g as valuesEqual, h as validateControls, i as parseProposedPlan, j as isNonEmptyString, k as hasText, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, p as initialControlValues, q as toChatTitleMessages, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as parseViewBlock, v as CHAT_PROMPT, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "./html-KSESVQbA.js";
-// src/decode.ts
+import { A as isIndex, B as CHAT_TITLE_MAX_LENGTH, C as PLAN_PROMPT, D as definedProps, E as VIEW_BLOCK_NAME, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, I as PROTOCOL_VERSION, J as truncateChatTitle, L as isTerminalEvent, M as isRecord, N as memberOf, O as hasOwn, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, T as QUESTION_PROMPT, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, _ as BUILD_PROMPT, a as formatQuestionAnswers, b as HTML_BLOCK_NAME, c as VIEW_PROMPT, d as validateViewComponent, f as validateViewSpec, g as valuesEqual, h as validateControls, i as parseProposedPlan, j as isNonEmptyString, k as hasText, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, p as initialControlValues, q as toChatTitleMessages, r as parseHtmlFrameMessage, s as VIEW_CATALOG, t as HTML_SEND_MAX, u as parseViewBlock, v as CHAT_PROMPT, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "./html-C8Ij8xzM.js";
+//#region src/decode.ts
 const isProvider = memberOf({
 	claude: true,
 	codex: true
@@ -30,6 +30,15 @@ const isPendingKind = memberOf({
 const isAbortReason = memberOf({
 	user: true,
 	timeout: true
+});
+const isCompactionPhase = memberOf({
+	started: true,
+	finished: true,
+	failed: true
+});
+const isCompactionTrigger = memberOf({
+	manual: true,
+	auto: true
 });
 const DECODERS = {
 	session_started: ({ sessionId, protocolVersion }) => {
@@ -119,6 +128,20 @@ const DECODERS = {
 			...definedProps({
 				contextWindow: isIndex(contextWindow) && contextWindow > 0 ? contextWindow : void 0,
 				model: hasText(model) ? model : void 0
+			})
+		};
+	},
+	compaction: ({ id, phase, trigger, contextTokens, contextWindow, error }) => {
+		if (!isNonEmptyString(id) || !isCompactionPhase(phase) || !isCompactionTrigger(trigger)) return null;
+		return {
+			type: "compaction",
+			id,
+			phase,
+			trigger,
+			...definedProps({
+				contextTokens: isIndex(contextTokens) ? contextTokens : void 0,
+				contextWindow: isIndex(contextWindow) && contextWindow > 0 ? contextWindow : void 0,
+				error: hasText(error) ? error : void 0
 			})
 		};
 	},
@@ -413,7 +436,8 @@ function toolTaskMetadata(value) {
 function isToolCallDetails(value) {
 	return Array.isArray(value) && value.every((item) => isRecord(item) && typeof item.label === "string" && typeof item.value === "string");
 }
-// src/sse.ts
+//#endregion
+//#region src/sse.ts
 /**
 * Splits an accumulating SSE text buffer into complete frames. Feed it the
 * concatenation of everything received so far that wasn't consumed; it returns
@@ -502,6 +526,7 @@ async function consumeSseResponse(res, onEvent, options = {}) {
 		reader.releaseLock();
 	}
 }
+//#endregion
 export { BUILD_PROMPT, CHAT_PROMPT, CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, CONTROLS_BLOCK_NAME, HTML_BLOCK_NAME, HTML_SEND_MAX, LEGACY_CONTROLS_BLOCK_NAME, LEGACY_QUESTION_BLOCK_NAME, PLAN_PROMPT, PROTOCOL_VERSION, QUESTION_BLOCK_NAME, QUESTION_PROMPT, VIEW_BLOCK_NAME, VIEW_CATALOG, VIEW_PROMPT, consumeSseResponse, encodeChatEvent, fallbackChatTitle, formatQuestionAnswers, formatSseEvent, initialControlValues, isTerminalEvent, mapSseToChatEvent, normalizeChatTitle, normalizeTaskSummary, parseControlsBlock, parseHtmlBlock, parseHtmlFrameMessage, parseProposedPlan, parseQuestionBlock, parseSseBuffer, parseViewBlock, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toSseEvent, truncateChatTitle, validateControls, validateViewSpec, valuesEqual };
 
 //# sourceMappingURL=index.js.map

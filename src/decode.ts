@@ -14,6 +14,8 @@ import type {
   BackgroundAgentProgress,
   BackgroundAgentStatus,
   ChatStreamEvent,
+  CompactionPhase,
+  CompactionTrigger,
   McpElicitation,
   McpElicitationAction,
   McpServerStatus,
@@ -52,6 +54,8 @@ const isMcpServerState = memberOf<McpServerStatus["status"]>({
 const isElicitationAction = memberOf<McpElicitationAction>({ accept: true, decline: true, cancel: true });
 const isPendingKind = memberOf<PendingMessage["kind"]>({ steer: true, queue: true });
 const isAbortReason = memberOf<AbortReason>({ user: true, timeout: true });
+const isCompactionPhase = memberOf<CompactionPhase>({ started: true, finished: true, failed: true });
+const isCompactionTrigger = memberOf<CompactionTrigger>({ manual: true, auto: true });
 
 const DECODERS: { [K in EventType]: (d: Payload) => EventOf<K> | null } = {
   session_started: ({ sessionId, protocolVersion }) => {
@@ -122,6 +126,21 @@ const DECODERS: { [K in EventType]: (d: Payload) => EventOf<K> | null } = {
       ...definedProps({
         contextWindow: isIndex(contextWindow) && contextWindow > 0 ? contextWindow : undefined,
         model: hasText(model) ? model : undefined,
+      }),
+    };
+  },
+  compaction: ({ id, phase, trigger, contextTokens, contextWindow, error }) => {
+    if (!isNonEmptyString(id) || !isCompactionPhase(phase) || !isCompactionTrigger(trigger)) return null;
+    // A size or reason it can't read drops that field alone, as context_usage does: losing the whole event could leave an attempt open.
+    return {
+      type: "compaction",
+      id,
+      phase,
+      trigger,
+      ...definedProps({
+        contextTokens: isIndex(contextTokens) ? contextTokens : undefined,
+        contextWindow: isIndex(contextWindow) && contextWindow > 0 ? contextWindow : undefined,
+        error: hasText(error) ? error : undefined,
       }),
     };
   },

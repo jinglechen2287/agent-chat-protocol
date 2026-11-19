@@ -1126,3 +1126,50 @@ describe("MCP events", () => {
     expect(decode("mcp_elicitation_resolved", { action: "accept" })).toBeNull();
   });
 });
+
+describe("compaction events", () => {
+  const roundTrip = (ev: ChatStreamEvent) => {
+    const frame = parseSseBuffer(encodeChatEvent(ev)).events[0]!;
+    return mapSseToChatEvent(frame);
+  };
+  const decode = (event: string, data: unknown) => mapSseToChatEvent({ event, data });
+
+  it("round-trips each phase", () => {
+    const started: ChatStreamEvent = {
+      type: "compaction",
+      id: "compaction-1",
+      phase: "started",
+      trigger: "auto",
+      contextTokens: 150_000,
+      contextWindow: 200_000,
+    };
+    const finished: ChatStreamEvent = { type: "compaction", id: "compaction-1", phase: "finished", trigger: "manual" };
+    const failed: ChatStreamEvent = {
+      type: "compaction",
+      id: "compaction-2",
+      phase: "failed",
+      trigger: "auto",
+      error: "Conversation too long",
+    };
+    expect(roundTrip(started)).toEqual(started);
+    expect(roundTrip(finished)).toEqual(finished);
+    expect(roundTrip(failed)).toEqual(failed);
+  });
+
+  it("drops a compaction with a bad id, phase, or trigger", () => {
+    const base = { id: "compaction-1", phase: "started", trigger: "auto" };
+    expect(decode("compaction", base)).toEqual({ type: "compaction", ...base });
+    expect(decode("compaction", { ...base, id: "" })).toBeNull();
+    expect(decode("compaction", { ...base, phase: "paused" })).toBeNull();
+    expect(decode("compaction", { ...base, phase: undefined })).toBeNull();
+    expect(decode("compaction", { ...base, trigger: "scheduled" })).toBeNull();
+  });
+
+  it("keeps a compaction whose size or reason it can't read, without that field", () => {
+    const base = { id: "compaction-1", phase: "started", trigger: "auto" } as const;
+    expect(decode("compaction", { ...base, contextTokens: -1, contextWindow: 200_000 })).toEqual({ type: "compaction", ...base, contextWindow: 200_000 });
+    expect(decode("compaction", { ...base, contextTokens: 5, contextWindow: "big" })).toEqual({ type: "compaction", ...base, contextTokens: 5 });
+    expect(decode("compaction", { ...base, contextTokens: 5, contextWindow: 0 })).toEqual({ type: "compaction", ...base, contextTokens: 5 });
+    expect(decode("compaction", { ...base, phase: "failed", error: 5 })).toEqual({ type: "compaction", ...base, phase: "failed" });
+  });
+});

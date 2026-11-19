@@ -1,5 +1,5 @@
 import * as z from "zod";
-// src/title-text.ts
+//#region src/title-text.ts
 /** Widest a chat title gets, in UTF-16 units. */
 const CHAT_TITLE_MAX_LENGTH = 60;
 /** Widest an `overarchingTask` or `pivotCandidate` summary gets. */
@@ -93,12 +93,13 @@ function toChatTitleMessages(messages, limit = 12, project) {
 	}
 	return recent.reverse();
 }
-// src/events.ts
+//#endregion
+//#region src/events.ts
 /**
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 12;
+const PROTOCOL_VERSION = 13;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -134,7 +135,8 @@ function threadTitleSnapshotEvent(state) {
 		pivotCandidate: state.pivotCandidate || null
 	};
 }
-// src/block.ts
+//#endregion
+//#region src/block.ts
 /**
 * The steps every generative-UI block parser shares: find the first block,
 * decode its body, and cut it out of the surrounding prose. Internal: not
@@ -301,7 +303,8 @@ function extractBlock(raw, find, decode) {
 		value
 	};
 }
-// src/guards.ts
+//#endregion
+//#region src/guards.ts
 /**
 * Type guards and object helpers shared by the validators. Internal: not
 * re-exported from either entry.
@@ -349,7 +352,8 @@ function definedProps(props) {
 	for (const key of Object.keys(props)) if (props[key] !== void 0) out[key] = props[key];
 	return out;
 }
-// src/prompt.ts
+//#endregion
+//#region src/prompt.ts
 /**
 * The emit side of the generative-UI grammar: the prompt section that teaches
 * an agent when and how to end a message with an ```agent-question``` block.
@@ -431,7 +435,8 @@ const QUESTION_PROMPT = [
 	"  The user can also type their own answer to any question. The answers arrive together as the next message, one numbered line per question, such as `1. First question? → A`, with `(skipped)` for one they left.",
 	"- Emit at most one block, as the very last thing in the message, with 1–6 short option labels per question. If an answer isn't a small fixed set of choices, just ask in plain text."
 ].join("\n");
-// src/controls.ts
+//#endregion
+//#region src/controls.ts
 /**
 * Shared schema + helpers for the ```agent-controls``` block: the structured
 * parameter panel an agent can emit at the end of a message (mirroring
@@ -593,7 +598,8 @@ function parseControlsBlock(raw, validate = validateControls) {
 		controls: value
 	};
 }
-// src/view.ts
+//#endregion
+//#region src/view.ts
 /**
 * The ```agent-view``` grammar: a generative-UI view composed from a fixed
 * component catalog, one JSON object per line.
@@ -919,7 +925,7 @@ const MAX_BLOCK_BYTES = 65536;
 /** Input-side work bound: entries past this are never schema-validated, so a
 * hostile frame cannot buy unbounded parse work. Generous headroom over the
 * render cap keeps legitimate skipped-line noise from starving late ids. */
-const MAX_VALIDATED_ENTRIES = 400;
+const MAX_VALIDATED_ENTRIES = MAX_COMPONENTS * 4;
 /** Validates one component line against the catalog — the per-line half of
 * {@link validateViewSpec}, exported for streamed `view_line` delivery where
 * whole-graph validation cannot run yet. */
@@ -1050,7 +1056,8 @@ const VIEW_PROMPT = [
 	"- Catalog:",
 	...Object.entries(VIEW_CATALOG).map(([name, entry]) => `  - ${name}: ${entry.prompt.replace(`${name} `, "")}`)
 ].join("\n");
-// src/question.ts
+//#endregion
+//#region src/question.ts
 /**
 * The structured clarifying-question block an agent can end a message with:
 *
@@ -1156,7 +1163,8 @@ function formatQuestionAnswers(items, answers) {
 		return `${index + 1}. ${oneLine(item.question)} → ${picked.length > 0 ? picked.join("; ") : "(skipped)"}`;
 	}).join("\n");
 }
-// src/plan.ts
+//#endregion
+//#region src/plan.ts
 /**
 * The proposed-plan block a plan-mode agent ends its final message with:
 *
@@ -1219,7 +1227,8 @@ function parseProposedPlan(raw) {
 		plan: value
 	};
 }
-// src/html.ts
+//#endregion
+//#region src/html.ts
 /**
 * The ```agent-html``` grammar: a freeform generated page, streamed raw and
 * rendered in a sandboxed frame — the escape hatch for layouts and
@@ -1286,6 +1295,7 @@ function parseHtmlBlock(raw) {
 		html: value
 	};
 }
+//#endregion
 export { isIndex as A, CHAT_TITLE_MAX_LENGTH as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, fenceInfo as F, normalizeTaskSummary as G, CHAT_TITLE_TASK_MAX_LENGTH as H, PROTOCOL_VERSION as I, truncateChatTitle as J, stripCodeFence as K, isTerminalEvent as L, isRecord as M, memberOf as N, hasOwn as O, closingLine as P, threadTitleEvent as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, fallbackChatTitle as U, CHAT_TITLE_RECENT_MESSAGE_LIMIT as V, normalizeChatTitle as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, toChatTitleMessages as q, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, threadTitleSnapshotEvent as z };
 
-//# sourceMappingURL=html-KSESVQbA.js.map
+//# sourceMappingURL=html-C8Ij8xzM.js.map

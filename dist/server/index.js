@@ -1,6 +1,6 @@
-import { B as CHAT_TITLE_MAX_LENGTH, D as definedProps, E as VIEW_BLOCK_NAME, F as fenceInfo, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, J as truncateChatTitle, K as stripCodeFence, M as isRecord, P as closingLine, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, q as toChatTitleMessages, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "../html-KSESVQbA.js";
+import { B as CHAT_TITLE_MAX_LENGTH, D as definedProps, E as VIEW_BLOCK_NAME, F as fenceInfo, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, J as truncateChatTitle, K as stripCodeFence, M as isRecord, P as closingLine, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, q as toChatTitleMessages, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "../html-C8Ij8xzM.js";
 import * as z from "zod";
-// src/server/tool-details.ts
+//#region src/server/tool-details.ts
 function text(value) {
 	if (typeof value !== "string") return void 0;
 	return value.trim() || void 0;
@@ -134,6 +134,7 @@ function toolCallDetails(info) {
 			case "Skill":
 				add("Skill", input.skill);
 				add("Arguments", input.args);
+				break;
 		}
 	}
 	if (details.length === 0) {
@@ -142,7 +143,8 @@ function toolCallDetails(info) {
 	}
 	return details;
 }
-// src/server/task-tracking.ts
+//#endregion
+//#region src/server/task-tracking.ts
 /** A tool result's text, whether the provider sent a string or text blocks. */
 function resultText(content) {
 	if (typeof content === "string") return content;
@@ -202,7 +204,8 @@ function createTaskCallTracker(emit) {
 		}
 	};
 }
-// src/server/text-stream.ts
+//#endregion
+//#region src/server/text-stream.ts
 /**
 * Fence-aware chunking for streamed assistant prose.
 *
@@ -365,7 +368,8 @@ function createTextDeltaStream() {
 		}
 	};
 }
-// src/server/bridge.ts
+//#endregion
+//#region src/server/bridge.ts
 /**
 * The events one completed assistant message becomes. The agent may end a
 * message with structured plan, question, controls, view, or html blocks.
@@ -422,7 +426,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 12
+			protocolVersion: 13
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -474,7 +478,53 @@ function createChatEventBridge(emit, options = {}) {
 			})
 		});
 	});
+	let compactionCount = 0;
+	let openCompactionId;
+	/** The last size reported, which a start carries as the context before compacting. */
+	let lastUsage;
+	const nextCompactionId = () => {
+		compactionCount += 1;
+		return `compaction-${compactionCount}`;
+	};
+	const closeCompaction = () => {
+		const id = openCompactionId ?? nextCompactionId();
+		openCompactionId = void 0;
+		return id;
+	};
+	const onCompactionStart = (info) => {
+		if (openCompactionId !== void 0) return;
+		openCompactionId = nextCompactionId();
+		emit({
+			type: "compaction",
+			id: openCompactionId,
+			phase: "started",
+			trigger: info.trigger,
+			...definedProps({
+				contextTokens: lastUsage?.contextTokens,
+				contextWindow: lastUsage?.contextWindow
+			})
+		});
+	};
+	const onCompaction = (info) => {
+		lastUsage = void 0;
+		emit({
+			type: "compaction",
+			id: closeCompaction(),
+			phase: "finished",
+			trigger: info.trigger
+		});
+	};
+	const onCompactionFailed = (info) => {
+		emit({
+			type: "compaction",
+			id: closeCompaction(),
+			phase: "failed",
+			trigger: info.trigger,
+			...definedProps({ error: info.error })
+		});
+	};
 	const onUsage = (usage) => {
+		lastUsage = usage;
 		emit({
 			type: "context_usage",
 			contextTokens: usage.contextTokens,
@@ -503,6 +553,9 @@ function createChatEventBridge(emit, options = {}) {
 				chunk
 			})),
 			onUsage: live(onUsage),
+			onCompactionStart: live(onCompactionStart),
+			onCompaction: live(onCompaction),
+			onCompactionFailed: live(onCompactionFailed),
 			onMcpStatus: live((servers) => emit({
 				type: "mcp_status",
 				servers
@@ -534,7 +587,8 @@ function createChatEventBridge(emit, options = {}) {
 		}
 	};
 }
-// src/server/task-store.ts
+//#endregion
+//#region src/server/task-store.ts
 /** The events an in-flight assistant message resolves into. Once one is
 * buffered, every fragment held so far describes content the transcript now
 * owns. */
@@ -546,7 +600,7 @@ const COMPLETES_MESSAGE = /* @__PURE__ */ new Set([
 	"view",
 	"html"
 ]);
-const DEFAULT_COMPLETE_TTL_MS = 3e5;
+const DEFAULT_COMPLETE_TTL_MS = 5 * 6e4;
 /** Iterates a snapshot so a subscriber unsubscribing mid-notification doesn't
 * cause its peers to be skipped, and a broken one can't block the rest. */
 function notify(task, ev) {
@@ -763,7 +817,8 @@ async function runTitleModel(options, timeoutMs, describe, parse, fallback) {
 		return fallback();
 	}
 }
-// src/server/title.ts
+//#endregion
+//#region src/server/title.ts
 const CHAT_TITLE_MODELS = {
 	claude: "haiku",
 	codex: "gpt-5.6-luna"
@@ -892,7 +947,8 @@ function createChatTitleGenerator(options) {
 		signal: input.signal
 	}), (text) => parseModelResult(text, input), () => fallbackFor(input));
 }
-// src/server/thread-title.ts
+//#endregion
+//#region src/server/thread-title.ts
 const ModelTitle = z.object({
 	title: z.string(),
 	needsRefinement: z.boolean().optional()
@@ -1014,6 +1070,7 @@ function createThreadTitleGenerator(options) {
 		signal: request.signal
 	}), (text) => parseTitle(text, request), () => fallbackFor(request));
 }
+//#endregion
 export { CHAT_TITLE_MAX_LENGTH, CHAT_TITLE_MODELS, CHAT_TITLE_RECENT_MESSAGE_LIMIT, CHAT_TITLE_TASK_MAX_LENGTH, createChatEventBridge, createChatTitleGenerator, createTaskStore, createThreadTitleGenerator, fallbackChatTitle, normalizeChatTitle, normalizeTaskSummary, threadTitleEvent, threadTitleSnapshotEvent, toChatTitleMessages, toolCallDetails, toolTaskMetadata, truncateChatTitle };
 
 //# sourceMappingURL=index.js.map

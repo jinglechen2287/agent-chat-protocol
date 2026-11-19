@@ -1,4 +1,5 @@
 import * as z from "zod";
+//#region src/title-text.d.ts
 /**
  * Chat-title text rules — the bounds and normalizations a title is subject to,
  * with no dependency on how one is generated.
@@ -63,6 +64,8 @@ declare function toChatTitleMessages<T>(messages: readonly T[], limit: number | 
   role: string;
   text: string;
 } | null): ChatTitleMessage[];
+//#endregion
+//#region src/question.d.ts
 /**
  * The structured clarifying-question block an agent can end a message with:
  *
@@ -121,6 +124,8 @@ declare function parseQuestionBlock(raw: string): ParsedQuestionText;
  * and any typed text; blank ones are dropped.
  */
 declare function formatQuestionAnswers(items: readonly QuestionItem[], answers: readonly (readonly string[])[]): string;
+//#endregion
+//#region src/controls.d.ts
 /**
  * Shared schema + helpers for the ```agent-controls``` block: the structured
  * parameter panel an agent can emit at the end of a message (mirroring
@@ -198,6 +203,8 @@ interface ParsedControlsText<TSpec extends ControlsSpec = ControlsSpec> {
  */
 declare function parseControlsBlock(raw: string): ParsedControlsText;
 declare function parseControlsBlock<TSpec extends ControlsSpec>(raw: string, validate: (value: unknown) => TSpec | null): ParsedControlsText<TSpec>;
+//#endregion
+//#region src/view.d.ts
 /**
  * Every component the agent may emit. `prompt` is the exact line VIEW_PROMPT
  * teaches for the entry — keep it terse: shape, then when to use it.
@@ -567,11 +574,13 @@ declare function parseViewBlock(raw: string): ParsedViewText;
  * asserts every catalog entry appears here, so prompt and validator move
  * together. */
 declare const VIEW_PROMPT: string;
+//#endregion
+//#region src/events.d.ts
 /**
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 12;
+declare const PROTOCOL_VERSION = 13;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -668,6 +677,10 @@ interface PendingMessage {
   /** Files sent with it; absent when none. */
   attachments?: AttachmentRef[];
 }
+/** One compaction attempt's step: it began, it replaced the history with a summary, or it gave up and left the history as it was. */
+type CompactionPhase = "started" | "finished" | "failed";
+/** `manual` when the user asked for the compaction, `auto` when the agent CLI decided on it. */
+type CompactionTrigger = "manual" | "auto";
 /** Why a turn ended without completing. `user` is a deliberate cancel;
  * `timeout` is the runner's wall-clock limit. Render them differently. */
 type AbortReason = "user" | "timeout";
@@ -848,6 +861,21 @@ type ChatStreamEvent =
   model?: string;
 } |
 /**
+ * The agent CLI is compacting the conversation: replacing its history with a summary so the context window has room again. Non-terminal and replayable, and not transcript content. Each attempt has an `id` and arrives as `started`, then `finished` or `failed` under the same id; a turn that ends first ends the attempt too, so clients MUST close an attempt still open at the turn's terminal event. A `finished` or `failed` may arrive with no `started` before it. Clients MAY show an open attempt as in progress, and SHOULD treat the size on `started` as the context before compacting: the size after it arrives as a later `context_usage`.
+ */
+{
+  type: "compaction";
+  /** One attempt, unique within the turn ("compaction-1", …). */
+  id: string;
+  phase: CompactionPhase;
+  trigger: CompactionTrigger;
+  /** started only: the context as last measured before compacting. */
+  contextTokens?: number;
+  contextWindow?: number;
+  /** failed only: the agent CLI's reason, when it gave one. */
+  error?: string;
+} |
+/**
  * The canonical title state for the chat containing this turn. Non-terminal
  * and emitted when an asynchronous title generator answers. Clients MUST
  * update the chat/thread title without adding a transcript message.
@@ -1007,5 +1035,6 @@ declare function threadTitleEvent(state: ThreadTitleState): ThreadTitleEvent;
  * a `ChatTitleResult` directly.
  */
 declare function threadTitleSnapshotEvent(state: ThreadTitleState): ThreadTitleEvent;
-export { ParsedControlsText as A, formatQuestionAnswers as B, ViewSpec as C, Control as D, ColorControl as E, validateControls as F, ChatTitleMessage as G, CHAT_TITLE_MAX_LENGTH as H, valuesEqual as I, normalizeTaskSummary as J, fallbackChatTitle as K, ParsedQuestionText as L, SliderControl as M, initialControlValues as N, ControlValues as O, parseControlsBlock as P, QuestionItem as R, ViewComponent as S, validateViewSpec as T, CHAT_TITLE_RECENT_MESSAGE_LIMIT as U, parseQuestionBlock as V, CHAT_TITLE_TASK_MAX_LENGTH as W, truncateChatTitle as X, toChatTitleMessages as Y, threadTitleEvent as _, BackgroundAgentStatus as a, VIEW_CATALOG as b, McpElicitationAction as c, PendingMessage as d, ThreadTitleEvent as f, isTerminalEvent as g, ToolTaskMetadata as h, BackgroundAgentProgress as i, SelectControl as j, ControlsSpec as k, McpServerStatus as l, ToolPlanItem as m, AttachmentRef as n, ChatStreamEvent as o, ToolCallDetail as p, normalizeChatTitle as q, BackgroundAgent as r, McpElicitation as s, AbortReason as t, PROTOCOL_VERSION as u, threadTitleSnapshotEvent as v, parseViewBlock as w, VIEW_PROMPT as x, ParsedViewText as y, QuestionSpec as z };
-//# sourceMappingURL=events-DuGYELwb.d.ts.map
+//#endregion
+export { ControlValues as A, QuestionItem as B, VIEW_PROMPT as C, validateViewSpec as D, parseViewBlock as E, initialControlValues as F, CHAT_TITLE_RECENT_MESSAGE_LIMIT as G, formatQuestionAnswers as H, parseControlsBlock as I, fallbackChatTitle as J, CHAT_TITLE_TASK_MAX_LENGTH as K, validateControls as L, ParsedControlsText as M, SelectControl as N, ColorControl as O, SliderControl as P, truncateChatTitle as Q, valuesEqual as R, VIEW_CATALOG as S, ViewSpec as T, parseQuestionBlock as U, QuestionSpec as V, CHAT_TITLE_MAX_LENGTH as W, normalizeTaskSummary as X, normalizeChatTitle as Y, toChatTitleMessages as Z, ToolTaskMetadata as _, BackgroundAgentStatus as a, threadTitleSnapshotEvent as b, CompactionTrigger as c, McpServerStatus as d, PROTOCOL_VERSION as f, ToolPlanItem as g, ToolCallDetail as h, BackgroundAgentProgress as i, ControlsSpec as j, Control as k, McpElicitation as l, ThreadTitleEvent as m, AttachmentRef as n, ChatStreamEvent as o, PendingMessage as p, ChatTitleMessage as q, BackgroundAgent as r, CompactionPhase as s, AbortReason as t, McpElicitationAction as u, isTerminalEvent as v, ViewComponent as w, ParsedViewText as x, threadTitleEvent as y, ParsedQuestionText as z };
+//# sourceMappingURL=events-CAedMSxy.d.ts.map
