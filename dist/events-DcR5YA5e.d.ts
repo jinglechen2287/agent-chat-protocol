@@ -580,7 +580,7 @@ declare const VIEW_PROMPT: string;
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-declare const PROTOCOL_VERSION = 13;
+declare const PROTOCOL_VERSION = 14;
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
 interface ToolCallDetail {
@@ -609,7 +609,7 @@ interface BackgroundAgentProgress {
 /** A complete, replace-in-place snapshot of one provider background agent. */
 interface BackgroundAgent {
   id: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "agy";
   parentToolCallId?: string;
   description?: string;
   agentType?: string;
@@ -1037,4 +1037,4 @@ declare function threadTitleEvent(state: ThreadTitleState): ThreadTitleEvent;
 declare function threadTitleSnapshotEvent(state: ThreadTitleState): ThreadTitleEvent;
 //#endregion
 export { ControlValues as A, QuestionItem as B, VIEW_PROMPT as C, validateViewSpec as D, parseViewBlock as E, initialControlValues as F, CHAT_TITLE_RECENT_MESSAGE_LIMIT as G, formatQuestionAnswers as H, parseControlsBlock as I, fallbackChatTitle as J, CHAT_TITLE_TASK_MAX_LENGTH as K, validateControls as L, ParsedControlsText as M, SelectControl as N, ColorControl as O, SliderControl as P, truncateChatTitle as Q, valuesEqual as R, VIEW_CATALOG as S, ViewSpec as T, parseQuestionBlock as U, QuestionSpec as V, CHAT_TITLE_MAX_LENGTH as W, normalizeTaskSummary as X, normalizeChatTitle as Y, toChatTitleMessages as Z, ToolTaskMetadata as _, BackgroundAgentStatus as a, threadTitleSnapshotEvent as b, CompactionTrigger as c, McpServerStatus as d, PROTOCOL_VERSION as f, ToolPlanItem as g, ToolCallDetail as h, BackgroundAgentProgress as i, ControlsSpec as j, Control as k, McpElicitation as l, ThreadTitleEvent as m, AttachmentRef as n, ChatStreamEvent as o, PendingMessage as p, ChatTitleMessage as q, BackgroundAgent as r, CompactionPhase as s, AbortReason as t, McpElicitationAction as u, isTerminalEvent as v, ViewComponent as w, ParsedViewText as x, threadTitleEvent as y, ParsedQuestionText as z };
-//# sourceMappingURL=events-CAedMSxy.d.ts.map
+//# sourceMappingURL=events-DcR5YA5e.d.ts.map

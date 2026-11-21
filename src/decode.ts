@@ -36,7 +36,7 @@ type EventType = ChatStreamEvent["type"];
 type EventOf<K extends EventType> = Extract<ChatStreamEvent, { type: K }>;
 type Payload = Record<string, unknown>;
 
-const isProvider = memberOf<BackgroundAgent["provider"]>({ claude: true, codex: true });
+const isProvider = memberOf<BackgroundAgent["provider"]>({ claude: true, codex: true, agy: true });
 const isBackgroundAgentStatus = memberOf<BackgroundAgentStatus>({
   pending: true,
   running: true,

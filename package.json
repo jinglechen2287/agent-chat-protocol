@@ -1,6 +1,6 @@
 {
   "name": "agent-chat-protocol",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Framework-agnostic contract for rendering an agent turn as a live, interactive chat: the streaming event grammar, SSE codec, generative-UI vocabulary, and runner-to-events bridge.",
   "type": "module",
   "main": "./dist/index.js",
@@ -53,7 +53,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "agent-cli-runner": "github:jinglechen2287/agent-cli-runner#47f2d228437ccbce9526b851cdb778f2688f9749",
+    "agent-cli-runner": "github:jinglechen2287/agent-cli-runner#0e7d10af3046ced911f0f52fd11dfe2778fb8b6a",
     "tsdown": "^0.22.9",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

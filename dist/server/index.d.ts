@@ -1,4 +1,4 @@
-import { G as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as fallbackChatTitle, K as CHAT_TITLE_TASK_MAX_LENGTH, Q as truncateChatTitle, W as CHAT_TITLE_MAX_LENGTH, X as normalizeTaskSummary, Y as normalizeChatTitle, Z as toChatTitleMessages, _ as ToolTaskMetadata, b as threadTitleSnapshotEvent, h as ToolCallDetail, j as ControlsSpec, m as ThreadTitleEvent, o as ChatStreamEvent, q as ChatTitleMessage, y as threadTitleEvent } from "../events-CAedMSxy.js";
+import { G as CHAT_TITLE_RECENT_MESSAGE_LIMIT, J as fallbackChatTitle, K as CHAT_TITLE_TASK_MAX_LENGTH, Q as truncateChatTitle, W as CHAT_TITLE_MAX_LENGTH, X as normalizeTaskSummary, Y as normalizeChatTitle, Z as toChatTitleMessages, _ as ToolTaskMetadata, b as threadTitleSnapshotEvent, h as ToolCallDetail, j as ControlsSpec, m as ThreadTitleEvent, o as ChatStreamEvent, q as ChatTitleMessage, y as threadTitleEvent } from "../events-DcR5YA5e.js";
 import { AgentCallbacks, ToolUseInfo } from "agent-cli-runner";
 //#region src/server/bridge.d.ts
 interface ChatEventBridgeOptions {
@@ -125,6 +125,7 @@ declare function toolCallDetails(info: ToolUseInfo): ToolCallDetail[];
 declare const CHAT_TITLE_MODELS: {
   readonly claude: "haiku";
   readonly codex: "gpt-5.6-luna";
+  readonly agy: "gemini-3.8-flash";
 };
 type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;
 type ChatTitleSource = "model" | "fallback";

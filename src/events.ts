@@ -15,7 +15,7 @@ import type { ViewComponent, ViewSpec } from "./view";
  * Version of this event contract. Servers include it on `session_started` so
  * clients replaying buffered events across a deploy can detect skew.
  */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /** A small provider-normalized value shown inside an expanded tool-call row,
  * e.g. `{ label: "Command", value: "bun test" }`. */
@@ -55,7 +55,7 @@ export interface BackgroundAgentProgress {
 /** A complete, replace-in-place snapshot of one provider background agent. */
 export interface BackgroundAgent {
   id: string;
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "agy";
   parentToolCallId?: string;
   description?: string;
   agentType?: string;

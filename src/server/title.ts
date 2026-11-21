@@ -26,6 +26,7 @@ import {
 export const CHAT_TITLE_MODELS = {
   claude: "haiku",
   codex: "gpt-5.6-luna",
+  agy: "gemini-3.8-flash",
 } as const;
 
 export type ChatTitleProvider = keyof typeof CHAT_TITLE_MODELS;

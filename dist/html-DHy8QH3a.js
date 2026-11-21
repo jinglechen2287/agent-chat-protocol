@@ -99,7 +99,7 @@ function toChatTitleMessages(messages, limit = 12, project) {
 * Version of this event contract. Servers include it on `session_started` so
 * clients replaying buffered events across a deploy can detect skew.
 */
-const PROTOCOL_VERSION = 13;
+const PROTOCOL_VERSION = 14;
 /** True for the three events that end a turn's stream: `done`, `aborted`,
 * `error`. After one of these, no further events arrive for the turn. */
 function isTerminalEvent(ev) {
@@ -1298,4 +1298,4 @@ function parseHtmlBlock(raw) {
 //#endregion
 export { isIndex as A, CHAT_TITLE_MAX_LENGTH as B, PLAN_PROMPT as C, definedProps as D, VIEW_BLOCK_NAME as E, fenceInfo as F, normalizeTaskSummary as G, CHAT_TITLE_TASK_MAX_LENGTH as H, PROTOCOL_VERSION as I, truncateChatTitle as J, stripCodeFence as K, isTerminalEvent as L, isRecord as M, memberOf as N, hasOwn as O, closingLine as P, threadTitleEvent as R, LEGACY_QUESTION_BLOCK_NAME as S, QUESTION_PROMPT as T, fallbackChatTitle as U, CHAT_TITLE_RECENT_MESSAGE_LIMIT as V, normalizeChatTitle as W, BUILD_PROMPT as _, formatQuestionAnswers as a, HTML_BLOCK_NAME as b, VIEW_PROMPT as c, validateViewComponent as d, validateViewSpec as f, valuesEqual as g, validateControls as h, parseProposedPlan as i, isNonEmptyString as j, hasText as k, parseJsonLine as l, parseControlsBlock as m, parseHtmlBlock as n, parseQuestionBlock as o, initialControlValues as p, toChatTitleMessages as q, parseHtmlFrameMessage as r, VIEW_CATALOG as s, HTML_SEND_MAX as t, parseViewBlock as u, CHAT_PROMPT as v, QUESTION_BLOCK_NAME as w, LEGACY_CONTROLS_BLOCK_NAME as x, CONTROLS_BLOCK_NAME as y, threadTitleSnapshotEvent as z };
 
-//# sourceMappingURL=html-C8Ij8xzM.js.map
+//# sourceMappingURL=html-DHy8QH3a.js.map

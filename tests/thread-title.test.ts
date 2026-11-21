@@ -36,6 +36,7 @@ describe("thread title generation", () => {
   it.each([
     ["claude", "haiku"],
     ["codex", "gpt-5.6-luna"],
+    ["agy", "gemini-3.8-flash"],
   ] as const)("runs the shared %s model isolated at low effort", async (provider, model) => {
     const run = runner('{"title":"Fix login button on iOS","needsRefinement":false}');
     const generate = createThreadTitleGenerator({ run, timeoutMs: 7_500 });

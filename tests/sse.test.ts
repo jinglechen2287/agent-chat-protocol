@@ -457,6 +457,23 @@ describe("mapSseToChatEvent", () => {
     });
   });
 
+  it("maps an agy subagent snapshot", () => {
+    const agent = {
+      id: "call_1",
+      provider: "agy",
+      parentToolCallId: "call_1",
+      description: "River Poet",
+      agentType: "self",
+      status: "completed",
+      summary: "Clear stream flows along",
+      startedAt: 1_000,
+      updatedAt: 2_000,
+      endedAt: 2_000,
+    };
+    expect(mapSseToChatEvent({ event: "background_agent_updated", data: { agent } }))
+      .toEqual({ type: "background_agent_updated", agent });
+  });
+
   it("rejects malformed background-agent lifecycle snapshots", () => {
     expect(mapSseToChatEvent({
       event: "background_agent_updated",

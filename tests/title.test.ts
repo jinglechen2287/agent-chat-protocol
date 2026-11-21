@@ -16,6 +16,7 @@ describe("chat title generation", () => {
   it.each([
     ["claude", "haiku"],
     ["codex", "gpt-5.6-luna"],
+    ["agy", "gemini-3.8-flash"],
   ] as const)("uses the shared %s model policy in an isolated low-effort run", async (
     provider,
     model,

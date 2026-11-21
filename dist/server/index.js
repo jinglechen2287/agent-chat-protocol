@@ -1,4 +1,4 @@
-import { B as CHAT_TITLE_MAX_LENGTH, D as definedProps, E as VIEW_BLOCK_NAME, F as fenceInfo, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, J as truncateChatTitle, K as stripCodeFence, M as isRecord, P as closingLine, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, q as toChatTitleMessages, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "../html-C8Ij8xzM.js";
+import { B as CHAT_TITLE_MAX_LENGTH, D as definedProps, E as VIEW_BLOCK_NAME, F as fenceInfo, G as normalizeTaskSummary, H as CHAT_TITLE_TASK_MAX_LENGTH, J as truncateChatTitle, K as stripCodeFence, M as isRecord, P as closingLine, R as threadTitleEvent, S as LEGACY_QUESTION_BLOCK_NAME, U as fallbackChatTitle, V as CHAT_TITLE_RECENT_MESSAGE_LIMIT, W as normalizeChatTitle, b as HTML_BLOCK_NAME, d as validateViewComponent, h as validateControls, i as parseProposedPlan, l as parseJsonLine, m as parseControlsBlock, n as parseHtmlBlock, o as parseQuestionBlock, q as toChatTitleMessages, u as parseViewBlock, w as QUESTION_BLOCK_NAME, x as LEGACY_CONTROLS_BLOCK_NAME, y as CONTROLS_BLOCK_NAME, z as threadTitleSnapshotEvent } from "../html-DHy8QH3a.js";
 import * as z from "zod";
 //#region src/server/tool-details.ts
 function text(value) {
@@ -426,7 +426,7 @@ function createChatEventBridge(emit, options = {}) {
 		emit({
 			type: "session_started",
 			sessionId,
-			protocolVersion: 13
+			protocolVersion: 14
 		});
 	};
 	const emitTerminal = (ev) => {
@@ -821,7 +821,8 @@ async function runTitleModel(options, timeoutMs, describe, parse, fallback) {
 //#region src/server/title.ts
 const CHAT_TITLE_MODELS = {
 	claude: "haiku",
-	codex: "gpt-5.6-luna"
+	codex: "gpt-5.6-luna",
+	agy: "gemini-3.8-flash"
 };
 const ModelDecision = z.discriminatedUnion("decision", [
 	z.object({
